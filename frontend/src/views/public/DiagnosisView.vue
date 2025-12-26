@@ -136,7 +136,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '@/services/api'
 
 const router = useRouter()
 const state = ref('welcome') // welcome, loading, questions, lead_info
@@ -180,7 +180,7 @@ const isLastQuestion = computed(() => allQuestionIndex.value === allQuestions.va
 async function startDiagnosis() {
   state.value = 'loading'
   try {
-    const response = await axios.get('http://localhost:8000/api/diagnosticos/perguntas/')
+    const response = await api.get('/diagnosticos/perguntas/')
     pilares.value = response.data
     state.value = 'questions'
   } catch (error) {
@@ -216,7 +216,7 @@ async function submitDiagnosis() {
       respostas_ids: Object.values(selectedResponses.value)
     }
     
-    const response = await axios.post('http://localhost:8000/api/diagnosticos/submeter/', payload)
+    const response = await api.post('/diagnosticos/submeter/', payload)
     
     // Armazena o resultado para exibir na próxima tela
     localStorage.setItem('last_diagnosis_result', JSON.stringify(response.data))
