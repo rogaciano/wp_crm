@@ -87,7 +87,7 @@ class DiagnosticoResultadoSerializer(serializers.ModelSerializer):
         model = DiagnosticoResultado
         fields = [
             'id', 'lead', 'lead_nome', 'data_conclusao',
-            'respostas_detalhadas', 'pontuacao_por_pilar'
+            'respostas_detalhadas', 'pontuacao_por_pilar', 'analise_ia'
         ]
         read_only_fields = ['data_conclusao']
 

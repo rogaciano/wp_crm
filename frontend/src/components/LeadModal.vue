@@ -155,6 +155,17 @@
             </div>
           </div>
 
+          <!-- Análise da IA -->
+          <div v-if="diag.analise_ia" class="mt-4 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+            <div class="flex items-center text-xs font-bold text-indigo-700 mb-2">
+              <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              ANÁLISE ESTRATÉGICA (IA)
+            </div>
+            <div class="text-xs text-indigo-900 leading-relaxed whitespace-pre-wrap">
+              {{ diag.analise_ia }}
+            </div>
+          </div>
+
           <!-- Respostas Detalhadas -->
           <details class="mt-4">
             <summary class="text-xs font-semibold text-primary-600 cursor-pointer hover:text-primary-700 outline-none">

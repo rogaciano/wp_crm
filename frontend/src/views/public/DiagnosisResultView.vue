@@ -55,7 +55,19 @@
                 </div>
               </div>
 
-              <div class="mt-12 bg-gray-900 rounded-2xl p-8 text-white relative overflow-hidden group">
+              <!-- Análise da IA -->
+              <div v-if="results.analise_ia" class="mt-12 bg-indigo-50 rounded-2xl p-6 border border-indigo-100">
+                <div class="flex items-center mb-4">
+                  <div class="p-2 bg-indigo-600 rounded-lg mr-3">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  </div>
+                  <h3 class="text-lg font-bold text-indigo-900">Análise Estratégica da IA</h3>
+                </div>
+                <div class="prose prose-sm text-indigo-800 max-w-none ai-analysis-content" v-html="formatAiText(results.analise_ia)">
+                </div>
+              </div>
+
+              <div class="mt-8 bg-gray-900 rounded-2xl p-8 text-white relative overflow-hidden group">
                 <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
                   <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3.005 3.005 0 013.75-2.906z"></path></svg>
                 </div>
@@ -182,5 +194,15 @@ const chartOptions = {
       display: false
     }
   }
+}
+
+function formatAiText(text) {
+  if (!text) return ''
+  return text
+    .replace(/^### (.*$)/gim, '<h3 class="font-bold text-lg mt-4 mb-2">$1</h3>')
+    .replace(/^#### (.*$)/gim, '<h4 class="font-bold text-md mt-3 mb-1 text-indigo-700">$1</h4>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-indigo-900">$1</strong>')
+    .replace(/^- (.*$)/gim, '<li class="ml-4 mb-1">$1</li>')
+    .replace(/\n/g, '<br>')
 }
 </script>

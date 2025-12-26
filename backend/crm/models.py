@@ -396,6 +396,9 @@ class DiagnosticoResultado(models.Model):
     
     # Armazena a pontuação processada por pilar para facilitar o gráfico
     pontuacao_por_pilar = models.JSONField(help_text='JSON com {pilar_nome: score}')
+    
+    # Análise textual gerada por IA
+    analise_ia = models.TextField(null=True, blank=True, help_text='Análise estratégica gerada via IA')
 
     class Meta:
         verbose_name = 'Resultado do Diagnóstico'

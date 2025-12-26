@@ -18,6 +18,7 @@ from .serializers import (
     OportunidadeKanbanSerializer, AtividadeSerializer, LeadConversaoSerializer,
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer
 )
+from .services.ai_service import gerar_analise_diagnostico
 from .permissions import HierarchyPermission, IsAdminUser
 
 
@@ -439,11 +440,16 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                     respostas_detalhadas=respostas_detalhadas,
                     pontuacao_por_pilar=resultado_final
                 )
+                
+                # 5. Gera Análise de IA (Pode demorar, em produção usar Celery)
+                diagnostico.analise_ia = gerar_analise_diagnostico(diagnostico)
+                diagnostico.save()
 
                 return Response({
                     'message': 'Diagnóstico processado com sucesso',
                     'lead_id': lead.id,
-                    'resultado': resultado_final
+                    'resultado': resultado_final,
+                    'analise_ia': diagnostico.analise_ia
                 }, status=status.HTTP_201_CREATED)
                 
         except Exception as e:
