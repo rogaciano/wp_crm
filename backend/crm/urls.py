@@ -8,8 +8,10 @@ from .views import (
     ContatoViewSet, EstagioFunilViewSet, OportunidadeViewSet, AtividadeViewSet,
     DiagnosticoViewSet
 )
+from .views_dashboard import DashboardViewSet
 
 router = DefaultRouter()
+router.register(r'dashboard', DashboardViewSet, basename='dashboard')
 router.register(r'canais', CanalViewSet, basename='canal')
 router.register(r'usuarios', UserViewSet, basename='usuario')
 router.register(r'leads', LeadViewSet, basename='lead')

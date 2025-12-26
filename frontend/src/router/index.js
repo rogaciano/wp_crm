@@ -30,7 +30,12 @@ const router = createRouter({
         {
           path: '',
           name: 'home',
-          redirect: '/kanban'
+          redirect: '/dashboard'
+        },
+        {
+          path: '/dashboard',
+          name: 'dashboard',
+          component: () => import('@/views/DashboardView.vue')
         },
         {
           path: '/kanban',
