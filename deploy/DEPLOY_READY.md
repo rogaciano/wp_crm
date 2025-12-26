@@ -7,7 +7,10 @@ Este guia assume que o projeto será clonado em `/var/www/wp_crm`.
 ```bash
 # Instalar dependências básicas
 sudo apt update
-sudo apt install python3-pip python3-venv nginx mysql-server -y
+sudo apt install python3-pip python3-venv nginx -y
+
+# Instalar o banco de dados que preferir (opcional se já tiver na VPS)
+sudo apt install mysql-server -y # ou postgresql postgresql-contrib
 ```
 
 ## 2. Clonar e Configurar Pastas
@@ -29,7 +32,7 @@ pip install -r requirements.txt gunicorn
 
 # Criar arquivo .env com suas credenciais de prod
 cp .env.example .env
-nano .env # Ajuste DEBUG=False e as credenciais do MySQL
+nano .env # Ajuste DEBUG=False, DB_ENGINE e as credenciais do Banco
 
 # Preparar banco e estáticos
 python manage.py migrate
