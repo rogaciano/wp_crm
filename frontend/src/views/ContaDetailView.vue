@@ -96,6 +96,10 @@
 
       <!-- Contatos Tab -->
       <div v-if="activeTab === 'contatos'">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-medium text-gray-900">Lista de Contatos</h3>
+          <button @click="openContactModal()" class="btn btn-primary text-xs">+ Adicionar Contato</button>
+        </div>
         <div class="space-y-4">
           <div
             v-for="contato in contatos"
@@ -109,6 +113,10 @@
                 <span v-if="contato.email">{{ contato.email }}</span>
                 <span v-if="contato.telefone" class="ml-4">{{ contato.telefone }}</span>
               </div>
+            </div>
+            <div class="flex space-x-2">
+              <button @click="openContactModal(contato)" class="text-primary-600 hover:text-primary-900 text-sm">Editar</button>
+              <button @click="deleteContato(contato.id)" class="text-red-600 hover:text-red-900 text-sm">Excluir</button>
             </div>
           </div>
           <p v-if="contatos.length === 0" class="text-center text-gray-500 py-8">
@@ -149,12 +157,21 @@
   <div v-else-if="loading" class="text-center py-12">
     <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
   </div>
+
+  <ContatoModal
+    :show="showContactModal"
+    :contato="selectedContato"
+    :fixed-conta-id="conta?.id"
+    @close="showContactModal = false"
+    @saved="refreshContacts"
+  />
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/services/api'
+import ContatoModal from '@/components/ContatoModal.vue'
 
 const route = useRoute()
 const conta = ref(null)
@@ -162,6 +179,35 @@ const contatos = ref([])
 const oportunidades = ref([])
 const loading = ref(false)
 const activeTab = ref('contatos')
+
+const showContactModal = ref(false)
+const selectedContato = ref(null)
+
+function openContactModal(contato = null) {
+  selectedContato.value = contato
+  showContactModal.value = true
+}
+
+async function refreshContacts() {
+  const contaId = route.params.id
+  try {
+    const res = await api.get(`/contas/${contaId}/contatos/`)
+    contatos.value = res.data
+  } catch (error) {
+    console.error('Erro ao atualizar contatos:', error)
+  }
+}
+
+async function deleteContato(id) {
+  if (!confirm('Tem certeza que deseja excluir este contato?')) return
+  try {
+    await api.delete(`/contatos/${id}/`)
+    refreshContacts()
+  } catch (error) {
+    console.error('Erro ao excluir contato:', error)
+    alert('Erro ao excluir contato')
+  }
+}
 
 const valorTotal = computed(() => {
   return oportunidades.value.reduce((sum, opp) => {
