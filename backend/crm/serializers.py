@@ -10,8 +10,11 @@ from .models import (
 
 
 class CanalSerializer(serializers.ModelSerializer):
-    responsavel_nome = serializers.CharField(source='responsavel.get_full_name', read_only=True)
+    responsavel_nome = serializers.SerializerMethodField()
     total_vendedores = serializers.SerializerMethodField()
+    
+    def get_responsavel_nome(self, obj):
+        return obj.responsavel.get_full_name() if obj.responsavel else "N/A"
     
     class Meta:
         model = Canal
@@ -23,7 +26,10 @@ class CanalSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    canal_nome = serializers.CharField(source='canal.nome', read_only=True)
+    canal_nome = serializers.SerializerMethodField()
+    
+    def get_canal_nome(self, obj):
+        return obj.canal.nome if obj.canal else "N/A"
     password = serializers.CharField(write_only=True, required=False, validators=[validate_password])
     
     class Meta:

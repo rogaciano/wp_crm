@@ -36,7 +36,7 @@ nano .env # Ajuste DEBUG=False, DB_ENGINE e as credenciais do Banco
 
 # Preparar banco e estáticos
 python manage.py migrate
-python manage.py collectstatic --noinput
+python manage.py collectstatic --noinput # <--- IMPORTANTE: Gera a pasta 'staticfiles'
 ```
 
 ## 4. Frontend (Vue.js)
