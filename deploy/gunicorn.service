@@ -1,0 +1,19 @@
+[Unit]
+Description=Gunicorn instance to serve CRM WP Backend
+After=network.target
+
+[Service]
+# Ajuste o usuário e grupo conforme sua VPS (comumente www-data ou seu usuário)
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/wp_crm/backend
+# Caminho para o gunicorn dentro do seu VirtualEnv
+ExecStart=/var/www/wp_crm/backend/.venv/bin/gunicorn \
+    --workers 3 \
+    --bind 127.0.0.1:8001 \
+    --access-logfile /var/log/gunicorn/crm_access.log \
+    --error-logfile /var/log/gunicorn/crm_error.log \
+    config.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
