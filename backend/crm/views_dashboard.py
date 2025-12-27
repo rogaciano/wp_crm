@@ -83,13 +83,17 @@ class DashboardViewSet(viewsets.ViewSet):
             # Agregamos as notas de todos os pilares
             pilares_contagem = {}
             for res in resultados:
-                for pilar, info in res.pontuacao_por_pilar.items():
-                    if pilar not in pilares_contagem:
-                        pilares_contagem[pilar] = []
-                    pilares_contagem[pilar].append(info['score'])
+                # Segurança: verifica se o resultado tem as pontuações calculadas
+                pontuacoes = res.pontuacao_por_pilar or {}
+                for pilar, info in pontuacoes.items():
+                    if isinstance(info, dict) and 'score' in info:
+                        if pilar not in pilares_contagem:
+                            pilares_contagem[pilar] = []
+                        pilares_contagem[pilar].append(info['score'])
             
             for pilar, scores in pilares_contagem.items():
-                maturidade_resumo[pilar] = sum(scores) / len(scores)
+                if scores:
+                    maturidade_resumo[pilar] = sum(scores) / len(scores)
 
         return Response({
             'kpis': {

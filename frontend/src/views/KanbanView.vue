@@ -1,11 +1,11 @@
 <template>
   <div>
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">Funil de Vendas - Kanban</h1>
-        <p class="text-gray-600 mt-1">Arraste as oportunidades entre os estágios</p>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Pipeline de Vendas</h1>
+        <p class="text-gray-500 mt-1">Gerencie suas oportunidades no funil</p>
       </div>
-      <button @click="openCreateModal" class="btn btn-primary">
+      <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-sm">
         + Nova Oportunidade
       </button>
     </div>

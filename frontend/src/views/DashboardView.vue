@@ -20,11 +20,13 @@
     </div>
 
     <!-- KPIs Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
       <div v-for="kpi in kpiCards" :key="kpi.label" class="card p-5 border-t-4" :style="{ borderColor: kpi.color }">
         <div class="flex items-center justify-between mb-2">
           <div class="p-2 rounded-lg" :style="{ backgroundColor: kpi.color + '1a' }">
-            <component :is="kpi.icon" class="w-5 h-5" :style="{ color: kpi.color }" />
+            <svg class="w-5 h-5" :style="{ color: kpi.color }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="kpi.iconPath" />
+            </svg>
           </div>
           <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">{{ kpi.label }}</span>
         </div>
@@ -36,13 +38,13 @@
     </div>
 
     <!-- Main Charts Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       
       <!-- Funil de Vendas -->
       <div class="lg:col-span-2 card p-6">
         <div class="flex justify-between items-center mb-6">
           <h3 class="font-bold text-gray-800 uppercase text-sm tracking-widest flex items-center">
-             <BarChartIcon class="w-4 h-4 mr-2 text-primary-500" />
+             <svg class="w-4 h-4 mr-2 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 20V10M12 20V4M6 20v-6" /></svg>
              Pipeline por Estágio
           </h3>
           <span class="text-xs text-gray-400 font-medium">Volume Total: R$ {{ totalPipeline.toLocaleString() }}</span>
@@ -55,7 +57,7 @@
       <!-- Maturidade Média -->
       <div class="card p-6">
         <h3 class="font-bold text-gray-800 uppercase text-sm tracking-widest flex items-center mb-6">
-           <ActivityIcon class="w-4 h-4 mr-2 text-red-500" />
+           <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
            Maturidade dos Leads
         </h3>
         <div class="h-80">
@@ -69,7 +71,7 @@
       <!-- Tendência Mensal -->
       <div class="lg:col-span-2 card p-6">
         <h3 class="font-bold text-gray-800 uppercase text-sm tracking-widest flex items-center mb-6">
-           <TrendingUpIcon class="w-4 h-4 mr-2 text-green-500" />
+           <svg class="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M23 6l-9.5 9.5-5-5L1 18m16-12h6v6" /></svg>
            Performance de Vendas (Mensal)
         </h3>
         <div class="h-80">
@@ -80,7 +82,7 @@
       <!-- Origens de Leads -->
       <div class="card p-6">
         <h3 class="font-bold text-gray-800 uppercase text-sm tracking-widest flex items-center mb-6">
-           <PieChartIcon class="w-4 h-4 mr-2 text-indigo-500" />
+           <svg class="w-4 h-4 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.21 15.89A10 10 0 118 2.83M22 12A10 10 0 0012 2v10z" /></svg>
            Top Origens
         </h3>
         <div class="h-64 mb-6">
@@ -101,17 +103,6 @@
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
 import api from '@/services/api'
-import { 
-  BarChart3 as BarChartIcon, 
-  TrendingUp as TrendingUpIcon, 
-  PieChart as PieChartIcon, 
-  Activity as ActivityIcon,
-  DollarSign,
-  Target,
-  Users,
-  Percent,
-  TrendingUp
-} from 'lucide-vue-next'
 import {
   Chart as ChartJS,
   Title,
@@ -175,7 +166,7 @@ const kpiCards = computed(() => [
     value: dashboardData.value.kpis.receita_ganha?.toLocaleString('pt-BR') || '0', 
     prefix: 'R$ ', 
     sub: 'Total no período', 
-    icon: DollarSign, 
+    iconPath: 'M12 1v22m5-18H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6', 
     color: '#10B981' 
   },
   { 
@@ -183,7 +174,7 @@ const kpiCards = computed(() => [
     value: dashboardData.value.kpis.pipeline_ativo?.toLocaleString('pt-BR') || '0', 
     prefix: 'R$ ', 
     sub: 'Oportunidades abertas', 
-    icon: Target, 
+    iconPath: 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-7a3 3 0 100-6 3 3 0 000 6zm0 4a7 7 0 100-14 7 7 0 000 14z', 
     color: '#3B82F6' 
   },
   { 
@@ -191,7 +182,7 @@ const kpiCards = computed(() => [
     value: dashboardData.value.kpis.win_rate || '0', 
     suffix: '%', 
     sub: 'Taxa de conversão', 
-    icon: Percent, 
+    iconPath: 'M19 5L5 19M6.5 9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM17.5 20a2.5 2.5 0 100-5 2.5 2.5 0 000 5z', 
     color: '#8B5CF6' 
   },
   { 
@@ -199,14 +190,14 @@ const kpiCards = computed(() => [
     value: dashboardData.value.kpis.ticket_medio?.toLocaleString('pt-BR') || '0', 
     prefix: 'R$ ', 
     sub: 'Por venda ganha', 
-    icon: TrendingUp, 
+    iconPath: 'M23 6l-9.5 9.5-5-5L1 18m16-12h6v6', 
     color: '#F59E0B' 
   },
   { 
     label: 'Novos Leads', 
     value: dashboardData.value.kpis.leads_novos || '0', 
     sub: 'Gerados no período', 
-    icon: Users, 
+    iconPath: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m4-14a4 4 0 100-8 4 4 0 000 8zm14 14v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75', 
     color: '#64748B' 
   }
 ])
