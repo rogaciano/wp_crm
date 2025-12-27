@@ -243,7 +243,7 @@ class AtividadeSerializer(serializers.ModelSerializer):
             'proprietario', 'proprietario_nome',
             'data_criacao', 'data_atualizacao', 'data_conclusao'
         ]
-        read_only_fields = ['data_criacao', 'data_atualizacao']
+        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
     
     def create(self, validated_data):
         if 'proprietario' not in validated_data:

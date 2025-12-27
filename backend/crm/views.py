@@ -327,6 +327,20 @@ class AtividadeViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(atividade)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'])
+    def content_types(self, request):
+        """Retorna os tipos de objetos que podem ser associados a atividades"""
+        from django.contrib.contenttypes.models import ContentType
+        models_permitidos = ['lead', 'conta', 'contato', 'oportunidade']
+        cts = ContentType.objects.filter(
+            app_label='crm', 
+            model__in=models_permitidos
+        )
+        return Response([
+            {'id': ct.id, 'model': ct.model, 'nome': ct.model.capitalize()} 
+            for ct in cts
+        ])
+
 
 class DiagnosticoViewSet(viewsets.ModelViewSet):
     """ViewSet para o Diagnóstico de Maturidade"""
