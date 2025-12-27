@@ -176,6 +176,9 @@ async function loadKanban() {
   loading.value = true
   await oportunidadesStore.fetchKanban()
   kanbanData.value = oportunidadesStore.kanbanData
+  if (kanbanData.value.length && !activeStage.value) {
+    activeStage.value = kanbanData.value[0].estagio.id
+  }
   loading.value = false
 }
 
