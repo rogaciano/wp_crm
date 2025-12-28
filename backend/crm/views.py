@@ -413,7 +413,7 @@ class AtividadeViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(atividade)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
     def content_types(self, request):
         """Retorna os tipos de objetos que podem ser associados a atividades"""
         from django.contrib.contenttypes.models import ContentType
