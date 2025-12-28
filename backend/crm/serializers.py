@@ -220,12 +220,12 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
     conta_nome = serializers.CharField(source='conta.nome_empresa', read_only=True)
-    contato_nome = serializers.CharField(source='contato_principal.nome', read_only=True)
+    contato_nome = serializers.SerializerMethodField()
     estagio_nome = serializers.CharField(source='estagio.nome', read_only=True)
     estagio_cor = serializers.CharField(source='estagio.cor', read_only=True)
     estagio_tipo = serializers.CharField(source='estagio.tipo', read_only=True)
-    plano_nome = serializers.CharField(source='plano.nome', read_only=True)
-    indicador_nome = serializers.CharField(source='indicador_comissao.nome', read_only=True)
+    plano_nome = serializers.SerializerMethodField()
+    indicador_nome = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
     
     class Meta:
@@ -242,6 +242,15 @@ class OportunidadeSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
     
+    def get_contato_nome(self, obj):
+        return obj.contato_principal.nome if obj.contato_principal else None
+
+    def get_plano_nome(self, obj):
+        return obj.plano.nome if obj.plano else None
+    
+    def get_indicador_nome(self, obj):
+        return obj.indicador_comissao.nome if obj.indicador_comissao else None
+
     def create(self, validated_data):
         adicionais_data = self.context['request'].data.get('adicionais_itens', [])
         validated_data['proprietario'] = self.context['request'].user
@@ -279,8 +288,11 @@ class OportunidadeSerializer(serializers.ModelSerializer):
 
 class OportunidadeKanbanSerializer(serializers.ModelSerializer):
     conta_nome = serializers.CharField(source='conta.nome_empresa', read_only=True)
-    contato_nome = serializers.CharField(source='contato_principal.nome', read_only=True)
+    contato_nome = serializers.SerializerMethodField()
     proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
+
+    def get_contato_nome(self, obj):
+        return obj.contato_principal.nome if obj.contato_principal else None
     
     class Meta:
         model = Oportunidade
