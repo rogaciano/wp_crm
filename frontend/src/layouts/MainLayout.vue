@@ -108,28 +108,28 @@
             <p class="px-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
               Administração
             </p>
-            <router-link @click="closeSidebar" to="/admin/usuarios" class="nav-link" active-class="nav-link-active">
+            <router-link @click="closeSidebar" to="/config/usuarios" class="nav-link" active-class="nav-link-active">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
               <span>Usuários</span>
             </router-link>
 
-            <router-link @click="closeSidebar" to="/admin/canais" class="nav-link" active-class="nav-link-active">
+            <router-link @click="closeSidebar" to="/config/canais" class="nav-link" active-class="nav-link-active">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
               <span>Canais</span>
             </router-link>
 
-            <router-link @click="closeSidebar" to="/admin/estagios" class="nav-link" active-class="nav-link-active">
+            <router-link @click="closeSidebar" to="/config/estagios" class="nav-link" active-class="nav-link-active">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
               </svg>
               <span>Estágios</span>
             </router-link>
 
-            <router-link @click="closeSidebar" to="/admin/planos" class="nav-link" active-class="nav-link-active">
+            <router-link @click="closeSidebar" to="/config/planos" class="nav-link" active-class="nav-link-active">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-10-10l-10 10m16 0l-10 10l-10-10" />
               </svg>

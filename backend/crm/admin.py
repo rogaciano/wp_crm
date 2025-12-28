@@ -5,7 +5,8 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
-    DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado
+    DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
+    Plano, PlanoAdicional
 )
 
 
@@ -108,3 +109,15 @@ class DiagnosticoResultadoAdmin(admin.ModelAdmin):
     
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(Plano)
+class PlanoAdmin(admin.ModelAdmin):
+    list_display = ['nome', 'preco_mensal', 'preco_anual']
+    search_fields = ['nome']
+
+
+@admin.register(PlanoAdicional)
+class PlanoAdicionalAdmin(admin.ModelAdmin):
+    list_display = ['nome', 'preco', 'unidade']
+    search_fields = ['nome']

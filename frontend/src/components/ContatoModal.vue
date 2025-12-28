@@ -94,15 +94,25 @@
           />
         </div>
 
-        <div class="md:col-span-2">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Tipo de Contato
+          </label>
+          <select v-model="form.tipo" class="input">
+            <option value="PADRAO">Padrão</option>
+            <option value="INDICADOR">Indicador de Comissão</option>
+          </select>
+        </div>
+
+        <div class="md:col-span-1">
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Notas
           </label>
           <textarea
             v-model="form.notas"
-            rows="3"
+            rows="1"
             class="input"
-            placeholder="Observações sobre o contato..."
+            placeholder="Observações..."
           ></textarea>
         </div>
       </div>
@@ -135,6 +145,7 @@ const form = ref({
   cargo: '',
   departamento: '',
   conta: '',
+  tipo: 'PADRAO',
   notas: ''
 })
 
@@ -175,6 +186,7 @@ function resetForm() {
     cargo: '',
     departamento: '',
     conta: props.fixedContaId || '',
+    tipo: 'PADRAO',
     notas: ''
   }
 }

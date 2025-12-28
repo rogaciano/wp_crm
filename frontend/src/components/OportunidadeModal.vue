@@ -240,17 +240,17 @@
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Indicador da Comissão
             </label>
-            <input
-              v-model="form.indicador_comissao"
-              type="text"
-              class="input border-primary-200"
-              placeholder="Nome de quem indicou"
-            />
+            <select v-model="form.indicador_comissao" class="input border-primary-200">
+              <option value="">Nenhum / Direto</option>
+              <option v-for="ind in indicadores" :key="ind.id" :value="ind.id">
+                {{ ind.nome }}
+              </option>
+            </select>
           </div>
 
-          <div v-if="isAdvancedPlan">
+          <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
-              Região de Suporte (Advanced) <span class="text-red-500">*</span>
+              Região de Suporte <span class="text-red-500">*</span>
             </label>
             <select v-model="form.suporte_regiao" class="input border-primary-200 ring-2 ring-primary-100">
               <option value="">Selecione...</option>
@@ -329,10 +329,10 @@ const form = ref({
 const planoAdicionais = ref([])
 const adicionais_itens = ref([])
 
-const isAdvancedPlan = computed(() => {
-  const pianoSel = planos.value.find(p => p.id === form.value.plano)
-  return pianoSel?.nome?.includes('ADVANCED')
+const indicadores = computed(() => {
+  return contatos.value.filter(c => c.tipo === 'INDICADOR')
 })
+
 
 const isGanho = computed(() => {
   const estagioObj = estagios.value.find(e => e.id === form.value.estagio)

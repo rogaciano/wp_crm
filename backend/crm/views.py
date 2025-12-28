@@ -325,7 +325,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
             'cupom': opp.cupom_desconto or "Nenhum",
             'forma_pagamento': opp.get_forma_pagamento_display(),
             'vendedor': opp.proprietario.get_full_name(),
-            'indicador': opp.indicador_comissao or "Direto",
+            'indicador': opp.indicador_comissao.nome if opp.indicador_comissao else "Direto",
             'suporte': opp.get_suporte_regiao_display() if opp.suporte_regiao else "N/A"
         }
         

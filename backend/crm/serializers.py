@@ -172,7 +172,7 @@ class ContatoSerializer(serializers.ModelSerializer):
         model = Contato
         fields = [
             'id', 'nome', 'email', 'telefone', 'celular', 'cargo',
-            'departamento', 'conta', 'conta_nome', 'proprietario',
+            'departamento', 'tipo', 'conta', 'conta_nome', 'proprietario',
             'proprietario_nome', 'notas',
             'data_criacao', 'data_atualizacao'
         ]
@@ -225,6 +225,7 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     estagio_cor = serializers.CharField(source='estagio.cor', read_only=True)
     estagio_tipo = serializers.CharField(source='estagio.tipo', read_only=True)
     plano_nome = serializers.CharField(source='plano.nome', read_only=True)
+    indicador_nome = serializers.CharField(source='indicador_comissao.nome', read_only=True)
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
     
     class Meta:

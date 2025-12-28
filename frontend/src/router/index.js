@@ -73,25 +73,25 @@ const router = createRouter({
           component: () => import('@/views/AtividadesView.vue')
         },
         {
-          path: '/admin/canais',
+          path: '/config/canais',
           name: 'admin-canais',
           component: () => import('@/views/admin/CanaisView.vue'),
           meta: { requiresAdmin: true }
         },
         {
-          path: '/admin/usuarios',
+          path: '/config/usuarios',
           name: 'admin-usuarios',
           component: () => import('@/views/admin/UsuariosView.vue'),
           meta: { requiresAdmin: true }
         },
         {
-          path: '/admin/estagios',
+          path: '/config/estagios',
           name: 'admin-estagios',
           component: () => import('@/views/admin/EstagiosView.vue'),
           meta: { requiresAdmin: true }
         },
         {
-          path: '/admin/planos',
+          path: '/config/planos',
           name: 'admin-planos',
           component: () => import('@/views/admin/PlanosView.vue'),
           meta: { requiresAdmin: true }

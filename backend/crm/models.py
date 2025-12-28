@@ -161,6 +161,14 @@ class Contato(models.Model):
     cargo = models.CharField(max_length=100, null=True, blank=True)
     departamento = models.CharField(max_length=100, null=True, blank=True)
     
+    TIPO_PADRAO = 'PADRAO'
+    TIPO_INDICADOR = 'INDICADOR'
+    TIPO_CHOICES = [
+        (TIPO_PADRAO, 'Padrão'),
+        (TIPO_INDICADOR, 'Indicador de Comissão'),
+    ]
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default=TIPO_PADRAO)
+    
     conta = models.ForeignKey(
         Conta,
         on_delete=models.CASCADE,
@@ -324,7 +332,14 @@ class Oportunidade(models.Model):
         blank=True
     )
     
-    indicador_comissao = models.CharField(max_length=255, null=True, blank=True)
+    indicador_comissao = models.ForeignKey(
+        Contato,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='indicacoes',
+        help_text='Contato que indicou esta oportunidade'
+    )
     
     REGIAO_SUPORTE_CHOICES = [
         ('MATRIZ', 'Matriz'),
