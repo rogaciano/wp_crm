@@ -56,6 +56,19 @@ class User(AbstractUser):
     )
     telefone = models.CharField(max_length=20, null=True, blank=True)
     
+    REGIAO_SUPORTE_CHOICES = [
+        ('MATRIZ', 'Matriz'),
+        ('PERNAMBUCO', 'Pernambuco'),
+        ('CEARA', 'Ceará'),
+    ]
+    suporte_regiao = models.CharField(
+        max_length=50,
+        choices=REGIAO_SUPORTE_CHOICES,
+        null=True,
+        blank=True,
+        help_text='Região de suporte padrão para este usuário'
+    )
+    
     class Meta:
         verbose_name = 'Usuário'
         verbose_name_plural = 'Usuários'
@@ -341,14 +354,9 @@ class Oportunidade(models.Model):
         help_text='Contato que indicou esta oportunidade'
     )
     
-    REGIAO_SUPORTE_CHOICES = [
-        ('MATRIZ', 'Matriz'),
-        ('PERNAMBUCO', 'Pernambuco'),
-        ('CEARA', 'Ceará'),
-    ]
     suporte_regiao = models.CharField(
         max_length=50,
-        choices=REGIAO_SUPORTE_CHOICES,
+        choices=User.REGIAO_SUPORTE_CHOICES,
         null=True,
         blank=True
     )

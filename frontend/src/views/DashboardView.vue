@@ -37,6 +37,22 @@
       </div>
     </div>
 
+    <!-- Alerta de Atividades Atrasadas (Prominente) -->
+    <div v-if="dashboardData.kpis.atividades_atrasadas > 0" class="animate-pulse">
+      <router-link to="/atividades" class="flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-2xl shadow-sm hover:bg-red-100 transition-all group">
+        <div class="flex items-center">
+          <div class="bg-red-500 p-2 rounded-xl text-white mr-4">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+          <div>
+            <h4 class="text-red-800 font-black text-sm uppercase tracking-wider leading-none mb-1">Atenção Necessária</h4>
+            <p class="text-red-700 text-xs font-bold">Você tem {{ dashboardData.kpis.atividades_atrasadas }} atividades atrasadas que precisam de ação imediata!</p>
+          </div>
+        </div>
+        <svg class="w-5 h-5 text-red-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+      </router-link>
+    </div>
+
     <!-- Main Charts Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       
@@ -199,6 +215,13 @@ const kpiCards = computed(() => [
     sub: 'Gerados no período', 
     iconPath: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m4-14a4 4 0 100-8 4 4 0 000 8zm14 14v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75', 
     color: '#64748B' 
+  },
+  { 
+    label: 'Atrasos', 
+    value: dashboardData.value.kpis.atividades_atrasadas || '0', 
+    sub: 'Atividades vencidas', 
+    iconPath: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', 
+    color: '#EF4444' 
   }
 ])
 

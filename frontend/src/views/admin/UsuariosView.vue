@@ -4,6 +4,35 @@
       <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Gestão de Usuários</h1>
       <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-sm">+ Novo Usuário</button>
     </div>
+    
+    <!-- Barra de Filtros -->
+    <div class="card p-4">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Perfil</label>
+          <select v-model="filterPerfil" @change="loadUsuarios" class="input text-sm">
+            <option value="">Todos os Perfis</option>
+            <option value="ADMIN">Administrador</option>
+            <option value="RESPONSAVEL">Responsável</option>
+            <option value="VENDEDOR">Vendedor</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Região de Suporte</label>
+          <select v-model="filterRegiao" @change="loadUsuarios" class="input text-sm">
+            <option value="">Todas as Regiões</option>
+            <option value="MATRIZ">Matriz</option>
+            <option value="PERNAMBUCO">Pernambuco</option>
+            <option value="CEARA">Ceará</option>
+          </select>
+        </div>
+        <div class="flex items-end">
+          <button @click="resetFilters" class="text-xs font-bold text-primary-600 hover:text-primary-700 uppercase tracking-widest flex items-center p-2">
+            Limpar Filtros
+          </button>
+        </div>
+      </div>
+    </div>
 
     <div class="card overflow-hidden">
       <div v-if="loading" class="text-center py-12">
@@ -20,6 +49,7 @@
                 <th class="table-header">Email</th>
                 <th class="table-header">Perfil</th>
                 <th class="table-header">Canal</th>
+                <th class="table-header">Região</th>
                 <th class="table-header">Status</th>
                 <th class="table-header text-right">Ações</th>
               </tr>
@@ -37,6 +67,12 @@
                   </span>
                 </td>
                 <td class="table-cell text-gray-500">{{ usuario.canal_nome || 'N/A' }}</td>
+                <td class="table-cell">
+                   <span v-if="usuario.suporte_regiao" class="text-[10px] bg-slate-100 px-2 py-0.5 rounded font-bold text-slate-600 uppercase">
+                     {{ usuario.suporte_regiao }}
+                   </span>
+                   <span v-else class="text-[10px] text-gray-300 italic">Global</span>
+                </td>
                 <td class="table-cell">
                   <span :class="usuario.is_active ? 'text-green-600 font-medium' : 'text-red-600 font-medium'">
                     {{ usuario.is_active ? 'Ativo' : 'Inativo' }}
@@ -73,8 +109,11 @@
             
             <div class="flex items-center justify-between mt-4">
                <div>
-                  <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Canal</p>
-                  <p class="text-xs font-medium text-gray-700">{{ usuario.canal_nome || 'N/A' }}</p>
+                  <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Canal / Região</p>
+                  <p class="text-xs font-medium text-gray-700">
+                    {{ usuario.canal_nome || 'N/A' }} 
+                    <span v-if="usuario.suporte_regiao" class="text-primary-600">({{ usuario.suporte_regiao }})</span>
+                  </p>
                </div>
                <div class="text-right">
                   <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Status</p>
@@ -115,20 +154,29 @@ const loading = ref(false)
 const showModal = ref(false)
 const selectedUsuario = ref(null)
 
-onMounted(() => {
-  loadUsuarios()
-})
+const filterPerfil = ref('')
+const filterRegiao = ref('')
 
 async function loadUsuarios() {
   loading.value = true
   try {
-    const response = await api.get('/usuarios/')
+    const params = {}
+    if (filterPerfil.value) params.perfil = filterPerfil.value
+    if (filterRegiao.value) params.suporte_regiao = filterRegiao.value
+    
+    const response = await api.get('/usuarios/', { params })
     usuarios.value = response.data.results || response.data
   } catch (error) {
     console.error('Erro ao carregar usuários:', error)
   } finally {
     loading.value = false
   }
+}
+
+function resetFilters() {
+  filterPerfil.value = ''
+  filterRegiao.value = ''
+  loadUsuarios()
 }
 
 function openCreateModal() {
@@ -176,4 +224,7 @@ function getPerfilClass(perfil) {
   }
   return classes[perfil] || 'px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800'
 }
+onMounted(() => {
+  loadUsuarios()
+})
 </script>

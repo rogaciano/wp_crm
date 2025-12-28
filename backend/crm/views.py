@@ -5,7 +5,7 @@ from rest_framework import viewsets, status, filters, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Sum, Count, Avg
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import (
@@ -22,6 +22,7 @@ from .serializers import (
 )
 from .services.ai_service import gerar_analise_diagnostico
 from .permissions import HierarchyPermission, IsAdminUser
+from django.utils import timezone
 
 
 class CanalViewSet(viewsets.ModelViewSet):
@@ -40,7 +41,7 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAdminUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['perfil', 'canal', 'is_active']
+    filterset_fields = ['perfil', 'canal', 'is_active', 'suporte_regiao']
     search_fields = ['username', 'email', 'first_name', 'last_name']
     ordering_fields = ['username', 'date_joined']
     
@@ -89,8 +90,9 @@ class LeadViewSet(viewsets.ModelViewSet):
         try:
             with transaction.atomic():
                 # Cria a Conta
+                nome_empresa = (lead.empresa or f"Empresa de {lead.nome}")[:255]
                 conta = Conta.objects.create(
-                    nome_empresa=lead.empresa or f"Empresa de {lead.nome}",
+                    nome_empresa=nome_empresa,
                     telefone_principal=lead.telefone,
                     email=lead.email,
                     proprietario=lead.proprietario
@@ -112,22 +114,25 @@ class LeadViewSet(viewsets.ModelViewSet):
                     # Busca o primeiro estágio do funil
                     primeiro_estagio = EstagioFunil.objects.filter(
                         tipo=EstagioFunil.TIPO_ABERTO
-                    ).first()
+                    ).order_by('ordem').first()
                     
-                    if primeiro_estagio:
-                        nome_oportunidade = serializer.validated_data.get(
-                            'nome_oportunidade',
-                            f"Oportunidade - {lead.nome}"
-                        )
-                        
-                        oportunidade = Oportunidade.objects.create(
-                            nome=nome_oportunidade,
-                            valor_estimado=serializer.validated_data.get('valor_estimado'),
-                            conta=conta,
-                            contato_principal=contato,
-                            estagio=primeiro_estagio,
-                            proprietario=lead.proprietario
-                        )
+                    if not primeiro_estagio:
+                        raise ValueError("Não foi possível criar a oportunidade: Nenhum estágio 'Aberto' encontrado no funil.")
+                    
+                    nome_oportunidade = serializer.validated_data.get(
+                        'nome_oportunidade',
+                        f"Oportunidade - {lead.nome}"
+                    )[:255]
+                    
+                    oportunidade = Oportunidade.objects.create(
+                        nome=nome_oportunidade,
+                        valor_estimado=serializer.validated_data.get('valor_estimado'),
+                        conta=conta,
+                        contato_principal=contato,
+                        estagio=primeiro_estagio,
+                        proprietario=lead.proprietario,
+                        suporte_regiao='MATRIZ' # Valor padrão seguro para conversão automática
+                    )
                 
                 # Marca o lead como convertido
                 lead.status = Lead.STATUS_CONVERTIDO
@@ -144,10 +149,50 @@ class LeadViewSet(viewsets.ModelViewSet):
                 }, status=status.HTTP_201_CREATED)
         
         except Exception as e:
+            import traceback
+            print(f"Erro na conversão de lead: {str(e)}")
+            traceback.print_exc()
             return Response(
-                {'error': str(e)},
+                {'error': f'Falha na conversão: {str(e)}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Retorna indicadores resumidos dos leads (KPIs)"""
+        queryset = self.get_queryset()
+        
+        # Filtros de busca se enviados
+        search = request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(nome__icontains=search) | 
+                Q(email__icontains=search) | 
+                Q(empresa__icontains=search)
+            )
+            
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+            
+        fonte_filter = request.query_params.get('fonte')
+        if fonte_filter:
+            queryset = queryset.filter(fonte=fonte_filter)
+
+        total = queryset.count()
+        leads_novos = queryset.filter(status=Lead.STATUS_NOVO).count()
+        leads_qualificados = queryset.filter(status=Lead.STATUS_QUALIFICADO).count()
+        leads_convertidos = queryset.filter(status=Lead.STATUS_CONVERTIDO).count()
+        
+        taxa_conversao = (leads_convertidos / total * 100) if total > 0 else 0
+        
+        return Response({
+            'total': total,
+            'novos': leads_novos,
+            'qualificados': leads_qualificados,
+            'convertidos': leads_convertidos,
+            'taxa_conversao': round(taxa_conversao, 1)
+        })
 
 
 class ContaViewSet(viewsets.ModelViewSet):
@@ -233,11 +278,13 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         user = self.request.user
         
         if user.perfil == 'ADMIN':
-            return Oportunidade.objects.all()
+            queryset = Oportunidade.objects.all()
         elif user.perfil == 'RESPONSAVEL':
-            return Oportunidade.objects.filter(proprietario__canal=user.canal)
+            queryset = Oportunidade.objects.filter(proprietario__canal=user.canal)
         else:
-            return Oportunidade.objects.filter(proprietario=user)
+            queryset = Oportunidade.objects.filter(proprietario=user)
+            
+        return queryset.select_related('estagio', 'conta', 'contato_principal', 'proprietario')
     
     @action(detail=False, methods=['get'])
     def kanban(self, request):
@@ -255,7 +302,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         for estagio in estagios:
             oportunidades = [
                 opp for opp in serializer.data
-                if opp['estagio'] == estagio.id
+                if int(opp.get('estagio_id') or opp.get('estagio') or 0) == estagio.id
             ]
             kanban_data.append({
                 'estagio': EstagioFunilSerializer(estagio).data,
@@ -277,17 +324,18 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            novo_estagio = EstagioFunil.objects.get(id=novo_estagio_id)
-            oportunidade.estagio = novo_estagio
+            with transaction.atomic():
+                novo_estagio = EstagioFunil.objects.get(id=novo_estagio_id)
+                oportunidade.estagio = novo_estagio
+                
+                # Se mudou para estágio fechado, registra a data
+                if novo_estagio.tipo in [EstagioFunil.TIPO_GANHO, EstagioFunil.TIPO_PERDIDO]:
+                    oportunidade.data_fechamento_real = timezone.now().date()
+                
+                oportunidade.save()
             
-            # Se mudou para estágio fechado, registra a data
-            if novo_estagio.tipo in [EstagioFunil.TIPO_GANHO, EstagioFunil.TIPO_PERDIDO]:
-                from django.utils import timezone
-                oportunidade.data_fechamento_real = timezone.now().date()
-            
-            oportunidade.save()
-            
-            serializer = self.get_serializer(oportunidade)
+            # Usamos o KanbanSerializer para a resposta, pois é mais leve e o que o Kanban espera
+            serializer = OportunidadeKanbanSerializer(oportunidade)
             return Response(serializer.data)
         
         except EstagioFunil.DoesNotExist:
@@ -295,6 +343,42 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                 {'error': 'Estágio não encontrado'},
                 status=status.HTTP_404_NOT_FOUND
             )
+        except Exception as e:
+            # Captura erros inesperados para evitar 500 silencioso
+            return Response(
+                {'error': f'Erro ao mudar estágio: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Retorna indicadores resumidos das oportunidades (KPIs)"""
+        queryset = self.get_queryset()
+        
+        # Filtros básicos de busca se enviados
+        search = request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(nome__icontains=search) | 
+                Q(conta__nome_empresa__icontains=search)
+            )
+
+        data = queryset.aggregate(
+            total_valor=Sum('valor_estimado'),
+            total_contagem=Count('id'),
+            valor_medio=Avg('valor_estimado'),
+            valor_ganho=Sum('valor_estimado', filter=Q(estagio__tipo='GANHO')),
+            valor_aberto=Sum('valor_estimado', filter=Q(estagio__tipo='ABERTO')),
+            contagem_aberta=Count('id', filter=Q(estagio__tipo='ABERTO')),
+            contagem_ganha=Count('id', filter=Q(estagio__tipo='GANHO'))
+        )
+        
+        # Formatar valores nulos para 0
+        for key in data:
+            if data[key] is None:
+                data[key] = 0
+        
+        return Response(data)
 
     @action(detail=True, methods=['get'])
     def gerar_texto_faturamento(self, request, pk=None):
@@ -407,11 +491,29 @@ class AtividadeViewSet(viewsets.ModelViewSet):
         
         from django.utils import timezone
         atividade.status = Atividade.STATUS_CONCLUIDA
-        atividade.data_conclusao = timezone.now()
+        if not atividade.data_conclusao:
+            atividade.data_conclusao = timezone.now()
         atividade.save()
         
         serializer = self.get_serializer(atividade)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Retorna indicadores resumidos (pendentes e atrasadas)"""
+        queryset = self.get_queryset()
+        agora = timezone.now()
+        
+        total_pendentes = queryset.filter(status=Atividade.STATUS_PENDENTE).count()
+        total_atrasadas = queryset.filter(
+            status=Atividade.STATUS_PENDENTE, 
+            data_vencimento__lt=agora
+        ).count()
+        
+        return Response({
+            'pendentes': total_pendentes,
+            'atrasadas': total_atrasadas
+        })
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
     def content_types(self, request):

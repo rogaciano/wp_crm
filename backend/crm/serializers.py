@@ -2,6 +2,7 @@
 Serializers para a API do CRM
 """
 from rest_framework import serializers
+from django.db import transaction
 from django.contrib.auth.password_validation import validate_password
 from .models import (
     Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
@@ -37,7 +38,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
-            'perfil', 'canal', 'canal_nome', 'telefone',
+            'perfil', 'canal', 'canal_nome', 'telefone', 'suporte_regiao',
             'password', 'is_active', 'date_joined'
         ]
         read_only_fields = ['date_joined']
@@ -217,13 +218,13 @@ class OportunidadeAdicionalSerializer(serializers.ModelSerializer):
 
 
 class OportunidadeSerializer(serializers.ModelSerializer):
-    proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
+    proprietario_nome = serializers.SerializerMethodField()
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
-    conta_nome = serializers.CharField(source='conta.nome_empresa', read_only=True)
+    conta_nome = serializers.SerializerMethodField()
     contato_nome = serializers.SerializerMethodField()
-    estagio_nome = serializers.CharField(source='estagio.nome', read_only=True)
-    estagio_cor = serializers.CharField(source='estagio.cor', read_only=True)
-    estagio_tipo = serializers.CharField(source='estagio.tipo', read_only=True)
+    estagio_nome = serializers.SerializerMethodField()
+    estagio_cor = serializers.SerializerMethodField()
+    estagio_tipo = serializers.SerializerMethodField()
     plano_nome = serializers.SerializerMethodField()
     indicador_nome = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
@@ -237,11 +238,26 @@ class OportunidadeSerializer(serializers.ModelSerializer):
             'proprietario', 'proprietario_nome', 'descricao', 'motivo_perda',
             'data_fechamento_real', 'plano', 'plano_nome', 'periodo_pagamento',
             'adicionais_detalhes', 'cortesia', 
-            'cupom_desconto', 'forma_pagamento', 'indicador_comissao', 
+            'cupom_desconto', 'forma_pagamento', 'indicador_comissao', 'indicador_nome', 
             'suporte_regiao', 'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
     
+    def get_proprietario_nome(self, obj):
+        return obj.proprietario.get_full_name() if obj.proprietario else "N/A"
+
+    def get_conta_nome(self, obj):
+        return obj.conta.nome_empresa if obj.conta else "N/A"
+
+    def get_estagio_nome(self, obj):
+        return obj.estagio.nome if obj.estagio else "N/A"
+
+    def get_estagio_cor(self, obj):
+        return obj.estagio.cor if obj.estagio else "#3B82F6"
+
+    def get_estagio_tipo(self, obj):
+        return obj.estagio.tipo if obj.estagio else "ABERTO"
+
     def get_contato_nome(self, obj):
         return obj.contato_principal.nome if obj.contato_principal else None
 
@@ -254,51 +270,79 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         adicionais_data = self.context['request'].data.get('adicionais_itens', [])
         validated_data['proprietario'] = self.context['request'].user
-        oportunidade = Oportunidade.objects.create(**validated_data)
         
-        for item in adicionais_data:
-            OportunidadeAdicional.objects.create(
-                oportunidade=oportunidade,
-                adicional_id=item['adicional'],
-                quantidade=item.get('quantidade', 1)
-            )
-            
-        return oportunidade
+        try:
+            with transaction.atomic():
+                # Removemos campos que podem ter vindo no validated_data mas são read-only no banco (como ID se enviado por engano)
+                validated_data.pop('id', None)
+                
+                # Truncamos campos de texto para segurança
+                if 'nome' in validated_data:
+                    validated_data['nome'] = validated_data['nome'][:255]
+                
+                oportunidade = Oportunidade.objects.create(**validated_data)
+                
+                for item in adicionais_data:
+                    if item.get('adicional'):
+                        OportunidadeAdicional.objects.create(
+                            oportunidade=oportunidade,
+                            adicional_id=item['adicional'],
+                            quantidade=item.get('quantidade', 1)
+                        )
+                return oportunidade
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
 
     def update(self, instance, validated_data):
         adicionais_data = self.context['request'].data.get('adicionais_itens')
         
-        # Atualiza campos básicos
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        
-        # Se os adicionais foram enviados, atualiza-os (substitui tudo)
-        if adicionais_data is not None:
-            instance.oportunidadeadicional_set.all().delete()
-            for item in adicionais_data:
-                OportunidadeAdicional.objects.create(
-                    oportunidade=instance,
-                    adicional_id=item['adicional'],
-                    quantidade=item.get('quantidade', 1)
-                )
+        try:
+            with transaction.atomic():
+                # Atualização manual para evitar AssertionError do DRF com campos read-only
+                for attr, value in validated_data.items():
+                    if attr == 'nome' and value:
+                        value = value[:255]
+                    setattr(instance, attr, value)
+                instance.save()
                 
-        return instance
+                # Se os adicionais foram enviados, atualiza-os (substitui tudo)
+                if adicionais_data is not None:
+                    instance.oportunidadeadicional_set.all().delete()
+                    for item in adicionais_data:
+                        if item.get('adicional'):
+                            OportunidadeAdicional.objects.create(
+                                oportunidade=instance,
+                                adicional_id=item['adicional'],
+                                quantidade=item.get('quantidade', 1)
+                            )
+                return instance
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
 
 
 class OportunidadeKanbanSerializer(serializers.ModelSerializer):
-    conta_nome = serializers.CharField(source='conta.nome_empresa', read_only=True)
+    conta_nome = serializers.SerializerMethodField()
     contato_nome = serializers.SerializerMethodField()
-    proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
+    proprietario_nome = serializers.SerializerMethodField()
+    estagio_id = serializers.SerializerMethodField()
+
+    def get_conta_nome(self, obj):
+        return obj.conta.nome_empresa if obj.conta else "N/A"
 
     def get_contato_nome(self, obj):
         return obj.contato_principal.nome if obj.contato_principal else None
+
+    def get_proprietario_nome(self, obj):
+        return obj.proprietario.get_full_name() if obj.proprietario else "N/A"
+    
+    def get_estagio_id(self, obj):
+        return obj.estagio.id if obj.estagio else None
     
     class Meta:
         model = Oportunidade
         fields = [
             'id', 'nome', 'valor_estimado', 'data_fechamento_esperada',
-            'probabilidade', 'estagio', 'conta_nome', 'contato_nome',
+            'probabilidade', 'estagio', 'estagio_id', 'conta_nome', 'contato_nome',
             'proprietario_nome'
         ]
 

@@ -28,6 +28,17 @@
       >
         {{ status }}
       </button>
+      <button 
+        @click="filterStatus = 'Atrasadas'"
+        :class="[
+          'px-4 py-1.5 rounded-full text-xs font-bold transition-all border',
+          filterStatus === 'Atrasadas' 
+            ? 'bg-red-600 text-white border-red-600 shadow-sm' 
+            : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
+        ]"
+      >
+        Atrasadas ({{ overdueCount }})
+      </button>
     </div>
 
     <div class="card p-0 overflow-hidden shadow-sm border border-gray-100">
@@ -142,7 +153,14 @@ const selectedAtividade = ref(null)
 
 const filteredAtividades = computed(() => {
   if (filterStatus.value === 'Todas') return atividades.value
+  if (filterStatus.value === 'Atrasadas') {
+    return atividades.value.filter(a => isOverdue(a))
+  }
   return atividades.value.filter(a => a.status === filterStatus.value)
+})
+
+const overdueCount = computed(() => {
+  return atividades.value.filter(a => isOverdue(a)).length
 })
 
 onMounted(() => {

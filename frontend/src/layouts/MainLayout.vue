@@ -100,7 +100,14 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <span>Atividades</span>
+            <span class="flex-1">Atividades</span>
+            <span 
+              v-if="atrasadasCount > 0" 
+              class="flex items-center justify-center w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full animate-bounce shadow-sm"
+              title="Atividades Atrasadas"
+            >
+              {{ atrasadasCount }}
+            </span>
           </router-link>
 
           <!-- Admin Section -->
@@ -160,9 +167,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import api from '@/services/api'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -171,6 +179,24 @@ const isSidebarOpen = ref(false)
 
 const user = computed(() => authStore.user)
 const isAdmin = computed(() => authStore.isAdmin)
+
+const atrasadasCount = ref(0)
+
+onMounted(() => {
+  fetchAtividadesStats()
+  // Atualiza a cada 5 minutos
+  setInterval(fetchAtividadesStats, 5 * 60 * 1000)
+})
+
+async function fetchAtividadesStats() {
+  if (!authStore.isAuthenticated) return
+  try {
+    const response = await api.get('/atividades/stats/')
+    atrasadasCount.value = response.data.atrasadas
+  } catch (error) {
+    console.error('Erro ao buscar stats de atividades:', error)
+  }
+}
 
 function toggleSidebar() {
   isSidebarOpen.value = !isSidebarOpen.value

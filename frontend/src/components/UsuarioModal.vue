@@ -50,6 +50,16 @@
       </div>
 
       <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Região de Suporte (Padrão)</label>
+        <select v-model="form.suporte_regiao" class="input">
+          <option value="">Nenhuma / Todas</option>
+          <option value="MATRIZ">Matriz</option>
+          <option value="PERNAMBUCO">Pernambuco</option>
+          <option value="CEARA">Ceará</option>
+        </select>
+      </div>
+
+      <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
         <input v-model="form.telefone" type="text" class="input" placeholder="(00) 00000-0000" />
       </div>
@@ -94,7 +104,8 @@ const form = ref({
   canal: '',
   telefone: '',
   password: '',
-  is_active: true
+  is_active: true,
+  suporte_regiao: ''
 })
 
 onMounted(() => {
@@ -133,7 +144,8 @@ function resetForm() {
     canal: '',
     telefone: '',
     password: '',
-    is_active: true
+    is_active: true,
+    suporte_regiao: ''
   }
 }
 

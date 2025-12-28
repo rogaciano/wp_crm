@@ -31,6 +31,10 @@
       <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
     </div>
 
+    <div v-if="error" class="mb-4 p-4 bg-red-50 text-red-600 rounded-xl border border-red-100">
+      {{ error }}
+    </div>
+
     <div v-else 
       ref="kanbanContainer"
       class="flex gap-4 overflow-x-auto pb-8 snap-x snap-mandatory custom-scrollbar min-h-[calc(100vh-250px)]"
@@ -129,13 +133,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useOportunidadesStore } from '@/stores/oportunidades'
+import { storeToRefs } from 'pinia'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
 
 const oportunidadesStore = useOportunidadesStore()
-const kanbanData = ref([])
-const loading = ref(false)
+const { kanbanData, loading, error } = storeToRefs(oportunidadesStore)
+
 const showModal = ref(false)
 const selectedOportunidade = ref(null)
 const draggedItem = ref(null)
@@ -173,13 +178,10 @@ onMounted(async () => {
 })
 
 async function loadKanban() {
-  loading.value = true
   await oportunidadesStore.fetchKanban()
-  kanbanData.value = oportunidadesStore.kanbanData
-  if (kanbanData.value.length && !activeStage.value) {
+  if (kanbanData.value?.length && !activeStage.value) {
     activeStage.value = kanbanData.value[0].estagio.id
   }
-  loading.value = false
 }
 
 function onDragStart(event, oportunidade) {
@@ -199,10 +201,9 @@ async function onDrop(event, novoEstagioId) {
   
   try {
     await oportunidadesStore.mudarEstagio(oportunidadeId, novoEstagioId)
-    await loadKanban()
   } catch (error) {
     console.error('Erro ao mover oportunidade:', error)
-    alert('Erro ao mover oportunidade')
+    // O erro já está sendo tratado no store e será exibido pelo v-if="error"
   }
   
   draggedItem.value = null
@@ -230,6 +231,9 @@ function closeModal() {
 }
 
 async function handleSaved() {
-  await loadKanban()
+  // O modal já chamou create/update que dispara o fetchKanban no store
+  // Mas como o modal não chama fetchKanban diretamente (depende do store),
+  // e o store do kanban é o mesmo, a atualização deve ser automática.
+  // No entanto, create/update no store chamam fetchKanban.
 }
 </script>

@@ -63,6 +63,7 @@ export const useOportunidadesStore = defineStore('oportunidades', () => {
       const response = await api.patch(`/oportunidades/${id}/mudar_estagio/`, {
         estagio_id: estagioId
       })
+      await fetchKanban()
       return response.data
     } catch (err) {
       error.value = err.message

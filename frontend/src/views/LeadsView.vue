@@ -15,7 +15,7 @@
           type="text"
           placeholder="Buscar por nome, email ou empresa..."
           class="input"
-          @input="loadLeads"
+          @input="onSearchInput"
         />
         <select v-model="statusFilter" class="input" @change="loadLeads">
           <option value="">Todos os Status</option>
@@ -35,10 +35,39 @@
       </div>
     </div>
 
+    <!-- Indicadores (KPIs) -->
+    <div v-if="!error" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div v-for="kpi in kpiCards" :key="kpi.label" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 border-l-4" :style="{ borderLeftColor: kpi.color }">
+        <div class="flex items-center justify-between mb-3">
+          <div class="p-2 rounded-lg" :style="{ backgroundColor: kpi.color + '15' }">
+            <component :is="kpi.icon" class="w-5 h-5" :style="{ color: kpi.color }" />
+          </div>
+          <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">{{ kpi.label }}</span>
+        </div>
+        <div>
+          <div class="text-xl font-black text-gray-900 leading-none">
+            {{ kpi.value }}{{ kpi.suffix }}
+          </div>
+          <div class="text-[10px] text-gray-500 mt-2 font-bold uppercase tracking-tight">
+            {{ kpi.sub }}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Tabela (Desktop) / Cards (Mobile) -->
     <div class="card overflow-hidden">
       <div v-if="loading" class="text-center py-12">
         <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      </div>
+
+      <div v-else-if="error" class="p-6 text-center">
+        <div class="text-red-500 font-bold mb-2 flex items-center justify-center">
+          <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          Erro ao carregar dados
+        </div>
+        <p class="text-gray-600 text-sm">{{ error }}</p>
+        <button @click="loadLeads" class="mt-4 text-primary-600 font-bold hover:underline">Tentar novamente</button>
       </div>
 
       <div v-else>
@@ -168,22 +197,79 @@
         @close="closeModal"
         @saved="handleSaved"
       />
+
+      <LeadConversionModal
+        :show="showConversionModal"
+        :lead="leadToConvert"
+        @close="closeConversionModal"
+        @converted="handleConverted"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import api from '@/services/api'
 import LeadModal from '@/components/LeadModal.vue'
+import LeadConversionModal from '@/components/LeadConversionModal.vue'
+
+// Ícones simples
+const IconUsers = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354l1.108 3.541H16.8l-2.909 2.112 1.108 3.541-2.909-2.112-2.909 2.112 1.108-3.541-2.909-2.112h3.692L12 4.354z" /></svg>' }
+const IconNew = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>' }
+const IconTarget = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>' }
+const IconPie = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>' }
 
 const leads = ref([])
 const loading = ref(false)
+const error = ref(null)
 const showModal = ref(false)
+const showConversionModal = ref(false)
 const selectedLead = ref(null)
+const leadToConvert = ref(null)
 const searchQuery = ref('')
 const statusFilter = ref('')
 const fonteFilter = ref('')
+
+const stats = ref({
+  total: 0,
+  novos: 0,
+  qualificados: 0,
+  convertidos: 0,
+  taxa_conversao: 0
+})
+
+const kpiCards = computed(() => [
+  { 
+    label: 'Total de Leads', 
+    value: stats.value.total, 
+    sub: 'Cadastrados no sistema', 
+    icon: IconUsers, 
+    color: '#6366F1' 
+  },
+  { 
+    label: 'Novos Leads', 
+    value: stats.value.novos, 
+    sub: 'Aguardando contato', 
+    icon: IconNew, 
+    color: '#3B82F6' 
+  },
+  { 
+    label: 'Qualificados', 
+    value: stats.value.qualificados, 
+    sub: 'Prontos para conversão', 
+    icon: IconTarget, 
+    color: '#8B5CF6' 
+  },
+  { 
+    label: 'Taxa de Conversão', 
+    value: stats.value.taxa_conversao, 
+    suffix: '%',
+    sub: 'Leads x Oportunidades', 
+    icon: IconPie, 
+    color: '#10B981' 
+  }
+])
 
 onMounted(() => {
   loadLeads()
@@ -191,19 +277,35 @@ onMounted(() => {
 
 async function loadLeads() {
   loading.value = true
+  error.value = null
   try {
     const params = {
       search: searchQuery.value,
       status: statusFilter.value,
       fonte: fonteFilter.value
     }
-    const response = await api.get('/leads/', { params })
-    leads.value = response.data.results || response.data
-  } catch (error) {
-    console.error('Erro ao carregar leads:', error)
+    
+    const [listRes, statsRes] = await Promise.all([
+      api.get('/leads/', { params }),
+      api.get('/leads/stats/', { params })
+    ])
+    
+    leads.value = listRes.data.results || listRes.data
+    stats.value = statsRes.data
+  } catch (err) {
+    console.error('Erro ao carregar leads:', err)
+    error.value = err.response?.data?.detail || err.message
   } finally {
     loading.value = false
   }
+}
+
+let searchTimeout = null
+function onSearchInput() {
+  clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    loadLeads()
+  }, 500)
 }
 
 function getStatusClass(status) {
@@ -236,20 +338,19 @@ function handleSaved() {
   loadLeads()
 }
 
-async function converterLead(lead) {
-  if (!confirm(`Deseja converter o lead "${lead.nome}"?`)) return
-  
-  try {
-    await api.post(`/leads/${lead.id}/converter/`, {
-      criar_oportunidade: true,
-      nome_oportunidade: `Oportunidade - ${lead.nome}`
-    })
-    alert('Lead convertido com sucesso!')
-    loadLeads()
-  } catch (error) {
-    console.error('Erro ao converter lead:', error)
-    alert('Erro ao converter lead')
-  }
+function converterLead(lead) {
+  leadToConvert.value = lead
+  showConversionModal.value = true
+}
+
+function closeConversionModal() {
+  showConversionModal.value = false
+  leadToConvert.value = null
+}
+
+function handleConverted() {
+  alert('Lead convertido com sucesso!')
+  loadLeads()
 }
 
 async function deleteLead(lead) {

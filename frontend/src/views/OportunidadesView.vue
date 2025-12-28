@@ -14,13 +14,42 @@
         type="text"
         placeholder="Buscar por nome ou conta..."
         class="input"
-        @input="loadOportunidades"
+        @input="onSearchInput"
       />
+    </div>
+
+    <!-- Indicadores (KPIs) -->
+    <div v-if="!error" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div v-for="kpi in kpiCards" :key="kpi.label" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 border-l-4" :style="{ borderLeftColor: kpi.color }">
+        <div class="flex items-center justify-between mb-3">
+          <div class="p-2 rounded-lg" :style="{ backgroundColor: kpi.color + '15' }">
+            <component :is="kpi.icon" class="w-5 h-5" :style="{ color: kpi.color }" />
+          </div>
+          <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">{{ kpi.label }}</span>
+        </div>
+        <div>
+          <div class="text-xl font-black text-gray-900 leading-none">
+            {{ kpi.prefix }} {{ kpi.value }}
+          </div>
+          <div class="text-[10px] text-gray-500 mt-2 font-bold uppercase tracking-tight">
+            {{ kpi.sub }}
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card overflow-hidden">
       <div v-if="loading" class="text-center py-12">
         <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      </div>
+
+      <div v-else-if="error" class="p-6 text-center">
+        <div class="text-red-500 font-bold mb-2 flex items-center justify-center">
+          <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          Erro ao carregar dados
+        </div>
+        <p class="text-gray-600 text-sm">{{ error }}</p>
+        <button @click="loadOportunidades" class="mt-4 text-primary-600 font-bold hover:underline">Tentar novamente</button>
       </div>
 
       <div v-else>
@@ -54,13 +83,8 @@
                 <td class="table-cell text-gray-500">{{ oportunidade.probabilidade }}%</td>
                 <td class="table-cell text-right">
                   <div class="flex justify-end space-x-3">
-                    <button 
-                      v-if="oportunidade.estagio_tipo === 'GANHO'"
-                      @click="copyBillingInfo(oportunidade.id)" 
-                      class="text-green-600 hover:text-green-700 font-medium" 
-                      title="Copiar Texto de Faturamento"
-                    >
-                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
+                    <button @click="openFaturamentoModal(oportunidade)" class="text-emerald-600 hover:text-emerald-700 font-medium" title="Configurar Faturamento">
+                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </button>
                     <button @click="openEditModal(oportunidade)" class="text-primary-600 hover:text-primary-700 font-medium" title="Editar">
                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -101,11 +125,10 @@
 
             <div class="flex justify-end space-x-4 border-t pt-3 mt-4">
               <button 
-                v-if="oportunidade.estagio_tipo === 'GANHO'"
-                @click="copyBillingInfo(oportunidade.id)" 
-                class="text-xs font-bold text-green-600 uppercase tracking-widest flex items-center"
+                @click="openFaturamentoModal(oportunidade)" 
+                class="text-xs font-bold text-emerald-600 uppercase tracking-widest flex items-center"
               >
-                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
+                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                  Faturamento
               </button>
               <button @click="openEditModal(oportunidade)" class="text-xs font-bold text-primary-600 uppercase tracking-widest flex items-center">
@@ -126,26 +149,91 @@
       </div>
     </div>
 
-    <!-- Modal -->
+    <!-- Modais -->
     <OportunidadeModal
       :show="showModal"
       :oportunidade="selectedOportunidade"
       @close="closeModal"
       @saved="loadOportunidades"
     />
+
+    <FaturamentoModal
+      :show="showFaturamentoModal"
+      :oportunidade="selectedOportunidade"
+      @close="closeFaturamentoModal"
+      @saved="loadOportunidades"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import api from '@/services/api'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
+import FaturamentoModal from '@/components/FaturamentoModal.vue'
+
+// Ícones simples
+const IconPipeline = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>' }
+const IconWin = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>' }
+const IconTicket = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>' }
+const IconTotal = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>' }
 
 const oportunidades = ref([])
 const loading = ref(false)
+const error = ref(null)
 const searchQuery = ref('')
 const showModal = ref(false)
+const showFaturamentoModal = ref(false)
 const selectedOportunidade = ref(null)
+
+const stats = ref({
+  total_valor: 0,
+  total_contagem: 0,
+  valor_medio: 0,
+  valor_ganho: 0,
+  valor_aberto: 0,
+  contagem_aberta: 0,
+  contagem_ganha: 0
+})
+
+const kpiCards = computed(() => [
+  { 
+    label: 'Pipeline Aberto', 
+    value: formatCurrency(stats.value.valor_aberto), 
+    prefix: 'R$', 
+    sub: `${stats.value.contagem_aberta} oportunidades ativas`, 
+    icon: IconPipeline, 
+    color: '#3B82F6' 
+  },
+  { 
+    label: 'Vendas Ganhas', 
+    value: formatCurrency(stats.value.valor_ganho), 
+    prefix: 'R$', 
+    sub: `${stats.value.contagem_ganha} negócios fechados`, 
+    icon: IconWin, 
+    color: '#10B981' 
+  },
+  { 
+    label: 'Ticket Médio', 
+    value: formatCurrency(stats.value.valor_medio), 
+    prefix: 'R$', 
+    sub: 'Valor médio por card', 
+    icon: IconTicket, 
+    color: '#F59E0B' 
+  },
+  { 
+    label: 'Potencial Total', 
+    value: formatCurrency(stats.value.total_valor), 
+    prefix: 'R$', 
+    sub: `${stats.value.total_contagem} cards no total`, 
+    icon: IconTotal, 
+    color: '#6366F1' 
+  }
+])
+
+function formatCurrency(val) {
+  return Number(val || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 onMounted(() => {
   loadOportunidades()
@@ -153,18 +241,35 @@ onMounted(() => {
 
 async function loadOportunidades() {
   loading.value = true
+  error.value = null
   try {
     const params = {}
     if (searchQuery.value) {
       params.search = searchQuery.value
     }
-    const response = await api.get('/oportunidades/', { params })
-    oportunidades.value = response.data.results || response.data
-  } catch (error) {
-    console.error('Erro ao carregar oportunidades:', error)
+    
+    // Busca lista e stats em paralelo
+    const [listRes, statsRes] = await Promise.all([
+      api.get('/oportunidades/', { params }),
+      api.get('/oportunidades/stats/', { params })
+    ])
+    
+    oportunidades.value = listRes.data.results || listRes.data
+    stats.value = statsRes.data
+  } catch (err) {
+    console.error('Erro ao carregar oportunidades:', err)
+    error.value = err.response?.data?.detail || err.message
   } finally {
     loading.value = false
   }
+}
+
+let searchTimeout = null
+function onSearchInput() {
+  clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    loadOportunidades()
+  }, 500)
 }
 
 function openCreateModal() {
@@ -179,6 +284,16 @@ function openEditModal(oportunidade) {
 
 function closeModal() {
   showModal.value = false
+  selectedOportunidade.value = null
+}
+
+function openFaturamentoModal(oportunidade) {
+  selectedOportunidade.value = oportunidade
+  showFaturamentoModal.value = true
+}
+
+function closeFaturamentoModal() {
+  showFaturamentoModal.value = false
   selectedOportunidade.value = null
 }
 
