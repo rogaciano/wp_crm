@@ -332,14 +332,7 @@ class Oportunidade(models.Model):
         blank=True
     )
     
-    indicador_comissao = models.ForeignKey(
-        Contato,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='indicacoes',
-        help_text='Contato que indicou esta oportunidade'
-    )
+    indicador_comissao = models.CharField(max_length=255, null=True, blank=True)
     
     REGIAO_SUPORTE_CHOICES = [
         ('MATRIZ', 'Matriz'),
