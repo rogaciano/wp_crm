@@ -19,8 +19,16 @@
       </div>
     </div>
 
+    <!-- Loading State -->
+    <div v-if="!loaded" class="flex items-center justify-center py-12">
+      <div class="text-center">
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
+        <p class="text-gray-500">Carregando dados do dashboard...</p>
+      </div>
+    </div>
+
     <!-- KPIs Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
       <div v-for="kpi in kpiCards" :key="kpi.label" class="card p-5 border-t-4" :style="{ borderColor: kpi.color }">
         <div class="flex items-center justify-between mb-2">
           <div class="p-2 rounded-lg" :style="{ backgroundColor: kpi.color + '1a' }">
@@ -54,7 +62,7 @@
     </div>
 
     <!-- Main Charts Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div v-if="loaded" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       
       <!-- Funil de Vendas -->
       <div class="lg:col-span-2 card p-6">
@@ -66,7 +74,10 @@
           <span class="text-xs text-gray-400 font-medium">Volume Total: R$ {{ totalPipeline.toLocaleString() }}</span>
         </div>
         <div class="h-80 relative">
-          <Bar v-if="loaded" :data="funelChartData" :options="funelChartOptions" />
+          <Bar v-if="dashboardData.funil && dashboardData.funil.length > 0" :data="funelChartData" :options="funelChartOptions" />
+          <div v-else class="flex items-center justify-center h-full text-gray-400">
+            <p>Nenhum dado disponível</p>
+          </div>
         </div>
       </div>
 
@@ -77,7 +88,10 @@
            Maturidade dos Leads
         </h3>
         <div class="h-80">
-          <Radar v-if="loaded" :data="radarChartData" :options="radarChartOptions" />
+          <Radar v-if="Object.keys(dashboardData.maturidade_media || {}).length > 0" :data="radarChartData" :options="radarChartOptions" />
+          <div v-else class="flex items-center justify-center h-full text-gray-400">
+            <p class="text-sm">Nenhum dado disponível</p>
+          </div>
         </div>
         <div class="mt-4 text-center">
           <p class="text-xs text-gray-500 px-4">Média baseada nos últimos diagnósticos de maturidade realizados.</p>
@@ -91,7 +105,10 @@
            Performance de Vendas (Mensal)
         </h3>
         <div class="h-80">
-          <Line v-if="loaded" :data="lineChartData" :options="lineChartOptions" />
+          <Line v-if="dashboardData.tendencia && dashboardData.tendencia.length > 0" :data="lineChartData" :options="lineChartOptions" />
+          <div v-else class="flex items-center justify-center h-full text-gray-400">
+            <p>Nenhum dado disponível</p>
+          </div>
         </div>
       </div>
 
@@ -102,12 +119,20 @@
            Top Origens
         </h3>
         <div class="h-64 mb-6">
-          <Pie v-if="loaded" :data="pieChartData" :options="pieChartOptions" />
+          <Pie v-if="dashboardData.origens && dashboardData.origens.length > 0" :data="pieChartData" :options="pieChartOptions" />
+          <div v-else class="flex items-center justify-center h-full text-gray-400">
+            <p class="text-sm">Nenhum dado disponível</p>
+          </div>
         </div>
         <div class="space-y-2">
-          <div v-for="(origem, idx) in dashboardData.origens" :key="idx" class="flex justify-between text-sm">
-            <span class="text-gray-600 font-medium">{{ origem.fonte || 'Direto/Outros' }}</span>
-            <span class="font-bold text-gray-900">{{ origem.total }} leads</span>
+          <div v-if="dashboardData.origens && dashboardData.origens.length > 0">
+            <div v-for="(origem, idx) in dashboardData.origens" :key="idx" class="flex justify-between text-sm">
+              <span class="text-gray-600 font-medium">{{ origem?.fonte || 'Direto/Outros' }}</span>
+              <span class="font-bold text-gray-900">{{ origem?.total || 0 }} leads</span>
+            </div>
+          </div>
+          <div v-else class="text-sm text-gray-400 text-center py-4">
+            Nenhum dado disponível
           </div>
         </div>
       </div>
@@ -162,10 +187,24 @@ async function fetchDashboard() {
   loaded.value = false
   try {
     const response = await api.get('/dashboard/', { params: { periodo: periodo.value } })
-    dashboardData.value = response.data
+    console.log('📊 Dados do dashboard recebidos:', response.data)
+    
+    // Garantir que os dados tenham a estrutura correta
+    dashboardData.value = {
+      kpis: response.data.kpis || {},
+      funil: response.data.funil || [],
+      tendencia: response.data.tendencia || [],
+      origens: response.data.origens || [],
+      maturidade_media: response.data.maturidade_media || {}
+    }
+    
+    console.log('📊 Dashboard data processado:', dashboardData.value)
     loaded.value = true
   } catch (error) {
-    console.error('Erro ao carregar dashboard:', error)
+    console.error('❌ Erro ao carregar dashboard:', error)
+    console.error('Detalhes do erro:', error.response?.data || error.message)
+    // Manter dados vazios mas marcar como carregado para não ficar em loading infinito
+    loaded.value = true
   }
 }
 
@@ -173,68 +212,90 @@ onMounted(fetchDashboard)
 watch(periodo, fetchDashboard)
 
 const totalPipeline = computed(() => {
-  return dashboardData.value.funil.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0)
+  if (!dashboardData.value.funil || !Array.isArray(dashboardData.value.funil)) {
+    return 0
+  }
+  return dashboardData.value.funil.reduce((acc, curr) => acc + (Number(curr?.valor) || 0), 0)
 })
 
-const kpiCards = computed(() => [
-  { 
-    label: 'Receita Ganha', 
-    value: dashboardData.value.kpis.receita_ganha?.toLocaleString('pt-BR') || '0', 
-    prefix: 'R$ ', 
-    sub: 'Total no período', 
-    iconPath: 'M12 1v22m5-18H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6', 
-    color: '#10B981' 
-  },
-  { 
-    label: 'Pipeline Ativo', 
-    value: dashboardData.value.kpis.pipeline_ativo?.toLocaleString('pt-BR') || '0', 
-    prefix: 'R$ ', 
-    sub: 'Oportunidades abertas', 
-    iconPath: 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-7a3 3 0 100-6 3 3 0 000 6zm0 4a7 7 0 100-14 7 7 0 000 14z', 
-    color: '#3B82F6' 
-  },
-  { 
-    label: 'Win Rate', 
-    value: dashboardData.value.kpis.win_rate || '0', 
-    suffix: '%', 
-    sub: 'Taxa de conversão', 
-    iconPath: 'M19 5L5 19M6.5 9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM17.5 20a2.5 2.5 0 100-5 2.5 2.5 0 000 5z', 
-    color: '#8B5CF6' 
-  },
-  { 
-    label: 'Ticket Médio', 
-    value: dashboardData.value.kpis.ticket_medio?.toLocaleString('pt-BR') || '0', 
-    prefix: 'R$ ', 
-    sub: 'Por venda ganha', 
-    iconPath: 'M23 6l-9.5 9.5-5-5L1 18m16-12h6v6', 
-    color: '#F59E0B' 
-  },
-  { 
-    label: 'Novos Leads', 
-    value: dashboardData.value.kpis.leads_novos || '0', 
-    sub: 'Gerados no período', 
-    iconPath: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m4-14a4 4 0 100-8 4 4 0 000 8zm14 14v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75', 
-    color: '#64748B' 
-  },
-  { 
-    label: 'Atrasos', 
-    value: dashboardData.value.kpis.atividades_atrasadas || '0', 
-    sub: 'Atividades vencidas', 
-    iconPath: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', 
-    color: '#EF4444' 
-  }
-])
+const kpiCards = computed(() => {
+  const kpis = dashboardData.value.kpis || {}
+  
+  return [
+    { 
+      label: 'Receita Ganha', 
+      value: (kpis.receita_ganha != null && kpis.receita_ganha !== undefined) 
+        ? Number(kpis.receita_ganha).toLocaleString('pt-BR') 
+        : '0', 
+      prefix: 'R$ ', 
+      sub: 'Total no período', 
+      iconPath: 'M12 1v22m5-18H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6', 
+      color: '#10B981' 
+    },
+    { 
+      label: 'Pipeline Ativo', 
+      value: (kpis.pipeline_ativo != null && kpis.pipeline_ativo !== undefined) 
+        ? Number(kpis.pipeline_ativo).toLocaleString('pt-BR') 
+        : '0', 
+      prefix: 'R$ ', 
+      sub: 'Oportunidades abertas', 
+      iconPath: 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-7a3 3 0 100-6 3 3 0 000 6zm0 4a7 7 0 100-14 7 7 0 000 14z', 
+      color: '#3B82F6' 
+    },
+    { 
+      label: 'Win Rate', 
+      value: (kpis.win_rate != null && kpis.win_rate !== undefined) 
+        ? Number(kpis.win_rate).toFixed(1) 
+        : '0', 
+      suffix: '%', 
+      sub: 'Taxa de conversão', 
+      iconPath: 'M19 5L5 19M6.5 9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM17.5 20a2.5 2.5 0 100-5 2.5 2.5 0 000 5z', 
+      color: '#8B5CF6' 
+    },
+    { 
+      label: 'Ticket Médio', 
+      value: (kpis.ticket_medio != null && kpis.ticket_medio !== undefined) 
+        ? Number(kpis.ticket_medio).toLocaleString('pt-BR') 
+        : '0', 
+      prefix: 'R$ ', 
+      sub: 'Por venda ganha', 
+      iconPath: 'M23 6l-9.5 9.5-5-5L1 18m16-12h6v6', 
+      color: '#F59E0B' 
+    },
+    { 
+      label: 'Novos Leads', 
+      value: (kpis.leads_novos != null && kpis.leads_novos !== undefined) 
+        ? String(kpis.leads_novos) 
+        : '0', 
+      sub: 'Gerados no período', 
+      iconPath: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m4-14a4 4 0 100-8 4 4 0 000 8zm14 14v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75', 
+      color: '#64748B' 
+    },
+    { 
+      label: 'Atrasos', 
+      value: (kpis.atividades_atrasadas != null && kpis.atividades_atrasadas !== undefined) 
+        ? String(kpis.atividades_atrasadas) 
+        : '0', 
+      sub: 'Atividades vencidas', 
+      iconPath: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', 
+      color: '#EF4444' 
+    }
+  ]
+})
 
 // Chart Configurations
-const funelChartData = computed(() => ({
-  labels: dashboardData.value.funil.map(f => f.nome),
-  datasets: [{
-    label: 'Valor (R$)',
-    data: dashboardData.value.funil.map(f => f.valor),
-    backgroundColor: dashboardData.value.funil.map(f => f.cor),
-    borderRadius: 8
-  }]
-}))
+const funelChartData = computed(() => {
+  const funil = dashboardData.value.funil || []
+  return {
+    labels: funil.map(f => f?.nome || ''),
+    datasets: [{
+      label: 'Valor (R$)',
+      data: funil.map(f => Number(f?.valor) || 0),
+      backgroundColor: funil.map(f => f?.cor || '#3B82F6'),
+      borderRadius: 8
+    }]
+  }
+})
 
 const funelChartOptions = {
   responsive: true,
@@ -245,17 +306,21 @@ const funelChartOptions = {
   }
 }
 
-const radarChartData = computed(() => ({
-  labels: Object.keys(dashboardData.value.maturidade_media),
-  datasets: [{
-    label: 'Score Médio',
-    data: Object.values(dashboardData.value.maturidade_media),
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderColor: '#EF4444',
-    pointBackgroundColor: '#EF4444',
-    pointBorderColor: '#fff'
-  }]
-}))
+const radarChartData = computed(() => {
+  const maturidade = dashboardData.value.maturidade_media || {}
+  const keys = Object.keys(maturidade)
+  return {
+    labels: keys.length > 0 ? keys : ['Sem dados'],
+    datasets: [{
+      label: 'Score Médio',
+      data: keys.length > 0 ? Object.values(maturidade).map(v => Number(v) || 0) : [0],
+      backgroundColor: 'rgba(239, 68, 68, 0.2)',
+      borderColor: '#EF4444',
+      pointBackgroundColor: '#EF4444',
+      pointBorderColor: '#fff'
+    }]
+  }
+})
 
 const radarChartOptions = {
   responsive: true,
@@ -265,26 +330,75 @@ const radarChartOptions = {
   }
 }
 
-const lineChartData = computed(() => ({
-  labels: dashboardData.value.tendencia.map(t => new Date(t.mes).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })),
-  datasets: [
-    {
-      label: 'Vendas Ganhas (R$)',
-      data: dashboardData.value.tendencia.map(t => t.valor),
-      borderColor: '#10B981',
-      backgroundColor: 'rgba(16, 185, 129, 0.1)',
-      fill: true,
-      tension: 0.4
-    },
-    {
-      label: 'Novas Oportunidades',
-      data: dashboardData.value.tendencia.map(t => t.novas),
-      borderColor: '#3B82F6',
-      borderDash: [5, 5],
-      tension: 0.4
+const lineChartData = computed(() => {
+  const tendencia = dashboardData.value.tendencia || []
+  console.log('📈 Dados de tendência para gráfico:', tendencia)
+  
+  if (tendencia.length === 0) {
+    console.log('⚠️ Nenhum dado de tendência disponível')
+    return {
+      labels: ['Sem dados'],
+      datasets: [
+        {
+          label: 'Vendas Ganhas (R$)',
+          data: [0],
+          borderColor: '#10B981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          fill: true,
+          tension: 0.4
+        },
+        {
+          label: 'Novas Oportunidades',
+          data: [0],
+          borderColor: '#3B82F6',
+          borderDash: [5, 5],
+          tension: 0.4
+        }
+      ]
     }
-  ]
-}))
+  }
+  
+  const labels = tendencia.map(t => {
+    if (!t?.mes) return ''
+    try {
+      // Formato ISO: "2024-01-01" ou "2024-01-01T00:00:00"
+      const dateStr = t.mes.includes('T') ? t.mes.split('T')[0] : t.mes
+      const date = new Date(dateStr + 'T00:00:00')
+      return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+    } catch (e) {
+      console.error('Erro ao formatar data:', t.mes, e)
+      return t.mes
+    }
+  })
+  
+  const valores = tendencia.map(t => Number(t?.valor) || 0)
+  const novas = tendencia.map(t => Number(t?.novas) || 0)
+  
+  console.log('📈 Labels:', labels)
+  console.log('📈 Valores:', valores)
+  console.log('📈 Novas:', novas)
+  
+  return {
+    labels: labels,
+    datasets: [
+      {
+        label: 'Vendas Ganhas (R$)',
+        data: valores,
+        borderColor: '#10B981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        fill: true,
+        tension: 0.4
+      },
+      {
+        label: 'Novas Oportunidades',
+        data: novas,
+        borderColor: '#3B82F6',
+        borderDash: [5, 5],
+        tension: 0.4
+      }
+    ]
+  }
+})
 
 const lineChartOptions = {
   responsive: true,
@@ -292,13 +406,20 @@ const lineChartOptions = {
   plugins: { legend: { position: 'bottom' } }
 }
 
-const pieChartData = computed(() => ({
-  labels: dashboardData.value.origens.map(o => o.fonte || 'Outros'),
-  datasets: [{
-    data: dashboardData.value.origens.map(o => o.total),
-    backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#F43F5E', '#8B5CF6']
-  }]
-}))
+const pieChartData = computed(() => {
+  const origens = dashboardData.value.origens || []
+  return {
+    labels: origens.length > 0 
+      ? origens.map(o => o?.fonte || 'Outros')
+      : ['Sem dados'],
+    datasets: [{
+      data: origens.length > 0 
+        ? origens.map(o => Number(o?.total) || 0)
+        : [0],
+      backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#F43F5E', '#8B5CF6']
+    }]
+  }
+})
 
 const pieChartOptions = {
   responsive: true,
