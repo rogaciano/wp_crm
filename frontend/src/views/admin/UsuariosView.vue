@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Gestão de Usuários</h1>
-      <button class="btn btn-primary w-full sm:w-auto shadow-sm">+ Novo Usuário</button>
+      <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-sm">+ Novo Usuário</button>
     </div>
 
     <div class="card overflow-hidden">
@@ -28,6 +28,7 @@
               <tr v-for="usuario in usuarios" :key="usuario.id" class="hover:bg-gray-50">
                 <td class="table-cell font-medium text-gray-900">
                   {{ usuario.first_name }} {{ usuario.last_name }}
+                  <span class="block text-[10px] text-gray-400 font-normal">@{{ usuario.username }}</span>
                 </td>
                 <td class="table-cell text-gray-500">{{ usuario.email }}</td>
                 <td class="table-cell">
@@ -43,8 +44,10 @@
                 </td>
                 <td class="table-cell text-right">
                   <div class="flex justify-end space-x-3">
-                    <button class="text-primary-600 hover:text-primary-700 font-medium">Editar</button>
-                    <button class="text-red-600 hover:text-red-700 font-medium">Desativar</button>
+                    <button @click="openEditModal(usuario)" class="text-primary-600 hover:text-primary-700 font-medium">Editar</button>
+                    <button @click="toggleUserStatus(usuario)" :class="usuario.is_active ? 'text-red-600' : 'text-green-600'" class="hover:opacity-75 font-medium">
+                      {{ usuario.is_active ? 'Desativar' : 'Ativar' }}
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -61,6 +64,7 @@
                   {{ usuario.first_name }} {{ usuario.last_name }}
                 </h3>
                 <p class="text-xs text-gray-500 mt-0.5">{{ usuario.email }}</p>
+                <p class="text-[10px] text-gray-400">@{{ usuario.username }}</p>
               </div>
               <span :class="getPerfilClass(usuario.perfil)">
                 {{ getPerfilLabel(usuario.perfil) }}
@@ -81,22 +85,35 @@
             </div>
 
             <div class="flex justify-end space-x-6 border-t pt-3 mt-4">
-              <button class="text-xs font-bold text-primary-600 uppercase tracking-widest">Editar</button>
-              <button class="text-xs font-bold text-red-600 uppercase tracking-widest">Desativar</button>
+              <button @click="openEditModal(usuario)" class="text-xs font-bold text-primary-600 uppercase tracking-widest">Editar</button>
+              <button @click="toggleUserStatus(usuario)" :class="usuario.is_active ? 'text-red-600' : 'text-green-600'" class="text-xs font-bold uppercase tracking-widest">
+                {{ usuario.is_active ? 'Desativar' : 'Ativar' }}
+              </button>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Modal -->
+    <UsuarioModal
+      :show="showModal"
+      :usuario="selectedUsuario"
+      @close="closeModal"
+      @saved="loadUsuarios"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '@/services/api'
+import UsuarioModal from '@/components/UsuarioModal.vue'
 
 const usuarios = ref([])
 const loading = ref(false)
+const showModal = ref(false)
+const selectedUsuario = ref(null)
 
 onMounted(() => {
   loadUsuarios()
@@ -111,6 +128,34 @@ async function loadUsuarios() {
     console.error('Erro ao carregar usuários:', error)
   } finally {
     loading.value = false
+  }
+}
+
+function openCreateModal() {
+  selectedUsuario.value = null
+  showModal.value = true
+}
+
+function openEditModal(usuario) {
+  selectedUsuario.value = usuario
+  showModal.value = true
+}
+
+function closeModal() {
+  showModal.value = false
+  selectedUsuario.value = null
+}
+
+async function toggleUserStatus(usuario) {
+  const action = usuario.is_active ? 'desativar' : 'ativar'
+  if (!confirm(`Tem certeza que deseja ${action} este usuário?`)) return
+  
+  try {
+    await api.patch(`/usuarios/${usuario.id}/`, { is_active: !usuario.is_active })
+    loadUsuarios()
+  } catch (error) {
+    console.error('Erro ao alterar status do usuário:', error)
+    alert('Erro ao alterar status do usuário')
   }
 }
 

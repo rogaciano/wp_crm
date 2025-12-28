@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Gestão de Canais</h1>
-      <button class="btn btn-primary w-full sm:w-auto shadow-sm">+ Novo Canal</button>
+      <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-sm">+ Novo Canal</button>
     </div>
 
     <div class="card overflow-hidden">
@@ -35,8 +35,8 @@
                 <td class="table-cell text-gray-500">{{ formatDate(canal.data_criacao) }}</td>
                 <td class="table-cell text-right">
                   <div class="flex justify-end space-x-3">
-                    <button class="text-primary-600 hover:text-primary-700 font-medium">Editar</button>
-                    <button class="text-red-600 hover:text-red-700 font-medium">Excluir</button>
+                    <button @click="openEditModal(canal)" class="text-primary-600 hover:text-primary-700 font-medium">Editar</button>
+                    <button @click="deleteCanal(canal.id)" class="text-red-600 hover:text-red-700 font-medium">Excluir</button>
                   </div>
                 </td>
               </tr>
@@ -66,22 +66,33 @@
             </div>
 
             <div class="flex justify-end space-x-6 border-t pt-3 mt-4">
-              <button class="text-xs font-bold text-primary-600 uppercase tracking-widest">Editar</button>
-              <button class="text-xs font-bold text-red-600 uppercase tracking-widest">Excluir</button>
+              <button @click="openEditModal(canal)" class="text-xs font-bold text-primary-600 uppercase tracking-widest">Editar</button>
+              <button @click="deleteCanal(canal.id)" class="text-xs font-bold text-red-600 uppercase tracking-widest">Excluir</button>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Modal -->
+    <CanalModal
+      :show="showModal"
+      :canal="selectedCanal"
+      @close="closeModal"
+      @saved="loadCanais"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '@/services/api'
+import CanalModal from '@/components/CanalModal.vue'
 
 const canais = ref([])
 const loading = ref(false)
+const showModal = ref(false)
+const selectedCanal = ref(null)
 
 onMounted(() => {
   loadCanais()
@@ -96,6 +107,32 @@ async function loadCanais() {
     console.error('Erro ao carregar canais:', error)
   } finally {
     loading.value = false
+  }
+}
+
+function openCreateModal() {
+  selectedCanal.value = null
+  showModal.value = true
+}
+
+function openEditModal(canal) {
+  selectedCanal.value = canal
+  showModal.value = true
+}
+
+function closeModal() {
+  showModal.value = false
+  selectedCanal.value = null
+}
+
+async function deleteCanal(id) {
+  if (!confirm('Tem certeza que deseja excluir este canal?')) return
+  try {
+    await api.delete(`/canais/${id}/`)
+    loadCanais()
+  } catch (error) {
+    console.error('Erro ao excluir canal:', error)
+    alert('Erro ao excluir canal')
   }
 }
 
