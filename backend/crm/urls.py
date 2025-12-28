@@ -6,7 +6,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     CanalViewSet, UserViewSet, LeadViewSet, ContaViewSet,
     ContatoViewSet, EstagioFunilViewSet, OportunidadeViewSet, AtividadeViewSet,
-    DiagnosticoViewSet
+    DiagnosticoViewSet, PlanoViewSet, PlanoAdicionalViewSet
 )
 from .views_dashboard import DashboardViewSet
 
@@ -21,6 +21,8 @@ router.register(r'estagios-funil', EstagioFunilViewSet, basename='estagiofunil')
 router.register(r'oportunidades', OportunidadeViewSet, basename='oportunidade')
 router.register(r'atividades', AtividadeViewSet, basename='atividade')
 router.register(r'diagnosticos', DiagnosticoViewSet, basename='diagnostico')
+router.register(r'planos', PlanoViewSet, basename='plano')
+router.register(r'adicionais-plano', PlanoAdicionalViewSet, basename='adicional-plano')
 
 urlpatterns = [
     path('', include(router.urls)),

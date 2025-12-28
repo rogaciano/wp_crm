@@ -5,7 +5,8 @@ from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from .models import (
     Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
-    DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado
+    DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado, 
+    Plano, PlanoAdicional, OportunidadeAdicional
 )
 
 
@@ -193,6 +194,28 @@ class EstagioFunilSerializer(serializers.ModelSerializer):
         return obj.oportunidades.count()
 
 
+class PlanoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plano
+        fields = '__all__'
+
+
+class PlanoAdicionalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlanoAdicional
+        fields = '__all__'
+
+
+class OportunidadeAdicionalSerializer(serializers.ModelSerializer):
+    adicional_nome = serializers.CharField(source='adicional.nome', read_only=True)
+    adicional_preco = serializers.DecimalField(source='adicional.preco', max_digits=10, decimal_places=2, read_only=True)
+    adicional_unidade = serializers.CharField(source='adicional.unidade', read_only=True)
+
+    class Meta:
+        model = OportunidadeAdicional
+        fields = ['id', 'adicional', 'adicional_nome', 'adicional_preco', 'adicional_unidade', 'quantidade']
+
+
 class OportunidadeSerializer(serializers.ModelSerializer):
     proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
@@ -201,6 +224,8 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     estagio_nome = serializers.CharField(source='estagio.nome', read_only=True)
     estagio_cor = serializers.CharField(source='estagio.cor', read_only=True)
     estagio_tipo = serializers.CharField(source='estagio.tipo', read_only=True)
+    plano_nome = serializers.CharField(source='plano.nome', read_only=True)
+    adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
     
     class Meta:
         model = Oportunidade
@@ -209,13 +234,46 @@ class OportunidadeSerializer(serializers.ModelSerializer):
             'probabilidade', 'estagio', 'estagio_nome', 'estagio_cor', 'estagio_tipo',
             'conta', 'conta_nome', 'contato_principal', 'contato_nome',
             'proprietario', 'proprietario_nome', 'descricao', 'motivo_perda',
-            'data_fechamento_real', 'data_criacao', 'data_atualizacao'
+            'data_fechamento_real', 'plano', 'plano_nome', 'periodo_pagamento',
+            'adicionais_detalhes', 'cortesia', 
+            'cupom_desconto', 'forma_pagamento', 'indicador_comissao', 
+            'suporte_regiao', 'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
     
     def create(self, validated_data):
+        adicionais_data = self.context['request'].data.get('adicionais_itens', [])
         validated_data['proprietario'] = self.context['request'].user
-        return super().create(validated_data)
+        oportunidade = Oportunidade.objects.create(**validated_data)
+        
+        for item in adicionais_data:
+            OportunidadeAdicional.objects.create(
+                oportunidade=oportunidade,
+                adicional_id=item['adicional'],
+                quantidade=item.get('quantidade', 1)
+            )
+            
+        return oportunidade
+
+    def update(self, instance, validated_data):
+        adicionais_data = self.context['request'].data.get('adicionais_itens')
+        
+        # Atualiza campos básicos
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Se os adicionais foram enviados, atualiza-os (substitui tudo)
+        if adicionais_data is not None:
+            instance.oportunidadeadicional_set.all().delete()
+            for item in adicionais_data:
+                OportunidadeAdicional.objects.create(
+                    oportunidade=instance,
+                    adicional_id=item['adicional'],
+                    quantidade=item.get('quantidade', 1)
+                )
+                
+        return instance
 
 
 class OportunidadeKanbanSerializer(serializers.ModelSerializer):

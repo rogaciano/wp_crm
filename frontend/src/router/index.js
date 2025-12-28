@@ -89,6 +89,12 @@ const router = createRouter({
           name: 'admin-estagios',
           component: () => import('@/views/admin/EstagiosView.vue'),
           meta: { requiresAdmin: true }
+        },
+        {
+          path: '/admin/planos',
+          name: 'admin-planos',
+          component: () => import('@/views/admin/PlanosView.vue'),
+          meta: { requiresAdmin: true }
         }
       ]
     }

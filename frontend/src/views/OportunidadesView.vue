@@ -54,6 +54,14 @@
                 <td class="table-cell text-gray-500">{{ oportunidade.probabilidade }}%</td>
                 <td class="table-cell text-right">
                   <div class="flex justify-end space-x-3">
+                    <button 
+                      v-if="oportunidade.estagio_tipo === 'GANHO'"
+                      @click="copyBillingInfo(oportunidade.id)" 
+                      class="text-green-600 hover:text-green-700 font-medium" 
+                      title="Copiar Texto de Faturamento"
+                    >
+                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
+                    </button>
                     <button @click="openEditModal(oportunidade)" class="text-primary-600 hover:text-primary-700 font-medium" title="Editar">
                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </button>
@@ -82,7 +90,7 @@
             
             <div class="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-50 cursor-pointer" @click="openEditModal(oportunidade)">
                <div>
-                  <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Valor Estimado</p>
+                  <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Valor Mensal</p>
                   <p class="text-sm font-bold text-green-600">R$ {{ Number(oportunidade.valor_estimado || 0).toLocaleString('pt-BR') }}</p>
                </div>
                <div class="text-right">
@@ -91,7 +99,15 @@
                </div>
             </div>
 
-            <div class="flex justify-end space-x-6 border-t pt-3 mt-4">
+            <div class="flex justify-end space-x-4 border-t pt-3 mt-4">
+              <button 
+                v-if="oportunidade.estagio_tipo === 'GANHO'"
+                @click="copyBillingInfo(oportunidade.id)" 
+                class="text-xs font-bold text-green-600 uppercase tracking-widest flex items-center"
+              >
+                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
+                 Faturamento
+              </button>
               <button @click="openEditModal(oportunidade)" class="text-xs font-bold text-primary-600 uppercase tracking-widest flex items-center">
                  <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                  Editar
@@ -164,6 +180,19 @@ function openEditModal(oportunidade) {
 function closeModal() {
   showModal.value = false
   selectedOportunidade.value = null
+}
+
+async function copyBillingInfo(id) {
+  try {
+    const response = await api.get(`/oportunidades/${id}/gerar_texto_faturamento/`)
+    const texto = response.data.texto
+    
+    await navigator.clipboard.writeText(texto)
+    alert('Texto de faturamento copiado para a área de transferência! 📋')
+  } catch (error) {
+    console.error('Erro ao gerar texto:', error)
+    alert('Erro ao gerar texto de faturamento. Verifique se o plano está selecionado.')
+  }
 }
 
 async function deleteOportunidade(id) {

@@ -215,6 +215,38 @@ class EstagioFunil(models.Model):
         return f"{self.nome} ({self.get_tipo_display()})"
 
 
+class Plano(models.Model):
+    """Planos DAPIC"""
+    nome = models.CharField(max_length=100)
+    preco_mensal = models.DecimalField(max_digits=10, decimal_places=2)
+    preco_anual = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    descricao = models.TextField(null=True, blank=True)
+    recursos = models.JSONField(default=list, help_text='Lista de recursos inclusos')
+
+    class Meta:
+        verbose_name = 'Plano'
+        verbose_name_plural = 'Planos'
+        ordering = ['preco_mensal']
+
+    def __str__(self):
+        return f"{self.nome}"
+
+
+class PlanoAdicional(models.Model):
+    """Recursos adicionais que podem ser somados à mensalidade"""
+    nome = models.CharField(max_length=100)
+    preco = models.DecimalField(max_digits=10, decimal_places=2)
+    unidade = models.CharField(max_length=50, default='unidade', help_text='Ex: usuário, CNPJ, hora')
+
+    class Meta:
+        verbose_name = 'Adicional de Plano'
+        verbose_name_plural = 'Adicionais de Plano'
+        ordering = ['nome']
+
+    def __str__(self):
+        return f"{self.nome} - R$ {self.preco}"
+
+
 class Oportunidade(models.Model):
     """Oportunidade - Negócio/Venda em potencial"""
     nome = models.CharField(max_length=255)
@@ -253,6 +285,59 @@ class Oportunidade(models.Model):
         related_name='oportunidades'
     )
     
+    # Novos campos de faturamento
+    plano = models.ForeignKey(
+        Plano,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='oportunidades'
+    )
+    
+    PERIODO_CHOICES = [
+        ('MENSAL', 'Mensal'),
+        ('ANUAL', 'Anual'),
+    ]
+    periodo_pagamento = models.CharField(
+        max_length=20,
+        choices=PERIODO_CHOICES,
+        default='MENSAL'
+    )
+    
+    adicionais = models.ManyToManyField(
+        PlanoAdicional,
+        through='OportunidadeAdicional',
+        blank=True
+    )
+    
+    cortesia = models.TextField(null=True, blank=True)
+    cupom_desconto = models.CharField(max_length=100, null=True, blank=True)
+    
+    FORMA_PAGAMENTO_CHOICES = [
+        ('CARTAO_RECORRENTE', 'Cartão de crédito recorrente'),
+        ('BOLETO', 'Boleto bancário'),
+    ]
+    forma_pagamento = models.CharField(
+        max_length=50,
+        choices=FORMA_PAGAMENTO_CHOICES,
+        null=True,
+        blank=True
+    )
+    
+    indicador_comissao = models.CharField(max_length=255, null=True, blank=True)
+    
+    REGIAO_SUPORTE_CHOICES = [
+        ('MATRIZ', 'Matriz'),
+        ('PERNAMBUCO', 'Pernambuco'),
+        ('CEARA', 'Ceará'),
+    ]
+    suporte_regiao = models.CharField(
+        max_length=50,
+        choices=REGIAO_SUPORTE_CHOICES,
+        null=True,
+        blank=True
+    )
+    
     descricao = models.TextField(null=True, blank=True)
     motivo_perda = models.TextField(null=True, blank=True)
     data_fechamento_real = models.DateField(null=True, blank=True)
@@ -274,6 +359,17 @@ class Oportunidade(models.Model):
 
     def __str__(self):
         return f"{self.nome} - R$ {self.valor_estimado or 0}"
+
+
+class OportunidadeAdicional(models.Model):
+    """Tabela intermediária para salvar quantidade de adicionais na oportunidade"""
+    oportunidade = models.ForeignKey(Oportunidade, on_delete=models.CASCADE)
+    adicional = models.ForeignKey(PlanoAdicional, on_delete=models.CASCADE)
+    quantidade = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        verbose_name = 'Adicional da Oportunidade'
+        verbose_name_plural = 'Adicionais da Oportunidade'
 
 
 class Atividade(models.Model):

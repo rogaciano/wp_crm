@@ -128,6 +128,13 @@
               </svg>
               <span>Estágios</span>
             </router-link>
+
+            <router-link @click="closeSidebar" to="/admin/planos" class="nav-link" active-class="nav-link-active">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-10-10l-10 10m16 0l-10 10l-10-10" />
+              </svg>
+              <span>Planos de Venda</span>
+            </router-link>
           </div>
         </nav>
 

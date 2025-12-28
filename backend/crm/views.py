@@ -10,13 +10,15 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import (
     Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
-    DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado
+    DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
+    Plano, PlanoAdicional
 )
 from .serializers import (
     CanalSerializer, UserSerializer, LeadSerializer, ContaSerializer,
     ContatoSerializer, EstagioFunilSerializer, OportunidadeSerializer,
     OportunidadeKanbanSerializer, AtividadeSerializer, LeadConversaoSerializer,
-    DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer
+    DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
+    PlanoSerializer, PlanoAdicionalSerializer
 )
 from .services.ai_service import gerar_analise_diagnostico
 from .permissions import HierarchyPermission, IsAdminUser
@@ -293,6 +295,90 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                 {'error': 'Estágio não encontrado'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+    @action(detail=True, methods=['get'])
+    def gerar_texto_faturamento(self, request, pk=None):
+        """Gera o texto formatado para faturamento"""
+        opp = self.get_object()
+        
+        if not opp.plano:
+            return Response({'error': 'Nenhum plano selecionado para esta oportunidade'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        adicionais_texto = ""
+        adicionais = opp.oportunidadeadicional_set.all()
+        if adicionais.exists():
+            adicionais_texto = "\n\nRecursos Adicionais Incluídos:\n"
+            for ad in adicionais:
+                adicionais_texto += f"• {ad.quantidade}x {ad.adicional.nome}\n"
+
+        params = {
+            'plano_nome': opp.plano.nome,
+            'periodo': opp.get_periodo_pagamento_display(),
+            'recursos': "\n".join(opp.plano.recursos),
+            'adicionais': adicionais_texto,
+            'cortesia': opp.cortesia or "Nenhuma cortesia registrada",
+            'cliente_nome': opp.contato_principal.nome if opp.contato_principal else opp.conta.nome_empresa,
+            'whatsapp': opp.contato_principal.telefone if opp.contato_principal else opp.conta.telefone_principal,
+            'email': opp.contato_principal.email if opp.contato_principal else opp.conta.email,
+            'mensalidade': f"R$ {opp.valor_estimado:,.2f}".replace('.', 'X').replace(',', '.').replace('X', ','),
+            'label_investimento': 'Investimento Anual' if opp.periodo_pagamento == 'ANUAL' else 'Mensalidade',
+            'cupom': opp.cupom_desconto or "Nenhum",
+            'forma_pagamento': opp.get_forma_pagamento_display(),
+            'vendedor': opp.proprietario.get_full_name(),
+            'indicador': opp.indicador_comissao or "Direto",
+            'suporte': opp.get_suporte_regiao_display() if opp.suporte_regiao else "N/A"
+        }
+        
+        template = f"""
+Por gentileza, realizar o faturamento da contratação abaixo:
+
+Plano: {params['plano_nome']} ({params['periodo']})
+{params['recursos']}{params['adicionais']}
+
+Cortesia:
+• {params['cortesia']}
+
+Dados do cliente responsável pelo fechamento:
+• Nome: {params['cliente_nome']}
+• WhatsApp: {params['whatsapp']}
+• E-mail: {params['email']}
+
+Investimento:
+• {params['label_investimento']}: {params['mensalidade']}
+• Cupom de desconto: {params['cupom']}
+
+• Forma de pagamento: {params['forma_pagamento']}
+• Vendedor: {params['vendedor']}
+• Indicador da comissão: {params['indicador']}
+"""
+        if opp.suporte_regiao:
+            template += f"• Suporte: {params['suporte']}\n"
+            
+        template += "\nQualquer dúvida, estou a disposição!"
+        
+        return Response({'texto': template})
+
+
+class PlanoViewSet(viewsets.ModelViewSet):
+    """ViewSet para CRUD de Planos (Admin cria/edita, todos leem)"""
+    queryset = Plano.objects.all()
+    serializer_class = PlanoSerializer
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [HierarchyPermission()]
+
+
+class PlanoAdicionalViewSet(viewsets.ModelViewSet):
+    """ViewSet para CRUD de Adicionais de Plano (Admin cria/edita, todos leem)"""
+    queryset = PlanoAdicional.objects.all()
+    serializer_class = PlanoAdicionalSerializer
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [HierarchyPermission()]
 
 
 class AtividadeViewSet(viewsets.ModelViewSet):
