@@ -117,6 +117,7 @@ class DiagnosticoPublicSubmissionSerializer(serializers.Serializer):
 
 class LeadSerializer(serializers.ModelSerializer):
     proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
+    proprietario_canal = serializers.SerializerMethodField()
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
     diagnosticos = DiagnosticoResultadoSerializer(many=True, read_only=True)
     
@@ -124,11 +125,14 @@ class LeadSerializer(serializers.ModelSerializer):
         model = Lead
         fields = [
             'id', 'nome', 'email', 'telefone', 'empresa', 'cargo',
-            'fonte', 'status', 'notas', 'proprietario', 'proprietario_nome',
+            'fonte', 'status', 'notas', 'proprietario', 'proprietario_nome', 'proprietario_canal',
             'diagnosticos', 'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos']
     
+    def get_proprietario_canal(self, obj):
+        return obj.proprietario.canal.id if obj.proprietario and obj.proprietario.canal else None
+
     def create(self, validated_data):
         # Define o proprietário como o usuário logado
         if 'request' in self.context and self.context['request'].user.is_authenticated:
@@ -376,3 +380,4 @@ class LeadConversaoSerializer(serializers.Serializer):
         required=False,
         allow_null=True
     )
+    canal = serializers.IntegerField(required=False, allow_null=True)

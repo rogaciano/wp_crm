@@ -127,6 +127,10 @@ class LeadViewSet(viewsets.ModelViewSet):
                         f"Oportunidade - {lead.nome}"
                     )[:255]
                     
+                    # Definir Canal: o informado no serializer ou o canal do proprietário do lead
+                    canal_id = serializer.validated_data.get('canal')
+                    canal_obj = Canal.objects.filter(id=canal_id).first() if canal_id else (lead.proprietario.canal if lead.proprietario else None)
+
                     oportunidade = Oportunidade.objects.create(
                         nome=nome_oportunidade,
                         valor_estimado=serializer.validated_data.get('valor_estimado'),
@@ -134,7 +138,7 @@ class LeadViewSet(viewsets.ModelViewSet):
                         contato_principal=contato,
                         estagio=primeiro_estagio,
                         proprietario=lead.proprietario,
-                        canal=lead.proprietario.canal
+                        canal=canal_obj
                     )
                 
                 # Marca o lead como convertido

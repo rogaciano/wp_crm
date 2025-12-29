@@ -40,18 +40,32 @@
             />
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Valor Estimado (R$)
-            </label>
-            <input
-              v-model.number="form.valor_estimado"
-              type="number"
-              step="0.01"
-              min="0"
-              class="input font-bold text-primary-700"
-              placeholder="0,00"
-            />
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Valor Estimado (R$)
+              </label>
+              <input
+                v-model.number="form.valor_estimado"
+                type="number"
+                step="0.01"
+                min="0"
+                class="input font-bold text-primary-700"
+                placeholder="0,00"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Canal Responsável (Suporte)
+              </label>
+              <select v-model="form.canal" class="input">
+                <option value="">Mesmo do Vendedor</option>
+                <option v-for="canal in canais" :key="canal.id" :value="canal.id">
+                  {{ canal.nome }}
+                </option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -60,7 +74,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import BaseModal from './BaseModal.vue'
 import api from '@/services/api'
 
@@ -72,17 +86,33 @@ const props = defineProps({
 const emit = defineEmits(['close', 'converted'])
 
 const loading = ref(false)
+const canais = ref([])
 const form = ref({
   criar_oportunidade: true,
   nome_oportunidade: '',
-  valor_estimado: 0
+  valor_estimado: 0,
+  canal: ''
 })
+
+onMounted(() => {
+  loadCanais()
+})
+
+async function loadCanais() {
+  try {
+    const response = await api.get('/canais/')
+    canais.value = response.data.results || response.data
+  } catch (error) {
+    console.error('Erro ao carregar canais:', error)
+  }
+}
 
 watch(() => props.lead, (newLead) => {
   if (newLead) {
     form.value.nome_oportunidade = `Oportunidade - ${newLead.nome}`
     form.value.valor_estimado = 0
     form.value.criar_oportunidade = true
+    form.value.canal = newLead.proprietario_canal || ''
   }
 })
 
@@ -94,7 +124,8 @@ async function handleConvert() {
     const data = {
       criar_oportunidade: form.value.criar_oportunidade,
       nome_oportunidade: form.value.nome_oportunidade || `Oportunidade - ${props.lead.nome}`,
-      valor_estimado: form.value.valor_estimado || 0
+      valor_estimado: form.value.valor_estimado || 0,
+      canal: form.value.canal || null
     }
     
     await api.post(`/leads/${props.lead.id}/converter/`, data)
