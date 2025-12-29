@@ -51,8 +51,8 @@ class DashboardViewSet(viewsets.ViewSet):
         # Filtro de região: vale APENAS para Oportunidade (neste momento)
         # Admin não deve ter filtro de região aplicado
         regiao_filter = Q()
-        if user.perfil != 'ADMIN' and user.suporte_regiao:
-            regiao_filter &= Q(suporte_regiao=user.suporte_regiao)
+        if user.perfil != 'ADMIN' and user.regiao:
+            regiao_filter &= Q(regiao=user.regiao)
 
         # Filtro completo para Oportunidades
         # Se base_hierarquia está vazio (ADMIN), não aplica filtro de hierarquia

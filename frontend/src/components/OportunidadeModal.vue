@@ -100,6 +100,16 @@
               class="input"
             />
           </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Região de Suporte</label>
+            <select v-model="form.regiao" class="input">
+              <option value="">Selecione...</option>
+              <option v-for="reg in regioes" :key="reg.id" :value="reg.id">
+                {{ reg.nome }}
+              </option>
+            </select>
+          </div>
         </div>
       </section>
 
@@ -134,9 +144,9 @@ const emit = defineEmits(['close', 'saved'])
 
 const loading = ref(false)
 const isEdit = ref(false)
-const contas = ref([])
 const contatos = ref([])
 const estagios = ref([])
+const regioes = ref([])
 
 const form = ref({
   nome: '',
@@ -147,8 +157,7 @@ const form = ref({
   data_fechamento_esperada: '',
   probabilidade: 0,
   descricao: '',
-  descricao: '',
-  suporte_regiao: ''
+  regiao: ''
 })
 
 const adicionais_itens = ref([])
@@ -185,14 +194,16 @@ watch(() => props.oportunidade, (newOportunidade) => {
 
 async function loadOptions() {
   try {
-    const [contasRes, contatosRes, estagiosRes] = await Promise.all([
+    const [contasRes, contatosRes, estagiosRes, regioesRes] = await Promise.all([
       api.get('/contas/'),
       api.get('/contatos/'),
-      api.get('/estagios-funil/')
+      api.get('/estagios-funil/'),
+      api.get('/regioes/')
     ])
     contas.value = contasRes.data.results || contasRes.data
     contatos.value = contatosRes.data.results || contatosRes.data
     estagios.value = estagiosRes.data.results || estagiosRes.data
+    regioes.value = regioesRes.data.results || regioesRes.data
   } catch (error) {
     console.error('Erro ao carregar opções:', error)
   }
@@ -228,7 +239,7 @@ function resetForm() {
     cupom_desconto: '',
     forma_pagamento: '',
     indicador_comissao: '',
-    suporte_regiao: ''
+    regiao: ''
   }
   adicionais_itens.value = []
 }

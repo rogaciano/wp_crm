@@ -51,11 +51,11 @@
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Região de Suporte (Padrão)</label>
-        <select v-model="form.suporte_regiao" class="input">
-          <option value="">Nenhuma / Todas</option>
-          <option value="MATRIZ">Matriz</option>
-          <option value="PERNAMBUCO">Pernambuco</option>
-          <option value="CEARA">Ceará</option>
+        <select v-model="form.regiao" class="input">
+          <option value="">Global / Todas</option>
+          <option v-for="reg in regioes" :key="reg.id" :value="reg.id">
+            {{ reg.nome }}
+          </option>
         </select>
       </div>
 
@@ -94,6 +94,7 @@ const emit = defineEmits(['close', 'saved'])
 const loading = ref(false)
 const isEdit = ref(false)
 const canais = ref([])
+const regioes = ref([])
 
 const form = ref({
   first_name: '',
@@ -105,12 +106,22 @@ const form = ref({
   telefone: '',
   password: '',
   is_active: true,
-  suporte_regiao: ''
+  regiao: ''
 })
 
 onMounted(() => {
   loadCanais()
+  loadRegioes()
 })
+
+async function loadRegioes() {
+  try {
+    const response = await api.get('/regioes/')
+    regioes.value = response.data.results || response.data
+  } catch (error) {
+    console.error('Erro ao carregar regiões:', error)
+  }
+}
 
 async function loadCanais() {
   try {
@@ -145,7 +156,7 @@ function resetForm() {
     telefone: '',
     password: '',
     is_active: true,
-    suporte_regiao: ''
+    regiao: ''
   }
 }
 
@@ -157,6 +168,7 @@ async function handleSubmit() {
       delete data.password
     }
     if (!data.canal) delete data.canal
+    if (!data.regiao) delete data.regiao
 
     if (isEdit.value) {
       await api.put(`/usuarios/${form.value.id}/`, data)

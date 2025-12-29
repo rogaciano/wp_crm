@@ -95,6 +95,12 @@ const router = createRouter({
           name: 'admin-planos',
           component: () => import('@/views/admin/PlanosView.vue'),
           meta: { requiresAdmin: true }
+        },
+        {
+          path: '/config/regioes',
+          name: 'admin-regioes',
+          component: () => import('@/views/admin/RegioesView.vue'),
+          meta: { requiresAdmin: true }
         }
       ]
     }

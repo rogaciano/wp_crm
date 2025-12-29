@@ -21,9 +21,9 @@
           <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Região de Suporte</label>
           <select v-model="filterRegiao" @change="loadUsuarios" class="input text-sm">
             <option value="">Todas as Regiões</option>
-            <option value="MATRIZ">Matriz</option>
-            <option value="PERNAMBUCO">Pernambuco</option>
-            <option value="CEARA">Ceará</option>
+            <option v-for="reg in regioes" :key="reg.id" :value="reg.id">
+              {{ reg.nome }}
+            </option>
           </select>
         </div>
         <div class="flex items-end">
@@ -68,8 +68,8 @@
                 </td>
                 <td class="table-cell text-gray-500">{{ usuario.canal_nome || 'N/A' }}</td>
                 <td class="table-cell">
-                   <span v-if="usuario.suporte_regiao" class="text-[10px] bg-slate-100 px-2 py-0.5 rounded font-bold text-slate-600 uppercase">
-                     {{ usuario.suporte_regiao }}
+                   <span v-if="usuario.regiao_nome && usuario.regiao_nome !== 'N/A' && usuario.regiao_nome !== 'Global'" class="text-[10px] bg-slate-100 px-2 py-0.5 rounded font-bold text-slate-600 uppercase">
+                     {{ usuario.regiao_nome }}
                    </span>
                    <span v-else class="text-[10px] text-gray-300 italic">Global</span>
                 </td>
@@ -112,7 +112,7 @@
                   <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Canal / Região</p>
                   <p class="text-xs font-medium text-gray-700">
                     {{ usuario.canal_nome || 'N/A' }} 
-                    <span v-if="usuario.suporte_regiao" class="text-primary-600">({{ usuario.suporte_regiao }})</span>
+                    <span v-if="usuario.regiao_nome && usuario.regiao_nome !== 'N/A' && usuario.regiao_nome !== 'Global'" class="text-primary-600">({{ usuario.regiao_nome }})</span>
                   </p>
                </div>
                <div class="text-right">
@@ -156,13 +156,14 @@ const selectedUsuario = ref(null)
 
 const filterPerfil = ref('')
 const filterRegiao = ref('')
+const regioes = ref([])
 
 async function loadUsuarios() {
   loading.value = true
   try {
     const params = {}
     if (filterPerfil.value) params.perfil = filterPerfil.value
-    if (filterRegiao.value) params.suporte_regiao = filterRegiao.value
+    if (filterRegiao.value) params.regiao = filterRegiao.value
     
     const response = await api.get('/usuarios/', { params })
     usuarios.value = response.data.results || response.data
@@ -170,6 +171,15 @@ async function loadUsuarios() {
     console.error('Erro ao carregar usuários:', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function loadRegioes() {
+  try {
+    const response = await api.get('/regioes/')
+    regioes.value = response.data.results || response.data
+  } catch (error) {
+    console.error('Erro ao carregar regiões:', error)
   }
 }
 
@@ -226,5 +236,6 @@ function getPerfilClass(perfil) {
 }
 onMounted(() => {
   loadUsuarios()
+  loadRegioes()
 })
 </script>

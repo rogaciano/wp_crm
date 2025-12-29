@@ -9,12 +9,12 @@ from django.db.models import Q, Sum, Count, Avg
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import (
-    Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
+    Canal, User, Regiao, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
     Plano, PlanoAdicional
 )
 from .serializers import (
-    CanalSerializer, UserSerializer, LeadSerializer, ContaSerializer,
+    CanalSerializer, UserSerializer, RegiaoSerializer, LeadSerializer, ContaSerializer,
     ContatoSerializer, EstagioFunilSerializer, OportunidadeSerializer,
     OportunidadeKanbanSerializer, AtividadeSerializer, LeadConversaoSerializer,
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
@@ -35,13 +35,23 @@ class CanalViewSet(viewsets.ModelViewSet):
     ordering_fields = ['nome', 'data_criacao']
 
 
+class RegiaoViewSet(viewsets.ModelViewSet):
+    """ViewSet para Regiões (apenas Admin)"""
+    queryset = Regiao.objects.all()
+    serializer_class = RegiaoSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nome']
+    ordering_fields = ['nome', 'data_criacao']
+
+
 class UserViewSet(viewsets.ModelViewSet):
     """ViewSet para Usuários (apenas Admin)"""
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAdminUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['perfil', 'canal', 'is_active', 'suporte_regiao']
+    filterset_fields = ['perfil', 'canal', 'is_active', 'regiao']
     search_fields = ['username', 'email', 'first_name', 'last_name']
     ordering_fields = ['username', 'date_joined']
     
@@ -124,6 +134,8 @@ class LeadViewSet(viewsets.ModelViewSet):
                         f"Oportunidade - {lead.nome}"
                     )[:255]
                     
+                    regiao_matriz = Regiao.objects.filter(nome__iexact='Matriz').first()
+                    
                     oportunidade = Oportunidade.objects.create(
                         nome=nome_oportunidade,
                         valor_estimado=serializer.validated_data.get('valor_estimado'),
@@ -131,7 +143,7 @@ class LeadViewSet(viewsets.ModelViewSet):
                         contato_principal=contato,
                         estagio=primeiro_estagio,
                         proprietario=lead.proprietario,
-                        suporte_regiao='MATRIZ' # Valor padrão seguro para conversão automática
+                        regiao=regiao_matriz
                     )
                 
                 # Marca o lead como convertido
@@ -270,7 +282,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
     serializer_class = OportunidadeSerializer
     permission_classes = [HierarchyPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['estagio', 'conta']
+    filterset_fields = ['estagio', 'conta', 'regiao']
     search_fields = ['nome', 'conta__nome_empresa']
     ordering_fields = ['nome', 'valor_estimado', 'data_fechamento_esperada', 'data_criacao']
     
@@ -410,7 +422,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
             'forma_pagamento': opp.get_forma_pagamento_display(),
             'vendedor': opp.proprietario.get_full_name(),
             'indicador': opp.indicador_comissao.nome if opp.indicador_comissao else "Direto",
-            'suporte': opp.get_suporte_regiao_display() if opp.suporte_regiao else "N/A"
+            'suporte': opp.regiao.nome if opp.regiao else "N/A"
         }
         
         template = f"""
@@ -435,7 +447,7 @@ Investimento:
 • Vendedor: {params['vendedor']}
 • Indicador da comissão: {params['indicador']}
 """
-        if opp.suporte_regiao:
+        if opp.regiao:
             template += f"• Suporte: {params['suporte']}\n"
             
         template += "\nQualquer dúvida, estou a disposição!"

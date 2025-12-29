@@ -5,7 +5,7 @@ from rest_framework import serializers
 from django.db import transaction
 from django.contrib.auth.password_validation import validate_password
 from .models import (
-    Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
+    Canal, User, Regiao, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado, 
     Plano, PlanoAdicional, OportunidadeAdicional
 )
@@ -27,18 +27,30 @@ class CanalSerializer(serializers.ModelSerializer):
         return obj.vendedores.count()
 
 
+class RegiaoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Regiao
+        fields = ['id', 'nome', 'descricao', 'data_criacao']
+        read_only_fields = ['data_criacao']
+
+
 class UserSerializer(serializers.ModelSerializer):
     canal_nome = serializers.SerializerMethodField()
+    regiao_nome = serializers.SerializerMethodField()
     
     def get_canal_nome(self, obj):
         return obj.canal.nome if obj.canal else "N/A"
+        
+    def get_regiao_nome(self, obj):
+        return obj.regiao.nome if obj.regiao else "Global"
+
     password = serializers.CharField(write_only=True, required=False, validators=[validate_password])
     
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
-            'perfil', 'canal', 'canal_nome', 'telefone', 'suporte_regiao',
+            'perfil', 'canal', 'canal_nome', 'telefone', 'regiao', 'regiao_nome',
             'password', 'is_active', 'date_joined'
         ]
         read_only_fields = ['date_joined']
@@ -227,6 +239,7 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     estagio_tipo = serializers.SerializerMethodField()
     plano_nome = serializers.SerializerMethodField()
     indicador_nome = serializers.SerializerMethodField()
+    regiao_nome = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
     
     class Meta:
@@ -239,7 +252,7 @@ class OportunidadeSerializer(serializers.ModelSerializer):
             'data_fechamento_real', 'plano', 'plano_nome', 'periodo_pagamento',
             'adicionais_detalhes', 'cortesia', 
             'cupom_desconto', 'forma_pagamento', 'indicador_comissao', 'indicador_nome', 
-            'suporte_regiao', 'data_criacao', 'data_atualizacao'
+            'regiao', 'regiao_nome', 'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
     
@@ -265,7 +278,10 @@ class OportunidadeSerializer(serializers.ModelSerializer):
         return obj.plano.nome if obj.plano else None
     
     def get_indicador_nome(self, obj):
-        return obj.indicador_comissao.nome if obj.indicador_comissao else None
+        return obj.indicador_comissao.nome if obj.indicador_comissao else "Direto"
+        
+    def get_regiao_nome(self, obj):
+        return obj.regiao.nome if obj.regiao else "N/A"
 
     def create(self, validated_data):
         adicionais_data = self.context['request'].data.get('adicionais_itens', [])

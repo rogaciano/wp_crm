@@ -30,6 +30,21 @@ class Canal(models.Model):
         return self.nome
 
 
+class Regiao(models.Model):
+    """Representa uma Região de Suporte"""
+    nome = models.CharField(max_length=100, unique=True)
+    descricao = models.TextField(null=True, blank=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = 'Região'
+        verbose_name_plural = 'Regiões'
+        ordering = ['nome']
+
+    def __str__(self):
+        return self.nome
+
+
 class User(AbstractUser):
     """Usuário customizado do sistema"""
     PERFIL_VENDEDOR = 'VENDEDOR'
@@ -66,7 +81,14 @@ class User(AbstractUser):
         choices=REGIAO_SUPORTE_CHOICES,
         null=True,
         blank=True,
-        help_text='Região de suporte padrão para este usuário'
+        help_text='Região de suporte padrão para este usuário (LEGACY)'
+    )
+    regiao = models.ForeignKey(
+        Regiao,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='usuarios'
     )
     
     class Meta:
@@ -358,7 +380,15 @@ class Oportunidade(models.Model):
         max_length=50,
         choices=User.REGIAO_SUPORTE_CHOICES,
         null=True,
-        blank=True
+        blank=True,
+        help_text='LEGACY'
+    )
+    regiao = models.ForeignKey(
+        Regiao,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='oportunidades'
     )
     
     descricao = models.TextField(null=True, blank=True)
