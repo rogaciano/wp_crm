@@ -232,6 +232,7 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     estagio_tipo = serializers.SerializerMethodField()
     plano_nome = serializers.SerializerMethodField()
     indicador_nome = serializers.SerializerMethodField()
+    canal_nome = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
     
     class Meta:
@@ -271,6 +272,9 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     
     def get_indicador_nome(self, obj):
         return obj.indicador_comissao.nome if obj.indicador_comissao else "Direto"
+
+    def get_canal_nome(self, obj):
+        return obj.canal.nome if obj.canal else "N/A"
 
     def create(self, validated_data):
         adicionais_data = self.context['request'].data.get('adicionais_itens', [])
