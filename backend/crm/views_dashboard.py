@@ -48,21 +48,20 @@ class DashboardViewSet(viewsets.ViewSet):
         elif user.perfil == 'VENDEDOR':
             base_hierarquia &= Q(proprietario=user)
             
-        # Filtro de região: vale APENAS para Oportunidade (neste momento)
-        # Admin não deve ter filtro de região aplicado
-        regiao_filter = Q()
-        if user.perfil != 'ADMIN' and user.regiao:
-            regiao_filter &= Q(regiao=user.regiao)
-
+        # Filtro de canal: vale APENAS para Oportunidade
+        # Admin não deve ter filtro de canal aplicado
+        canal_filter = Q()
+        if user.perfil != 'ADMIN' and user.canal:
+            canal_filter &= Q(canal=user.canal)
         # Filtro completo para Oportunidades
         # Se base_hierarquia está vazio (ADMIN), não aplica filtro de hierarquia
         if user.perfil == 'ADMIN':
-            opp_filter = regiao_filter if regiao_filter else Q()
+            opp_filter = canal_filter if canal_filter else Q()
         else:
-            opp_filter = base_hierarquia & regiao_filter
+            opp_filter = base_hierarquia & canal_filter
         
-        print(f"🔍 Filtros - base_hierarquia: {base_hierarquia}, regiao_filter: {regiao_filter}")
-
+        print(f"🔍 Filtros - base_hierarquia: {base_hierarquia}, canal_filter: {canal_filter}")
+        
         # Versão do filtro para uso em modelos relacionados (ex: EstagioFunil -> Oportunidades)
         def prefix_q(q_obj, prefix):
             if not q_obj: return Q()

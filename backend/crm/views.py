@@ -9,12 +9,12 @@ from django.db.models import Q, Sum, Count, Avg
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import (
-    Canal, User, Regiao, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
+    Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
     Plano, PlanoAdicional
 )
 from .serializers import (
-    CanalSerializer, UserSerializer, RegiaoSerializer, LeadSerializer, ContaSerializer,
+    CanalSerializer, UserSerializer, LeadSerializer, ContaSerializer,
     ContatoSerializer, EstagioFunilSerializer, OportunidadeSerializer,
     OportunidadeKanbanSerializer, AtividadeSerializer, LeadConversaoSerializer,
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
@@ -35,13 +35,6 @@ class CanalViewSet(viewsets.ModelViewSet):
     ordering_fields = ['nome', 'data_criacao']
 
 
-class RegiaoViewSet(viewsets.ModelViewSet):
-    """ViewSet para Regiões (apenas Admin)"""
-    queryset = Regiao.objects.all()
-    serializer_class = RegiaoSerializer
-    permission_classes = [IsAdminUser]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['nome']
     ordering_fields = ['nome', 'data_criacao']
 
 
@@ -51,7 +44,7 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAdminUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['perfil', 'canal', 'is_active', 'regiao']
+    filterset_fields = ['perfil', 'canal', 'is_active']
     search_fields = ['username', 'email', 'first_name', 'last_name']
     ordering_fields = ['username', 'date_joined']
     
@@ -134,8 +127,6 @@ class LeadViewSet(viewsets.ModelViewSet):
                         f"Oportunidade - {lead.nome}"
                     )[:255]
                     
-                    regiao_matriz = Regiao.objects.filter(nome__iexact='Matriz').first()
-                    
                     oportunidade = Oportunidade.objects.create(
                         nome=nome_oportunidade,
                         valor_estimado=serializer.validated_data.get('valor_estimado'),
@@ -143,7 +134,7 @@ class LeadViewSet(viewsets.ModelViewSet):
                         contato_principal=contato,
                         estagio=primeiro_estagio,
                         proprietario=lead.proprietario,
-                        regiao=regiao_matriz
+                        canal=lead.proprietario.canal
                     )
                 
                 # Marca o lead como convertido
@@ -282,7 +273,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
     serializer_class = OportunidadeSerializer
     permission_classes = [HierarchyPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['estagio', 'conta', 'regiao']
+    filterset_fields = ['estagio', 'conta', 'canal']
     search_fields = ['nome', 'conta__nome_empresa']
     ordering_fields = ['nome', 'valor_estimado', 'data_fechamento_esperada', 'data_criacao']
     
@@ -422,7 +413,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
             'forma_pagamento': opp.get_forma_pagamento_display(),
             'vendedor': opp.proprietario.get_full_name(),
             'indicador': opp.indicador_comissao.nome if opp.indicador_comissao else "Direto",
-            'suporte': opp.regiao.nome if opp.regiao else "N/A"
+            'suporte': opp.canal.nome if opp.canal else "N/A"
         }
         
         template = f"""
@@ -447,7 +438,7 @@ Investimento:
 • Vendedor: {params['vendedor']}
 • Indicador da comissão: {params['indicador']}
 """
-        if opp.regiao:
+        if opp.canal:
             template += f"• Suporte: {params['suporte']}\n"
             
         template += "\nQualquer dúvida, estou a disposição!"

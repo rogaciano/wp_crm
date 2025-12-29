@@ -102,11 +102,11 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Região de Suporte</label>
-            <select v-model="form.regiao" class="input">
-              <option value="">Selecione...</option>
-              <option v-for="reg in regioes" :key="reg.id" :value="reg.id">
-                {{ reg.nome }}
+            <label class="block text-sm font-medium text-gray-700 mb-1">Canal de Suporte (Faturamento)</label>
+            <select v-model="form.canal" class="input">
+              <option value="">Selecione o canal...</option>
+              <option v-for="canal in canais" :key="canal.id" :value="canal.id">
+                {{ canal.nome }}
               </option>
             </select>
           </div>
@@ -144,9 +144,10 @@ const emit = defineEmits(['close', 'saved'])
 
 const loading = ref(false)
 const isEdit = ref(false)
+const contas = ref([])
 const contatos = ref([])
 const estagios = ref([])
-const regioes = ref([])
+const canais = ref([])
 
 const form = ref({
   nome: '',
@@ -157,7 +158,7 @@ const form = ref({
   data_fechamento_esperada: '',
   probabilidade: 0,
   descricao: '',
-  regiao: ''
+  canal: ''
 })
 
 const adicionais_itens = ref([])
@@ -194,16 +195,16 @@ watch(() => props.oportunidade, (newOportunidade) => {
 
 async function loadOptions() {
   try {
-    const [contasRes, contatosRes, estagiosRes, regioesRes] = await Promise.all([
+    const [contasRes, contatosRes, estagiosRes, canaisRes] = await Promise.all([
       api.get('/contas/'),
       api.get('/contatos/'),
       api.get('/estagios-funil/'),
-      api.get('/regioes/')
+      api.get('/canais/')
     ])
     contas.value = contasRes.data.results || contasRes.data
     contatos.value = contatosRes.data.results || contatosRes.data
     estagios.value = estagiosRes.data.results || estagiosRes.data
-    regioes.value = regioesRes.data.results || regioesRes.data
+    canais.value = canaisRes.data.results || canaisRes.data
   } catch (error) {
     console.error('Erro ao carregar opções:', error)
   }
@@ -239,7 +240,7 @@ function resetForm() {
     cupom_desconto: '',
     forma_pagamento: '',
     indicador_comissao: '',
-    regiao: ''
+    canal: ''
   }
   adicionais_itens.value = []
 }

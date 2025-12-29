@@ -37,9 +37,9 @@ Localizado em `Admin > Usuários`, este módulo controla quem acessa o sistema e
     *   **Administrador:** Acesso global. Vê dados de todos os canais e tem acesso ao menu Admin.
     *   **Responsável:** Gestor de um canal. Vê os leads, contas e vendas de todos os vendedores vinculados ao seu canal.
     *   **Vendedor:** Operacional. Vê apenas os seus próprios registros.
-*   **Região de Suporte:** 
-    *   Ao cadastrar um usuário, você pode definir uma **Região de Suporte (Matriz, Pernambuco ou Ceará)**. 
-    *   Isso automatiza o faturamento: quando este vendedor criar uma venda, a região já virá pré-selecionada e travada para evitar erros.
+*   **Vínculo com Canal:** 
+    *   Ao cadastrar um usuário, você deve vinculá-lo a um **Canal de Venda**. 
+    *   Este canal funcionará como a sua "unidade/região" padrão. Isso automatiza o faturamento: quando este vendedor criar uma venda, o canal dele virá pré-selecionado, garantindo o direcionamento correto do suporte e comissões.
 *   **Ativação/Desativação:** Utilize o botão de status para bloquear imediatamente o acesso de usuários desligados, mantendo o histórico de dados intacto.
 
 ---
@@ -47,7 +47,8 @@ Localizado em `Admin > Usuários`, este módulo controla quem acessa o sistema e
 ## 3. Gestão de Canais de Venda
 Canais representam suas unidades de negócio, parceiros ou filiais.
 
-*   **Cadastro:** Defina o nome do canal (ex: "Unidade Recife", "Parceiro XPTO").
+*   **Cadastro:** Defina o nome do canal (ex: "Matriz", "Pernambuco", "Canal Norte").
+*   **Suporte e Faturamento:** O sistema agora utiliza os Canais como os centros de suporte. No momento do fechamento da venda (Modal de Faturamento), o administrador ou vendedor pode selecionar qual Canal será responsável por aquela conta.
 *   **Hierarquia:** Cada Lead ou Conta no sistema é "carimbado" com o canal do vendedor que o criou. Isso garante que o Responsável do Canal consiga gerir sua equipe de forma isolada de outros canais.
 
 ---

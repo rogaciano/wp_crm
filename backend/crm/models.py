@@ -30,21 +30,6 @@ class Canal(models.Model):
         return self.nome
 
 
-class Regiao(models.Model):
-    """Representa uma Região de Suporte"""
-    nome = models.CharField(max_length=100, unique=True)
-    descricao = models.TextField(null=True, blank=True)
-    data_criacao = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        verbose_name = 'Região'
-        verbose_name_plural = 'Regiões'
-        ordering = ['nome']
-
-    def __str__(self):
-        return self.nome
-
-
 class User(AbstractUser):
     """Usuário customizado do sistema"""
     PERFIL_VENDEDOR = 'VENDEDOR'
@@ -70,26 +55,6 @@ class User(AbstractUser):
         related_name='vendedores'
     )
     telefone = models.CharField(max_length=20, null=True, blank=True)
-    
-    REGIAO_SUPORTE_CHOICES = [
-        ('MATRIZ', 'Matriz'),
-        ('PERNAMBUCO', 'Pernambuco'),
-        ('CEARA', 'Ceará'),
-    ]
-    suporte_regiao = models.CharField(
-        max_length=50,
-        choices=REGIAO_SUPORTE_CHOICES,
-        null=True,
-        blank=True,
-        help_text='Região de suporte padrão para este usuário (LEGACY)'
-    )
-    regiao = models.ForeignKey(
-        Regiao,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='usuarios'
-    )
     
     class Meta:
         verbose_name = 'Usuário'
@@ -376,19 +341,13 @@ class Oportunidade(models.Model):
         help_text='Contato que indicou esta oportunidade'
     )
     
-    suporte_regiao = models.CharField(
-        max_length=50,
-        choices=User.REGIAO_SUPORTE_CHOICES,
-        null=True,
-        blank=True,
-        help_text='LEGACY'
-    )
-    regiao = models.ForeignKey(
-        Regiao,
+    canal = models.ForeignKey(
+        Canal,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='oportunidades'
+        related_name='oportunidades',
+        help_text='Canal responsável pelo suporte/faturamento'
     )
     
     descricao = models.TextField(null=True, blank=True)

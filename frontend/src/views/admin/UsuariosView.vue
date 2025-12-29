@@ -17,16 +17,7 @@
             <option value="VENDEDOR">Vendedor</option>
           </select>
         </div>
-        <div>
-          <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Região de Suporte</label>
-          <select v-model="filterRegiao" @change="loadUsuarios" class="input text-sm">
-            <option value="">Todas as Regiões</option>
-            <option v-for="reg in regioes" :key="reg.id" :value="reg.id">
-              {{ reg.nome }}
-            </option>
-          </select>
-        </div>
-        <div class="flex items-end">
+       <div class="flex items-end">
           <button @click="resetFilters" class="text-xs font-bold text-primary-600 hover:text-primary-700 uppercase tracking-widest flex items-center p-2">
             Limpar Filtros
           </button>
@@ -48,9 +39,8 @@
                 <th class="table-header">Nome</th>
                 <th class="table-header">Email</th>
                 <th class="table-header">Perfil</th>
-                <th class="table-header">Canal</th>
-                <th class="table-header">Região</th>
-                <th class="table-header">Status</th>
+                <th class="table-header">Canal / Região</th>
+               <th class="table-header">Status</th>
                 <th class="table-header text-right">Ações</th>
               </tr>
             </thead>
@@ -66,14 +56,8 @@
                     {{ getPerfilLabel(usuario.perfil) }}
                   </span>
                 </td>
-                <td class="table-cell text-gray-500">{{ usuario.canal_nome || 'N/A' }}</td>
-                <td class="table-cell">
-                   <span v-if="usuario.regiao_nome && usuario.regiao_nome !== 'N/A' && usuario.regiao_nome !== 'Global'" class="text-[10px] bg-slate-100 px-2 py-0.5 rounded font-bold text-slate-600 uppercase">
-                     {{ usuario.regiao_nome }}
-                   </span>
-                   <span v-else class="text-[10px] text-gray-300 italic">Global</span>
-                </td>
-                <td class="table-cell">
+                <td class="table-cell text-gray-500 font-bold">{{ usuario.canal_nome || 'Global' }}</td>
+               <td class="table-cell">
                   <span :class="usuario.is_active ? 'text-green-600 font-medium' : 'text-red-600 font-medium'">
                     {{ usuario.is_active ? 'Ativo' : 'Inativo' }}
                   </span>
@@ -110,11 +94,10 @@
             <div class="flex items-center justify-between mt-4">
                <div>
                   <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Canal / Região</p>
-                  <p class="text-xs font-medium text-gray-700">
-                    {{ usuario.canal_nome || 'N/A' }} 
-                    <span v-if="usuario.regiao_nome && usuario.regiao_nome !== 'N/A' && usuario.regiao_nome !== 'Global'" class="text-primary-600">({{ usuario.regiao_nome }})</span>
+                  <p class="text-xs font-bold text-primary-600">
+                    {{ usuario.canal_nome || 'Global' }} 
                   </p>
-               </div>
+             </div>
                <div class="text-right">
                   <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Status</p>
                   <span :class="[usuario.is_active ? 'text-green-600' : 'text-red-600', 'text-xs font-bold uppercase']">
@@ -155,15 +138,12 @@ const showModal = ref(false)
 const selectedUsuario = ref(null)
 
 const filterPerfil = ref('')
-const filterRegiao = ref('')
-const regioes = ref([])
 
 async function loadUsuarios() {
   loading.value = true
   try {
     const params = {}
     if (filterPerfil.value) params.perfil = filterPerfil.value
-    if (filterRegiao.value) params.regiao = filterRegiao.value
     
     const response = await api.get('/usuarios/', { params })
     usuarios.value = response.data.results || response.data
@@ -174,18 +154,8 @@ async function loadUsuarios() {
   }
 }
 
-async function loadRegioes() {
-  try {
-    const response = await api.get('/regioes/')
-    regioes.value = response.data.results || response.data
-  } catch (error) {
-    console.error('Erro ao carregar regiões:', error)
-  }
-}
-
 function resetFilters() {
   filterPerfil.value = ''
-  filterRegiao.value = ''
   loadUsuarios()
 }
 
@@ -236,6 +206,5 @@ function getPerfilClass(perfil) {
 }
 onMounted(() => {
   loadUsuarios()
-  loadRegioes()
 })
 </script>

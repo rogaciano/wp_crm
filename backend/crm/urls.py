@@ -4,7 +4,7 @@ URLs da API do CRM
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    CanalViewSet, UserViewSet, RegiaoViewSet, LeadViewSet, ContaViewSet,
+    CanalViewSet, UserViewSet, LeadViewSet, ContaViewSet,
     ContatoViewSet, EstagioFunilViewSet, OportunidadeViewSet, AtividadeViewSet,
     DiagnosticoViewSet, PlanoViewSet, PlanoAdicionalViewSet
 )
@@ -14,7 +14,6 @@ router = DefaultRouter()
 router.register(r'dashboard', DashboardViewSet, basename='dashboard')
 router.register(r'canais', CanalViewSet, basename='canal')
 router.register(r'usuarios', UserViewSet, basename='usuario')
-router.register(r'regioes', RegiaoViewSet, basename='regiao')
 router.register(r'leads', LeadViewSet, basename='lead')
 router.register(r'contas', ContaViewSet, basename='conta')
 router.register(r'contatos', ContatoViewSet, basename='contato')

@@ -124,16 +124,16 @@
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Região de Suporte <span class="text-red-500">*</span></label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Canal de Suporte (Faturamento) <span class="text-red-500">*</span></label>
           <select 
-            v-model="form.regiao" 
+            v-model="form.canal" 
             required 
             class="input disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
-            :disabled="!!userRegiao"
+            :disabled="!!userCanal"
           >
-            <option value="">Selecione...</option>
-            <option v-for="reg in regioes" :key="reg.id" :value="reg.id">
-              {{ reg.nome }}
+            <option value="">Selecione o canal...</option>
+            <option v-for="canal in canais" :key="canal.id" :value="canal.id">
+              {{ canal.nome }}
             </option>
           </select>
         </div>
@@ -190,10 +190,10 @@ const planos = ref([])
 const planoAdicionais = ref([])
 const contatos = ref([])
 const estagios = ref([])
-const regioes = ref([])
+const canais = ref([])
 
 const authStore = useAuthStore()
-const userRegiao = computed(() => authStore.user?.regiao)
+const userCanal = computed(() => authStore.user?.canal)
 
 const form = ref({
   plano: '',
@@ -203,7 +203,7 @@ const form = ref({
   cupom_desconto: '',
   forma_pagamento: '',
   indicador_comissao: '',
-  regiao: ''
+  canal: ''
 })
 
 const adicionais_itens = ref([])
@@ -233,7 +233,7 @@ watch(() => props.oportunidade, (newOpp) => {
       cupom_desconto: newOpp.cupom_desconto || '',
       forma_pagamento: newOpp.forma_pagamento || '',
       indicador_comissao: newOpp.indicador_comissao || '',
-      regiao: newOpp.regiao || userRegiao.value || ''
+      canal: newOpp.canal || userCanal.value || ''
     }
     adicionais_itens.value = newOpp.adicionais_detalhes?.map(d => ({
       adicional: d.adicional,
@@ -244,18 +244,18 @@ watch(() => props.oportunidade, (newOpp) => {
 
 async function loadOptions() {
   try {
-    const [planosRes, adicionaisRes, contatosRes, estagiosRes, regioesRes] = await Promise.all([
+    const [planosRes, adicionaisRes, contatosRes, estagiosRes, canaisRes] = await Promise.all([
       api.get('/planos/'),
       api.get('/adicionais-plano/'),
       api.get('/contatos/'),
       api.get('/estagios-funil/'),
-      api.get('/regioes/')
+      api.get('/canais/')
     ])
     planos.value = planosRes.data.results || planosRes.data
     planoAdicionais.value = adicionaisRes.data.results || adicionaisRes.data
     contatos.value = contatosRes.data.results || contatosRes.data
     estagios.value = estagiosRes.data.results || estagiosRes.data
-    regioes.value = regioesRes.data.results || regioesRes.data
+    canais.value = canaisRes.data.results || canaisRes.data
   } catch (error) {
     console.error('Erro ao carregar opções:', error)
   }
