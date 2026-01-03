@@ -1,11 +1,18 @@
 <template>
   <div v-if="conta">
-    <div class="mb-6">
-      <button @click="$router.back()" class="text-primary-600 hover:text-primary-700 mb-4">
-        ← Voltar
+    <div class="mb-6 flex justify-between items-start">
+      <div>
+        <button @click="$router.back()" class="text-primary-600 hover:text-primary-700 mb-4 flex items-center">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          Voltar
+        </button>
+        <h1 class="text-3xl font-bold text-gray-900">{{ conta.nome_empresa }}</h1>
+        <p v-if="conta.cnpj" class="text-gray-600 mt-1">CNPJ: {{ conta.cnpj }}</p>
+      </div>
+      <button @click="openEditContaModal" class="btn btn-secondary flex items-center mt-8">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+        Editar Conta
       </button>
-      <h1 class="text-3xl font-bold text-gray-900">{{ conta.nome_empresa }}</h1>
-      <p v-if="conta.cnpj" class="text-gray-600 mt-1">CNPJ: {{ conta.cnpj }}</p>
     </div>
 
     <!-- Informações Gerais -->
@@ -180,6 +187,13 @@
     @close="showOportunidadeModal = false"
     @saved="refreshOportunidades"
   />
+
+  <ContaModal
+    :show="showEditContaModal"
+    :conta="conta"
+    @close="showEditContaModal = false"
+    @saved="loadContaData"
+  />
 </template>
 
 <script setup>
@@ -188,6 +202,7 @@ import { useRoute } from 'vue-router'
 import api from '@/services/api'
 import ContatoModal from '@/components/ContatoModal.vue'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
+import ContaModal from '@/components/ContaModal.vue'
 
 const route = useRoute()
 const conta = ref(null)
@@ -196,6 +211,7 @@ const oportunidades = ref([])
 const loading = ref(false)
 const activeTab = ref('contatos')
 
+const showEditContaModal = ref(false)
 const showContactModal = ref(false)
 const selectedContato = ref(null)
 
@@ -220,6 +236,31 @@ async function refreshContacts() {
 function openOportunidadeModal(oportunidade = null) {
   selectedOportunidade.value = oportunidade
   showOportunidadeModal.value = true
+}
+
+function openEditContaModal() {
+  showEditContaModal.value = true
+}
+
+async function loadContaData() {
+  loading.value = true
+  try {
+    const contaId = route.params.id
+    
+    const [contaRes, contatosRes, oportunidadesRes] = await Promise.all([
+      api.get(`/contas/${contaId}/`),
+      api.get(`/contas/${contaId}/contatos/`),
+      api.get(`/contas/${contaId}/oportunidades/`)
+    ])
+    
+    conta.value = contaRes.data
+    contatos.value = contatosRes.data
+    oportunidades.value = oportunidadesRes.data
+  } catch (error) {
+    console.error('Erro ao carregar conta:', error)
+  } finally {
+    loading.value = false
+  }
 }
 
 async function refreshOportunidades() {
@@ -250,23 +291,6 @@ const valorTotal = computed(() => {
 })
 
 onMounted(async () => {
-  loading.value = true
-  try {
-    const contaId = route.params.id
-    
-    const [contaRes, contatosRes, oportunidadesRes] = await Promise.all([
-      api.get(`/contas/${contaId}/`),
-      api.get(`/contas/${contaId}/contatos/`),
-      api.get(`/contas/${contaId}/oportunidades/`)
-    ])
-    
-    conta.value = contaRes.data
-    contatos.value = contatosRes.data
-    oportunidades.value = oportunidadesRes.data
-  } catch (error) {
-    console.error('Erro ao carregar conta:', error)
-  } finally {
-    loading.value = false
-  }
+  await loadContaData()
 })
 </script>
