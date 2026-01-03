@@ -99,11 +99,11 @@ class FunilViewSet(viewsets.ModelViewSet):
             return Funil.objects.all()
         
         # Para outros perfis, vê funis que tem acesso explícito
-        # Mas para garantir que o Responsável veja os funis básicos de venda/lead:
+        # Mas para garantir que Responsável e Vendedor vejam os funis básicos:
         funis_acesso = user.funis_acesso.filter(is_active=True)
-        if not funis_acesso.exists() and user.perfil == 'RESPONSAVEL':
-            # Fallback para responsáveis se não houver acesso explícito: 
-            # vê funis ativos do sistema (ou pelo menos os padrões)
+        if not funis_acesso.exists() and user.perfil in ['RESPONSAVEL', 'VENDEDOR']:
+            # Fallback para responsáveis e vendedores se não houver acesso explícito: 
+            # vê funis ativos do sistema
             return Funil.objects.filter(is_active=True)
             
         return funis_acesso
