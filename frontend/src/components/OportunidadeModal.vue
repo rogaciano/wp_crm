@@ -158,7 +158,8 @@ const authStore = useAuthStore()
 
 const props = defineProps({
   show: Boolean,
-  oportunidade: Object
+  oportunidade: Object,
+  fixedContaId: [Number, String]
 })
 
 const emit = defineEmits(['close', 'saved'])
@@ -199,6 +200,9 @@ const isGanho = computed(() => {
 watch(() => props.show, async (newVal) => {
   if (newVal) {
     await loadOptions()
+    if (props.fixedContaId && !isEdit.value) {
+      form.value.conta = props.fixedContaId
+    }
   }
 })
 
@@ -303,7 +307,7 @@ async function copyBillingText() {
 function resetForm() {
   form.value = {
     nome: '',
-    conta: '',
+    conta: props.fixedContaId || '',
     contato_principal: '',
     funil: null,
     estagio: null,

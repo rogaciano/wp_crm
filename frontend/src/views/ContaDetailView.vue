@@ -127,6 +127,10 @@
 
       <!-- Oportunidades Tab -->
       <div v-if="activeTab === 'oportunidades'">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-medium text-gray-900">Lista de Oportunidades</h3>
+          <button @click="openOportunidadeModal()" class="btn btn-primary text-xs">+ Adicionar Oportunidade</button>
+        </div>
         <div class="space-y-4">
           <div
             v-for="oportunidade in oportunidades"
@@ -137,13 +141,16 @@
               <h3 class="font-medium text-gray-900">{{ oportunidade.nome }}</h3>
               <p class="text-sm text-gray-500">{{ oportunidade.estagio_nome }}</p>
             </div>
-            <div class="text-right">
-              <p class="font-semibold text-green-600">
-                R$ {{ Number(oportunidade.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
-              </p>
-              <p v-if="oportunidade.probabilidade" class="text-sm text-gray-500">
-                {{ oportunidade.probabilidade }}% prob.
-              </p>
+            <div class="flex items-center space-x-4">
+              <div class="text-right">
+                <p class="font-semibold text-green-600">
+                  R$ {{ Number(oportunidade.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+                </p>
+                <p v-if="oportunidade.probabilidade" class="text-sm text-gray-500">
+                  {{ oportunidade.probabilidade }}% prob.
+                </p>
+              </div>
+              <button @click="openOportunidadeModal(oportunidade)" class="text-primary-600 hover:text-primary-900 text-sm">Editar</button>
             </div>
           </div>
           <p v-if="oportunidades.length === 0" class="text-center text-gray-500 py-8">
@@ -165,6 +172,14 @@
     @close="showContactModal = false"
     @saved="refreshContacts"
   />
+
+  <OportunidadeModal
+    :show="showOportunidadeModal"
+    :oportunidade="selectedOportunidade"
+    :fixed-conta-id="conta?.id"
+    @close="showOportunidadeModal = false"
+    @saved="refreshOportunidades"
+  />
 </template>
 
 <script setup>
@@ -172,6 +187,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/services/api'
 import ContatoModal from '@/components/ContatoModal.vue'
+import OportunidadeModal from '@/components/OportunidadeModal.vue'
 
 const route = useRoute()
 const conta = ref(null)
@@ -182,6 +198,9 @@ const activeTab = ref('contatos')
 
 const showContactModal = ref(false)
 const selectedContato = ref(null)
+
+const showOportunidadeModal = ref(false)
+const selectedOportunidade = ref(null)
 
 function openContactModal(contato = null) {
   selectedContato.value = contato
@@ -195,6 +214,21 @@ async function refreshContacts() {
     contatos.value = res.data
   } catch (error) {
     console.error('Erro ao atualizar contatos:', error)
+  }
+}
+
+function openOportunidadeModal(oportunidade = null) {
+  selectedOportunidade.value = oportunidade
+  showOportunidadeModal.value = true
+}
+
+async function refreshOportunidades() {
+  const contaId = route.params.id
+  try {
+    const res = await api.get(`/contas/${contaId}/oportunidades/`)
+    oportunidades.value = res.data
+  } catch (error) {
+    console.error('Erro ao atualizar oportunidades:', error)
   }
 }
 
