@@ -2,12 +2,43 @@
   <div>
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
       <div>
-        <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Pipeline de Vendas</h1>
-        <p class="text-gray-500 mt-1">Gerencie suas oportunidades no funil</p>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
+          {{ selectedFunil?.tipo === 'LEAD' ? 'Funil SDR (Leads)' : 'Pipeline de Vendas' }}
+        </h1>
+        <p class="text-gray-500 mt-1">
+          {{ selectedFunil?.nome || 'Gerencie seu processo' }}
+        </p>
       </div>
-      <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-sm">
-        + Nova Oportunidade
-      </button>
+      
+      <div class="flex flex-col sm:flex-row gap-2">
+        <!-- Funnel Selector -->
+        <select 
+          v-model="activeFunilId" 
+          @change="onFunilChange"
+          class="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          <option v-for="funil in funis" :key="funil.id" :value="funil.id">
+            {{ funil.nome }}
+          </option>
+        </select>
+
+        <!-- Canal Selector (For Admin) -->
+        <select 
+          v-if="authStore.isAdmin"
+          v-model="activeCanalId" 
+          @change="onCanalChange"
+          class="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          <option :value="null">Todos os Canais</option>
+          <option v-for="canal in canais" :key="canal.id" :value="canal.id">
+            {{ canal.nome }}
+          </option>
+        </select>
+
+        <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-sm">
+          {{ selectedFunil?.tipo === 'LEAD' ? '+ Novo Lead' : '+ Nova Oportunidade' }}
+        </button>
+      </div>
     </div>
 
     <!-- Mobile Stage Selector -->
@@ -23,7 +54,7 @@
           color: activeStage === coluna.estagio.id ? '#fff' : coluna.estagio.cor
         }"
       >
-        {{ coluna.estagio.nome }} ({{ coluna.oportunidades.length }})
+        {{ coluna.estagio.nome }} ({{ coluna.items.length }})
       </button>
     </div>
 
@@ -55,11 +86,11 @@
             <div class="flex justify-between items-center">
               <h3 class="font-bold text-gray-900 truncate">{{ coluna.estagio.nome }}</h3>
               <span class="text-[10px] font-black bg-white px-2 py-0.5 rounded-full border border-gray-100">
-                {{ coluna.oportunidades.length }}
+                {{ coluna.items.length }}
               </span>
             </div>
-            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-               Total: R$ {{ calcularTotalColuna(coluna.oportunidades).toLocaleString() }}
+            <p v-if="selectedFunil?.tipo === 'OPORTUNIDADE'" class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+               Total: R$ {{ calcularTotalColuna(coluna.items).toLocaleString() }}
             </p>
           </div>
 
@@ -72,49 +103,67 @@
             @dragenter.prevent
           >
             <div
-              v-for="oportunidade in coluna.oportunidades"
-              :key="oportunidade.id"
+              v-for="item in coluna.items"
+              :key="item.id"
               draggable="true"
-              @dragstart="onDragStart($event, oportunidade)"
-              @click="editOportunidade(oportunidade)"
+              @dragstart="onDragStart($event, item)"
+              @click="editItem(item)"
               class="bg-white border border-gray-100 rounded-xl p-4 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-primary-100 transition-all duration-200 group relative"
             >
-              <h4 class="font-bold text-gray-900 mb-2 leading-tight group-hover:text-primary-600">{{ oportunidade.nome }}</h4>
+              <h4 class="font-bold text-gray-900 mb-2 leading-tight group-hover:text-primary-600">{{ item.nome }}</h4>
               
               <div class="text-[11px] text-gray-500 space-y-2">
                 <p class="flex items-center font-medium">
                   <svg class="w-3.5 h-3.5 mr-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    <path v-if="selectedFunil?.tipo === 'OPORTUNIDADE'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
-                  {{ oportunidade.conta_nome }}
+                  {{ selectedFunil?.tipo === 'OPORTUNIDADE' ? item.conta_nome : (item.email || item.empresa || 'N/A') }}
                 </p>
                 
-                <div class="flex justify-between items-end mt-4">
+                <div v-if="selectedFunil?.tipo === 'OPORTUNIDADE'" class="flex justify-between items-end mt-4">
                   <div>
-                    <p v-if="oportunidade.valor_estimado" class="text-sm font-black text-green-600">
-                      R$ {{ Number(oportunidade.valor_estimado).toLocaleString('pt-BR') }}
+                    <p v-if="item.valor_estimado" class="text-sm font-black text-green-600">
+                      R$ {{ Number(item.valor_estimado).toLocaleString('pt-BR') }}
                     </p>
-                    <p v-if="oportunidade.data_fechamento_esperada" class="text-[10px] font-bold text-gray-400 mt-1">
-                      {{ formatDate(oportunidade.data_fechamento_esperada) }}
+                    <p v-if="item.data_fechamento_esperada" class="text-[10px] font-bold text-gray-400 mt-1">
+                      {{ formatDate(item.data_fechamento_esperada) }}
                     </p>
                   </div>
                   <div class="text-right">
-                    <div v-if="oportunidade.probabilidade" class="w-12 h-1 bg-gray-100 rounded-full overflow-hidden mb-1">
-                       <div class="h-full bg-primary-500" :style="{ width: oportunidade.probabilidade + '%' }"></div>
+                    <div v-if="item.probabilidade" class="w-12 h-1 bg-gray-100 rounded-full overflow-hidden mb-1">
+                       <div class="h-full bg-primary-500" :style="{ width: item.probabilidade + '%' }"></div>
                     </div>
-                    <span class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">{{ oportunidade.probabilidade }}%</span>
+                    <span class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">{{ item.probabilidade }}%</span>
                   </div>
+                </div>
+
+                <div class="mt-4 flex flex-col space-y-1">
+                   <p v-if="item.indicador_nome" class="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter flex items-center">
+                     <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                     Ind: {{ item.indicador_nome }}
+                   </p>
+                   <p class="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{{ item.fonte || 'Fonte não informada' }}</p>
                 </div>
               </div>
 
-              <!-- Quick Edit Icon (Desktop only hint) -->
-              <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                 <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+              <div class="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                 <button 
+                  v-if="selectedFunil?.tipo === 'OPORTUNIDADE'"
+                  @click.stop="copyBillingInfo(item.id)" 
+                  class="p-1 bg-white shadow-sm border border-gray-100 rounded text-indigo-500 hover:text-indigo-700 hover:border-indigo-100 transition-all"
+                  title="Copiar texto de faturamento"
+                 >
+                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
+                 </button>
+                 <button @click.stop="editItem(item)" class="p-1 bg-white shadow-sm border border-gray-100 rounded text-gray-300 hover:text-primary-500 hover:border-primary-100 transition-all">
+                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                 </button>
               </div>
             </div>
             
             <!-- Empty column hint -->
-            <div v-if="coluna.oportunidades.length === 0" class="h-32 border-2 border-dashed border-gray-50 rounded-xl flex items-center justify-center">
+            <div v-if="coluna.items.length === 0" class="h-32 border-2 border-dashed border-gray-50 rounded-xl flex items-center justify-center">
                <p class="text-xs text-gray-300 font-bold uppercase tracking-widest">Vazio</p>
             </div>
           </div>
@@ -129,24 +178,46 @@
       @close="closeModal"
       @saved="handleSaved"
     />
+
+    <LeadModal
+      :show="showLeadModal"
+      :lead="selectedLead"
+      :initialFunilId="activeFunilId"
+      @close="showLeadModal = false"
+      @saved="handleSaved"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useOportunidadesStore } from '@/stores/oportunidades'
+import { useAuthStore } from '@/stores/auth'
 import { storeToRefs } from 'pinia'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
+import LeadModal from '@/components/LeadModal.vue'
+import api from '@/services/api'
+
+const authStore = useAuthStore()
 
 const oportunidadesStore = useOportunidadesStore()
-const { kanbanData, loading, error } = storeToRefs(oportunidadesStore)
+const { kanbanData, loading, error, funis } = storeToRefs(oportunidadesStore)
 
+const activeFunilId = ref(null)
+const activeCanalId = ref(null)
+const canais = ref([])
 const showModal = ref(false)
+const showLeadModal = ref(false)
 const selectedOportunidade = ref(null)
+const selectedLead = ref(null)
 const draggedItem = ref(null)
 
 const activeStage = ref(null)
 const kanbanContainer = ref(null)
+
+const selectedFunil = computed(() => {
+  return funis.value.find(f => f.id === activeFunilId.value) || funis.value[0]
+})
 
 function calcularTotalColuna(oportunidades) {
   return oportunidades.reduce((acc, curr) => acc + (Number(curr.valor_estimado) || 0), 0)
@@ -164,7 +235,6 @@ function updateActiveStage() {
   if (!kanbanContainer.value || !kanbanData.value.length) return
   const container = kanbanContainer.value
   const scrollLeft = container.scrollLeft
-  const width = container.offsetWidth
   
   // Find which column is most visible
   const index = Math.round(scrollLeft / 280) // 280 is mobile column width
@@ -174,36 +244,67 @@ function updateActiveStage() {
 }
 
 onMounted(async () => {
-  await loadKanban()
+  await fetchFunnels()
+  if (authStore.isAdmin) {
+    await fetchCanais()
+  }
 })
 
+async function fetchCanais() {
+  try {
+    const response = await api.get('/canais/')
+    canais.value = response.data.results || response.data
+  } catch (err) {
+    console.error('Erro ao carregar canais:', err)
+  }
+}
+
+async function fetchFunnels() {
+  const list = await oportunidadesStore.fetchFunis()
+  if (list && list.length > 0) {
+    activeFunilId.value = list[0].id
+    await loadKanban()
+  }
+}
+
 async function loadKanban() {
-  await oportunidadesStore.fetchKanban()
-  if (kanbanData.value?.length && !activeStage.value) {
+  await oportunidadesStore.fetchKanban(activeFunilId.value, activeCanalId.value)
+  if (kanbanData.value?.length) {
     activeStage.value = kanbanData.value[0].estagio.id
   }
 }
 
-function onDragStart(event, oportunidade) {
-  draggedItem.value = oportunidade
+async function onCanalChange() {
+  await loadKanban()
+}
+
+async function onFunilChange() {
+  await loadKanban()
+}
+
+function onDragStart(event, item) {
+  draggedItem.value = item
   event.dataTransfer.effectAllowed = 'move'
 }
 
 async function onDrop(event, novoEstagioId) {
   event.preventDefault()
-  
   if (!draggedItem.value) return
   
-  const oportunidadeId = draggedItem.value.id
+  const itemId = draggedItem.value.id
   const estagioAtualId = draggedItem.value.estagio
   
   if (estagioAtualId === novoEstagioId) return
   
   try {
-    await oportunidadesStore.mudarEstagio(oportunidadeId, novoEstagioId)
+    if (selectedFunil.value?.tipo === 'LEAD') {
+      await api.patch(`/leads/${itemId}/mudar_estagio/`, { estagio_id: novoEstagioId })
+      await loadKanban()
+    } else {
+      await oportunidadesStore.mudarEstagio(itemId, novoEstagioId)
+    }
   } catch (error) {
-    console.error('Erro ao mover oportunidade:', error)
-    // O erro já está sendo tratado no store e será exibido pelo v-if="error"
+    console.error('Erro ao mover item:', error)
   }
   
   draggedItem.value = null
@@ -216,13 +317,23 @@ function formatDate(dateString) {
 }
 
 function openCreateModal() {
-  selectedOportunidade.value = null
-  showModal.value = true
+  if (selectedFunil.value?.tipo === 'LEAD') {
+    selectedLead.value = null
+    showLeadModal.value = true
+  } else {
+    selectedOportunidade.value = null
+    showModal.value = true
+  }
 }
 
-function editOportunidade(oportunidade) {
-  selectedOportunidade.value = oportunidade
-  showModal.value = true
+function editItem(item) {
+  if (selectedFunil.value?.tipo === 'LEAD') {
+    selectedLead.value = item
+    showLeadModal.value = true
+  } else {
+    selectedOportunidade.value = item
+    showModal.value = true
+  }
 }
 
 function closeModal() {
@@ -231,9 +342,19 @@ function closeModal() {
 }
 
 async function handleSaved() {
-  // O modal já chamou create/update que dispara o fetchKanban no store
-  // Mas como o modal não chama fetchKanban diretamente (depende do store),
-  // e o store do kanban é o mesmo, a atualização deve ser automática.
-  // No entanto, create/update no store chamam fetchKanban.
+  await loadKanban()
+}
+
+async function copyBillingInfo(id) {
+  try {
+    const response = await api.get(`/oportunidades/${id}/gerar_texto_faturamento/`)
+    const texto = response.data.texto
+    
+    await navigator.clipboard.writeText(texto)
+    alert('Texto de faturamento copiado para a área de transferência! 📋')
+  } catch (error) {
+    console.error('Erro ao gerar texto:', error)
+    alert('Erro ao gerar texto de faturamento. Verifique se o plano está selecionado na oportunidade.')
+  }
 }
 </script>

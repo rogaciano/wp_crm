@@ -4,32 +4,60 @@ Views da API do CRM
 from rest_framework import viewsets, status, filters, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from django.db import transaction
 from django.db.models import Q, Sum, Count, Avg
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import (
-    Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
+    Canal, User, Lead, Conta, Contato, TipoContato, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
     Plano, PlanoAdicional
 )
 from .serializers import (
     CanalSerializer, UserSerializer, LeadSerializer, ContaSerializer,
-    ContatoSerializer, EstagioFunilSerializer, OportunidadeSerializer,
+    ContatoSerializer, TipoContatoSerializer, EstagioFunilSerializer, FunilEstagioSerializer, OportunidadeSerializer,
     OportunidadeKanbanSerializer, AtividadeSerializer, LeadConversaoSerializer,
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
-    PlanoSerializer, PlanoAdicionalSerializer
+    PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer
 )
 from .services.ai_service import gerar_analise_diagnostico
 from .permissions import HierarchyPermission, IsAdminUser
 from django.utils import timezone
 
 
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
+
+
 class CanalViewSet(viewsets.ModelViewSet):
-    """ViewSet para Canais (apenas Admin)"""
-    queryset = Canal.objects.all()
+    """ViewSet para Canais (CRUD apenas Admin, leitura para autenticados)"""
     serializer_class = CanalSerializer
-    permission_classes = [IsAdminUser]
+    
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.perfil == 'ADMIN':
+            return Canal.objects.all()
+        
+        # Responsável e Vendedor veem apenas o canal que pertencem 
+        # ou que gerenciam (no caso do responsável)
+        from django.db.models import Q
+        q_filter = Q()
+        if user.canal_id:
+            q_filter |= Q(id=user.canal_id)
+        
+        if user.perfil == 'RESPONSAVEL':
+            q_filter |= Q(responsavel=user)
+            
+        return Canal.objects.filter(q_filter).distinct()
+
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['nome']
     ordering_fields = ['nome', 'data_criacao']
@@ -55,25 +83,192 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+class FunilViewSet(viewsets.ModelViewSet):
+    """ViewSet para Funis"""
+    serializer_class = FunilSerializer
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [permissions.IsAuthenticated()]
+    
+    def get_queryset(self):
+        user = self.request.user
+        # Admin vê todos para gestão
+        if user.perfil == 'ADMIN':
+            return Funil.objects.all()
+        
+        # Para outros perfis, vê funis que tem acesso explícito
+        # Mas para garantir que o Responsável veja os funis básicos de venda/lead:
+        funis_acesso = user.funis_acesso.filter(is_active=True)
+        if not funis_acesso.exists() and user.perfil == 'RESPONSAVEL':
+            # Fallback para responsáveis se não houver acesso explícito: 
+            # vê funis ativos do sistema (ou pelo menos os padrões)
+            return Funil.objects.filter(is_active=True)
+            
+        return funis_acesso
+
+    @action(detail=True, methods=['get'])
+    def estagios(self, request, pk=None):
+        """Lista estágios de um funil específico via tabela de ligação"""
+        funil = self.get_object()
+        vinculos = FunilEstagio.objects.filter(funil=funil).order_by('ordem')
+        serializer = FunilEstagioSerializer(vinculos, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def atualizar_estagios(self, request, pk=None):
+        """Atualiza a lista de estágios e sua ordem para o funil"""
+        funil = self.get_object()
+        # Lista de dicionários [{'estagio_id': 1, 'ordem': 0, 'is_padrao': True}, ...]
+        estagios_data = request.data.get('estagios', [])
+        
+        try:
+            with transaction.atomic():
+                # Remove vínculos atuais? 
+                # (Melhor remover e recriar para garantir a ordem e seleção exata do usuário)
+                FunilEstagio.objects.filter(funil=funil).delete()
+                
+                for item in estagios_data:
+                    FunilEstagio.objects.create(
+                        funil=funil,
+                        estagio_id=item['estagio_id'],
+                        ordem=item.get('ordem', 0),
+                        is_padrao=item.get('is_padrao', False)
+                    )
+            
+            return Response({'status': 'estágios atualizados'})
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
+
 class LeadViewSet(viewsets.ModelViewSet):
     """ViewSet para Leads"""
     serializer_class = LeadSerializer
     permission_classes = [HierarchyPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'fonte']
+    filterset_fields = ['status', 'fonte', 'funil', 'estagio', 'canal']
     search_fields = ['nome', 'email', 'empresa']
     ordering_fields = ['nome', 'data_criacao']
     
     def get_queryset(self):
-        """Aplica filtros de hierarquia"""
+        """Aplica filtros de hierarquia e funis de acesso"""
         user = self.request.user
         
         if user.perfil == 'ADMIN':
-            return Lead.objects.all()
+            queryset = Lead.objects.all()
         elif user.perfil == 'RESPONSAVEL':
-            return Lead.objects.filter(proprietario__canal=user.canal)
+            # Vê leads do seu canal E de funis que tem acesso
+            queryset = Lead.objects.filter(
+                Q(canal=user.canal) | Q(proprietario__canal=user.canal)
+            ).filter(funil__in=user.funis_acesso.all()).distinct()
         else:  # VENDEDOR
-            return Lead.objects.filter(proprietario=user)
+            # Vê seus leads (ou do canal se preferir, mas user disse 'vinculados aos seus Funis/canal')
+            # Vou manter a trava de proprietário para vendedor mas adicionar funil_acesso
+            queryset = Lead.objects.filter(
+                proprietario=user,
+                funil__in=user.funis_acesso.all()
+            )
+            
+        return queryset.select_related('funil', 'estagio', 'proprietario', 'canal')
+
+    def perform_create(self, serializer):
+        # Se não forneceu estágio, busca o padrão do funil
+        estagio = serializer.validated_data.get('estagio')
+        funil = serializer.validated_data.get('funil')
+        
+        if not estagio and funil:
+            vinculo_padrao = FunilEstagio.objects.filter(funil=funil, is_padrao=True).first()
+            if not vinculo_padrao:
+                # Se não houver marcado como padrão, pega o de menor ordem
+                vinculo_padrao = FunilEstagio.objects.filter(funil=funil).order_by('ordem').first()
+            
+            if vinculo_padrao:
+                estagio = vinculo_padrao.estagio
+        
+        # Atribui canal automaticamente se o usuário tiver um
+        canal = serializer.validated_data.get('canal')
+        if not canal and self.request.user.canal:
+            canal = self.request.user.canal
+            
+        serializer.save(
+            proprietario=self.request.user, 
+            estagio=estagio,
+            canal=canal
+        )
+
+    @action(detail=False, methods=['get'])
+    def kanban(self, request):
+        """Retorna leads agrupados por estágio para visão Kanban SDR"""
+        funil_id = request.query_params.get('funil_id')
+        
+        # Filtros de hierarquia já no get_queryset
+        queryset = self.get_queryset()
+        
+        if funil_id:
+            queryset = queryset.filter(funil_id=funil_id)
+        else:
+            # Padrão: primeiro funil de leads disponível para o usuário
+            user_funis = request.user.funis_acesso.filter(tipo=Funil.TIPO_LEAD) if request.user.perfil != 'ADMIN' else Funil.objects.filter(tipo=Funil.TIPO_LEAD)
+            funil = user_funis.first()
+            if funil:
+                queryset = queryset.filter(funil=funil)
+            else:
+                return Response({'error': 'Nenhum funil de Leads associado ao usuário'}, status=400)
+                
+        # Agrupa por estágios do funil selecionado via tabela de ligação
+        funil_selecionado_id = funil_id or (funil.id if 'funil' in locals() and funil else None)
+        vinculos = FunilEstagio.objects.filter(funil_id=funil_selecionado_id).select_related('estagio').order_by('ordem')
+        
+        # Serializamos apenas os leads necessários
+        serializer = LeadSerializer(queryset, many=True)
+        
+        kanban_data = []
+        for vinculo in vinculos:
+            leads_estagio = [
+                lead for lead in serializer.data
+                if lead.get('estagio') == vinculo.estagio_id
+            ]
+            # Montamos o objeto de estágio como o frontend espera
+            estagio_data = EstagioFunilSerializer(vinculo.estagio).data
+            estagio_data['ordem'] = vinculo.ordem
+            estagio_data['is_padrao'] = vinculo.is_padrao
+            
+            kanban_data.append({
+                'estagio': estagio_data,
+                'items': leads_estagio
+            })
+            
+        return Response(kanban_data)
+
+    @action(detail=True, methods=['patch'])
+    def mudar_estagio(self, request, pk=None):
+        """Muda o estágio de um lead (usado no drag-and-drop do Kanban)"""
+        lead = self.get_object()
+        novo_estagio_id = request.data.get('estagio_id')
+        
+        if not novo_estagio_id:
+            return Response(
+                {'error': 'estagio_id é obrigatório'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            with transaction.atomic():
+                novo_estagio = EstagioFunil.objects.get(id=novo_estagio_id)
+                lead.estagio = novo_estagio
+                lead.save()
+            
+            serializer = LeadSerializer(lead)
+            return Response(serializer.data)
+        
+        except EstagioFunil.DoesNotExist:
+            return Response(
+                {'error': 'Estágio não encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=True, methods=['post'])
     def converter(self, request, pk=None):
@@ -114,13 +309,24 @@ class LeadViewSet(viewsets.ModelViewSet):
                 # Cria Oportunidade se solicitado
                 oportunidade = None
                 if serializer.validated_data.get('criar_oportunidade', False):
-                    # Busca o primeiro estágio do funil
-                    primeiro_estagio = EstagioFunil.objects.filter(
-                        tipo=EstagioFunil.TIPO_ABERTO
-                    ).order_by('ordem').first()
+                    # Busca o funil de destino (pode vir no request ou ser o padrão de vendas do user)
+                    funil_id = request.data.get('funil_id')
+                    if funil_id:
+                        funil_venda = Funil.objects.get(id=funil_id)
+                    else:
+                        funil_venda = Funil.objects.filter(tipo=Funil.TIPO_OPORTUNIDADE).first()
+
+                    if not funil_venda:
+                        raise ValueError("Não foi possível criar a oportunidade: Nenhum funil de Vendas disponível.")
+
+                    # Busca o estágio padrão DESTE funil
+                    vinculo_estagio = FunilEstagio.objects.filter(funil=funil_venda, is_padrao=True).first() or \
+                                     FunilEstagio.objects.filter(funil=funil_venda).order_by('ordem').first()
                     
-                    if not primeiro_estagio:
-                        raise ValueError("Não foi possível criar a oportunidade: Nenhum estágio 'Aberto' encontrado no funil.")
+                    if not vinculo_estagio:
+                        raise ValueError(f"O funil '{funil_venda.nome}' não possui estágios configurados.")
+                    
+                    primeiro_estagio = vinculo_estagio.estagio
                     
                     nome_oportunidade = serializer.validated_data.get(
                         'nome_oportunidade',
@@ -163,6 +369,23 @@ class LeadViewSet(viewsets.ModelViewSet):
                 {'error': f'Falha na conversão: {str(e)}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+    @action(detail=True, methods=['patch'])
+    def mudar_estagio(self, request, pk=None):
+        """Muda o estágio de um lead"""
+        lead = self.get_object()
+        novo_estagio_id = request.data.get('estagio_id') or request.data.get('estagio')
+        
+        if not novo_estagio_id:
+            return Response({'error': 'estagio_id é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            estagio = EstagioFunil.objects.get(id=novo_estagio_id)
+            lead.estagio = estagio
+            lead.save()
+            return Response(self.get_serializer(lead).data)
+        except EstagioFunil.DoesNotExist:
+            return Response({'error': 'Estágio não encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
@@ -217,9 +440,24 @@ class ContaViewSet(viewsets.ModelViewSet):
         if user.perfil == 'ADMIN':
             return Conta.objects.all()
         elif user.perfil == 'RESPONSAVEL':
-            return Conta.objects.filter(proprietario__canal=user.canal)
-        else:
-            return Conta.objects.filter(proprietario=user)
+            return Conta.objects.filter(
+                Q(proprietario__canal=user.canal) | Q(canal=user.canal)
+            ).distinct()
+        else: # VENDEDOR
+            # Vê do seu canal
+            return Conta.objects.filter(
+                Q(proprietario__canal=user.canal) | Q(canal=user.canal)
+            ).distinct()
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        canal = serializer.validated_data.get('canal')
+        
+        # Se não for ADMIN ou não forneceu canal, usa o do usuário
+        if user.perfil != 'ADMIN' or not canal:
+            canal = user.canal
+            
+        serializer.save(proprietario=user, canal=canal)
     
     @action(detail=True, methods=['get'])
     def contatos(self, request, pk=None):
@@ -238,13 +476,24 @@ class ContaViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+class TipoContatoViewSet(viewsets.ModelViewSet):
+    """ViewSet para Tipos de Contato (CRUD apenas Admin, leitura para autenticados)"""
+    queryset = TipoContato.objects.all()
+    serializer_class = TipoContatoSerializer
+    
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
+
+
 class ContatoViewSet(viewsets.ModelViewSet):
     """ViewSet para Contatos"""
     serializer_class = ContatoSerializer
     permission_classes = [HierarchyPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['conta', 'cargo']
-    search_fields = ['nome', 'email', 'cargo']
+    filterset_fields = ['conta', 'tipo', 'tipo_contato', 'canal']
+    search_fields = ['nome', 'email', 'conta__nome_empresa']
     ordering_fields = ['nome', 'data_criacao']
     
     def get_queryset(self):
@@ -252,24 +501,40 @@ class ContatoViewSet(viewsets.ModelViewSet):
         
         if user.perfil == 'ADMIN':
             return Contato.objects.all()
-        elif user.perfil == 'RESPONSAVEL':
-            return Contato.objects.filter(proprietario__canal=user.canal)
-        else:
-            return Contato.objects.filter(proprietario=user)
+        elif user.perfil in ['RESPONSAVEL', 'VENDEDOR']:
+            # Vê contatos criados por ele/vendedores ou vinculados ao seu canal
+            return Contato.objects.filter(
+                Q(proprietario__canal=user.canal) | Q(canal=user.canal)
+            ).distinct()
+        return Contato.objects.filter(proprietario=user)
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        canal = serializer.validated_data.get('canal')
+        
+        # Se não for ADMIN ou não forneceu canal, usa o do usuário
+        if user.perfil != 'ADMIN' or not canal:
+            canal = user.canal
+            
+        serializer.save(proprietario=user, canal=canal)
 
 
 class EstagioFunilViewSet(viewsets.ModelViewSet):
-    """ViewSet para Estágios do Funil (Admin para CRUD, todos podem ler)"""
+    """ViewSet para Definições de Estágios (Admin para CRUD, todos podem ler)"""
     queryset = EstagioFunil.objects.all()
     serializer_class = EstagioFunilSerializer
-    filter_backends = [filters.OrderingFilter]
-    ordering_fields = ['ordem']
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['tipo', 'funis_vinculados']
+    search_fields = ['nome']
+    ordering_fields = ['nome']
     
     def get_permissions(self):
-        """Admin pode modificar, outros só podem ler"""
+        """Admin pode modificar, qualquer usuário autenticado pode ler"""
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
-        return [HierarchyPermission()]
+        # Estágios são definições globais do sistema, qualquer usuário autenticado pode ler
+        return [permissions.IsAuthenticated()]
 
 
 class OportunidadeViewSet(viewsets.ModelViewSet):
@@ -277,42 +542,103 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
     serializer_class = OportunidadeSerializer
     permission_classes = [HierarchyPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['estagio', 'conta', 'canal']
+    filterset_fields = ['estagio', 'conta', 'canal', 'funil']
     search_fields = ['nome', 'conta__nome_empresa']
     ordering_fields = ['nome', 'valor_estimado', 'data_fechamento_esperada', 'data_criacao']
     
     def get_queryset(self):
+        """Aplica filtros de hierarquia e funis de acesso"""
         user = self.request.user
         
         if user.perfil == 'ADMIN':
             queryset = Oportunidade.objects.all()
         elif user.perfil == 'RESPONSAVEL':
-            queryset = Oportunidade.objects.filter(proprietario__canal=user.canal)
-        else:
-            queryset = Oportunidade.objects.filter(proprietario=user)
+            # Vê do seu canal (vínculo direto ou via proprietário) AND funis que tem acesso
+            queryset = Oportunidade.objects.filter(
+                Q(canal=user.canal) | Q(proprietario__canal=user.canal)
+            ).filter(funil__in=user.funis_acesso.all()).distinct()
+        else: # VENDEDOR
+            # Mantemos a trava de proprietário mas adicionamos funis_acesso
+            queryset = Oportunidade.objects.filter(
+                proprietario=user,
+                funil__in=user.funis_acesso.all()
+            )
             
-        return queryset.select_related('estagio', 'conta', 'contato_principal', 'proprietario')
+        return queryset.select_related('funil', 'estagio', 'conta', 'contato_principal', 'proprietario')
+
+    def perform_create(self, serializer):
+        # Se não forneceu estágio, busca o padrão do funil
+        estagio = serializer.validated_data.get('estagio')
+        funil = serializer.validated_data.get('funil')
+        
+        if not estagio and funil:
+            vinculo_padrao = FunilEstagio.objects.filter(funil=funil, is_padrao=True).first()
+            if not vinculo_padrao:
+                # Se não houver marcado como padrão, pega o de menor ordem
+                vinculo_padrao = FunilEstagio.objects.filter(funil=funil).order_by('ordem').first()
+            
+            if vinculo_padrao:
+                estagio = vinculo_padrao.estagio
+        
+        # Atribui canal automaticamente se o usuário tiver um
+        canal = serializer.validated_data.get('canal')
+        if not canal and self.request.user.canal:
+            canal = self.request.user.canal
+            
+        # Garante que a conta da oportunidade também esteja vinculada ao mesmo canal
+        # apenas se a conta ainda não tiver um canal definido
+        conta = serializer.validated_data.get('conta')
+        if conta and canal and not conta.canal:
+            conta.canal = canal
+            conta.save()
+            
+        serializer.save(
+            proprietario=self.request.user, 
+            estagio=estagio,
+            canal=canal
+        )
     
     @action(detail=False, methods=['get'])
     def kanban(self, request):
         """Retorna oportunidades abertas agrupadas por estágio para visão Kanban"""
+        funil_id = request.query_params.get('funil_id')
         queryset = self.get_queryset().filter(
             estagio__tipo=EstagioFunil.TIPO_ABERTO
-        ).select_related('conta', 'contato_principal', 'estagio', 'proprietario')
+        )
         
+        if funil_id:
+            queryset = queryset.filter(funil_id=funil_id)
+        else:
+            # Se não informou, tenta o primeiro funil de oportunidades do usuário
+            user_funis = request.user.funis_acesso.filter(tipo=Funil.TIPO_OPORTUNIDADE) if request.user.perfil != 'ADMIN' else Funil.objects.filter(tipo=Funil.TIPO_OPORTUNIDADE)
+            funil = user_funis.first()
+            if funil:
+                queryset = queryset.filter(funil=funil)
+                
+        queryset = queryset.select_related('conta', 'contato_principal', 'estagio', 'proprietario')
         serializer = OportunidadeKanbanSerializer(queryset, many=True)
         
-        # Agrupa por estágio
-        estagios = EstagioFunil.objects.filter(tipo=EstagioFunil.TIPO_ABERTO)
-        kanban_data = []
+        # Agrupa por estágios do funil selecionado via tabela de ligação
+        funil_selecionado_id = funil_id or (funil.id if 'funil' in locals() and funil else None)
+        if funil_selecionado_id:
+            vinculos = FunilEstagio.objects.filter(funil_id=funil_selecionado_id, estagio__tipo=EstagioFunil.TIPO_ABERTO).select_related('estagio').order_by('ordem')
+        else:
+            # Fallback se não houver funil (não deveria acontecer no Kanban novo)
+            vinculos = FunilEstagio.objects.filter(estagio__tipo=EstagioFunil.TIPO_ABERTO).select_related('estagio').order_by('funil', 'ordem')
         
-        for estagio in estagios:
+        kanban_data = []
+        for vinculo in vinculos:
             oportunidades = [
                 opp for opp in serializer.data
-                if int(opp.get('estagio_id') or opp.get('estagio') or 0) == estagio.id
+                if int(opp.get('estagio_id') or opp.get('estagio') or 0) == vinculo.estagio_id
             ]
+            # Montamos o objeto de estágio como o frontend espera
+            estagio_data = EstagioFunilSerializer(vinculo.estagio).data
+            estagio_data['ordem'] = vinculo.ordem
+            estagio_data['is_padrao'] = vinculo.is_padrao
+
             kanban_data.append({
-                'estagio': EstagioFunilSerializer(estagio).data,
+                'estagio': estagio_data,
                 'oportunidades': oportunidades
             })
         

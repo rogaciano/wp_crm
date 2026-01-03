@@ -5,7 +5,7 @@ from rest_framework import serializers
 from django.db import transaction
 from django.contrib.auth.password_validation import validate_password
 from .models import (
-    Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
+    Canal, User, Lead, Conta, Contato, TipoContato, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado, 
     Plano, PlanoAdicional, OportunidadeAdicional
 )
@@ -120,12 +120,18 @@ class LeadSerializer(serializers.ModelSerializer):
     proprietario_canal = serializers.SerializerMethodField()
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
     diagnosticos = DiagnosticoResultadoSerializer(many=True, read_only=True)
+    funil_nome = serializers.CharField(source='funil.nome', read_only=True)
+    estagio_nome = serializers.CharField(source='estagio.nome', read_only=True)
+    estagio_cor = serializers.CharField(source='estagio.cor', read_only=True)
+    canal_nome = serializers.CharField(source='canal.nome', read_only=True)
     
     class Meta:
         model = Lead
         fields = [
             'id', 'nome', 'email', 'telefone', 'empresa', 'cargo',
-            'fonte', 'status', 'notas', 'proprietario', 'proprietario_nome', 'proprietario_canal',
+            'fonte', 'status', 'funil', 'funil_nome', 'estagio', 'estagio_nome', 'estagio_cor',
+            'canal', 'canal_nome',
+            'notas', 'proprietario', 'proprietario_nome', 'proprietario_canal',
             'diagnosticos', 'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos']
@@ -137,6 +143,17 @@ class LeadSerializer(serializers.ModelSerializer):
         # Define o proprietário como o usuário logado
         if 'request' in self.context and self.context['request'].user.is_authenticated:
             validated_data['proprietario'] = self.context['request'].user
+        
+        # Se não informou funil/estágio, busca o padrão
+        if not validated_data.get('funil'):
+            funil_padrao = Funil.objects.filter(tipo=Funil.TIPO_LEAD, is_active=True).first()
+            if funil_padrao:
+                validated_data['funil'] = funil_padrao
+                if not validated_data.get('estagio'):
+                    estagio_padrao = EstagioFunil.objects.filter(funil=funil_padrao, is_padrao=True).first()
+                    if estagio_padrao:
+                        validated_data['estagio'] = estagio_padrao
+        
         return super().create(validated_data)
 
 
@@ -147,12 +164,14 @@ class ContaSerializer(serializers.ModelSerializer):
     total_oportunidades = serializers.SerializerMethodField()
     diagnosticos = DiagnosticoResultadoSerializer(many=True, read_only=True)
     
+    canal_nome = serializers.CharField(source='canal.nome', read_only=True)
+    
     class Meta:
         model = Conta
         fields = [
             'id', 'nome_empresa', 'cnpj', 'telefone_principal', 'email',
             'website', 'setor', 'endereco', 'cidade', 'estado', 'cep',
-            'notas', 'proprietario', 'proprietario_nome',
+            'notas', 'canal', 'canal_nome', 'proprietario', 'proprietario_nome',
             'total_contatos', 'total_oportunidades', 'diagnosticos',
             'data_criacao', 'data_atualizacao'
         ]
@@ -169,17 +188,26 @@ class ContaSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class TipoContatoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoContato
+        fields = ['id', 'nome', 'descricao', 'data_criacao']
+
+
 class ContatoSerializer(serializers.ModelSerializer):
     proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
     conta_nome = serializers.CharField(source='conta.nome_empresa', read_only=True)
+    tipo_contato_nome = serializers.CharField(source='tipo_contato.nome', read_only=True)
+    canal_nome = serializers.CharField(source='canal.nome', read_only=True)
     
     class Meta:
         model = Contato
         fields = [
             'id', 'nome', 'email', 'telefone', 'celular', 'cargo',
-            'departamento', 'tipo', 'conta', 'conta_nome', 'proprietario',
-            'proprietario_nome', 'notas',
+            'departamento', 'tipo_contato', 'tipo_contato_nome', 'tipo', 
+            'conta', 'conta_nome', 'canal', 'canal_nome',
+            'proprietario', 'proprietario_nome', 'notas',
             'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
@@ -194,10 +222,34 @@ class EstagioFunilSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = EstagioFunil
-        fields = ['id', 'nome', 'ordem', 'tipo', 'cor', 'total_oportunidades']
+        fields = ['id', 'nome', 'tipo', 'cor', 'total_oportunidades']
     
     def get_total_oportunidades(self, obj):
-        return obj.oportunidades.count()
+        return obj.oportunidades.count() + obj.leads.count()
+
+
+class FunilEstagioSerializer(serializers.ModelSerializer):
+    """Serializa o vínculo entre Funil e Estágio, incluindo dados do estágio"""
+    nome = serializers.CharField(source='estagio.nome', read_only=True)
+    cor = serializers.CharField(source='estagio.cor', read_only=True)
+    tipo = serializers.CharField(source='estagio.tipo', read_only=True)
+    estagio_id = serializers.IntegerField(source='estagio.id')
+    
+    class Meta:
+        model = FunilEstagio
+        fields = ['id', 'estagio_id', 'nome', 'cor', 'tipo', 'ordem', 'is_padrao']
+
+
+class FunilSerializer(serializers.ModelSerializer):
+    estagios_detalhe = FunilEstagioSerializer(source='funilestagio_set', many=True, read_only=True)
+    
+    class Meta:
+        model = Funil
+        fields = ['id', 'nome', 'tipo', 'usuarios', 'is_active', 'estagios_detalhe']
+    
+    def update(self, instance, validated_data):
+        # Lógica para atualizar estágios se enviados (opcional, faremos via ação dedicada se preferir)
+        return super().update(instance, validated_data)
 
 
 class PlanoSerializer(serializers.ModelSerializer):
@@ -239,7 +291,7 @@ class OportunidadeSerializer(serializers.ModelSerializer):
         model = Oportunidade
         fields = [
             'id', 'nome', 'valor_estimado', 'data_fechamento_esperada',
-            'probabilidade', 'estagio', 'estagio_nome', 'estagio_cor', 'estagio_tipo',
+            'probabilidade', 'funil', 'estagio', 'estagio_nome', 'estagio_cor', 'estagio_tipo',
             'conta', 'conta_nome', 'contato_principal', 'contato_nome',
             'proprietario', 'proprietario_nome', 'descricao', 'motivo_perda',
             'data_fechamento_real', 'plano', 'plano_nome', 'periodo_pagamento',

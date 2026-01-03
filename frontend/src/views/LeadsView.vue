@@ -9,11 +9,11 @@
 
     <!-- Filtros -->
     <div class="card mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Buscar por nome, email ou empresa..."
+          placeholder="Buscar nome, email..."
           class="input"
           @input="onSearchInput"
         />
@@ -31,6 +31,16 @@
           <option value="Evento">Evento</option>
           <option value="Indicação">Indicação</option>
           <option value="LinkedIn">LinkedIn</option>
+          <option value="Cold Call">Cold Call</option>
+          <option value="Outro">Outro</option>
+        </select>
+        <select v-model="funilFilter" class="input" @change="loadLeads">
+          <option value="">Todos os Funis</option>
+          <option v-for="f in funisOptions" :key="f.id" :value="f.id">{{ f.nome }}</option>
+        </select>
+        <select v-if="authStore.isAdmin" v-model="canalFilter" class="input" @change="loadLeads">
+          <option value="">Todos os Canais</option>
+          <option v-for="c in canaisOptions" :key="c.id" :value="c.id">{{ c.nome }}</option>
         </select>
       </div>
     </div>
@@ -92,8 +102,11 @@
                 <td class="table-cell text-gray-500">{{ lead.telefone }}</td>
                 <td class="table-cell text-gray-500">{{ lead.empresa }}</td>
                 <td class="table-cell">
-                  <span :class="getStatusClass(lead.status)">
-                    {{ lead.status }}
+                  <span 
+                    class="px-2 py-1 text-[10px] font-black rounded-full uppercase tracking-wider"
+                    :style="{ backgroundColor: lead.estagio_cor + '20', color: lead.estagio_cor }"
+                  >
+                    {{ lead.estagio_nome || lead.status }}
                   </span>
                 </td>
                 <td class="table-cell text-gray-500 italic">{{ lead.fonte }}</td>
@@ -142,8 +155,11 @@
                 <h3 class="font-bold text-gray-900">{{ lead.nome }}</h3>
                 <p class="text-sm text-gray-500">{{ lead.empresa || 'Sem empresa' }}</p>
               </div>
-              <span :class="getStatusClass(lead.status)">
-                {{ lead.status }}
+              <span 
+                class="px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-tighter"
+                :style="{ backgroundColor: lead.estagio_cor + '20', color: lead.estagio_cor }"
+              >
+                {{ lead.estagio_nome || lead.status }}
               </span>
             </div>
             
@@ -213,6 +229,9 @@ import { ref, onMounted, computed } from 'vue'
 import api from '@/services/api'
 import LeadModal from '@/components/LeadModal.vue'
 import LeadConversionModal from '@/components/LeadConversionModal.vue'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 
 // Ícones simples
 const IconUsers = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354l1.108 3.541H16.8l-2.909 2.112 1.108 3.541-2.909-2.112-2.909 2.112 1.108-3.541-2.909-2.112h3.692L12 4.354z" /></svg>' }
@@ -230,6 +249,10 @@ const leadToConvert = ref(null)
 const searchQuery = ref('')
 const statusFilter = ref('')
 const fonteFilter = ref('')
+const funilFilter = ref('')
+const canalFilter = ref('')
+const funisOptions = ref([])
+const canaisOptions = ref([])
 
 const stats = ref({
   total: 0,
@@ -273,7 +296,21 @@ const kpiCards = computed(() => [
 
 onMounted(() => {
   loadLeads()
+  loadFilterOptions()
 })
+
+async function loadFilterOptions() {
+  try {
+    const [funisRes, canaisRes] = await Promise.all([
+      api.get('/funis/', { params: { tipo: 'LEAD' } }),
+      authStore.isAdmin ? api.get('/canais/') : Promise.resolve({ data: [] })
+    ])
+    funisOptions.value = funisRes.data.results || funisRes.data
+    canaisOptions.value = canaisRes.data.results || canaisRes.data
+  } catch (err) {
+    console.error('Erro ao carregar opções de filtro:', err)
+  }
+}
 
 async function loadLeads() {
   loading.value = true
@@ -282,7 +319,9 @@ async function loadLeads() {
     const params = {
       search: searchQuery.value,
       status: statusFilter.value,
-      fonte: fonteFilter.value
+      fonte: fonteFilter.value,
+      funil: funilFilter.value,
+      canal: canalFilter.value
     }
     
     const [listRes, statsRes] = await Promise.all([

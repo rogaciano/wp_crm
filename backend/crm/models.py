@@ -95,6 +95,33 @@ class Lead(models.Model):
     cargo = models.CharField(max_length=100, null=True, blank=True)
     fonte = models.CharField(max_length=100, null=True, blank=True, help_text='Ex: Site, Evento, Indicação')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_NOVO)
+    
+    # Novos campos para Funil SDR
+    funil = models.ForeignKey(
+        'Funil',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='leads',
+        help_text='Funil SDR onde este lead está'
+    )
+    estagio = models.ForeignKey(
+        'EstagioFunil',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='leads',
+        help_text='Estágio atual do lead no funil SDR'
+    )
+    canal = models.ForeignKey(
+        'Canal',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='leads',
+        help_text='Canal ao qual este lead pertence'
+    )
+    
     notas = models.TextField(null=True, blank=True)
     proprietario = models.ForeignKey(User, on_delete=models.PROTECT, related_name='leads')
     data_criacao = models.DateTimeField(auto_now_add=True)
@@ -109,11 +136,13 @@ class Lead(models.Model):
         ordering = ['-data_criacao']
         indexes = [
             models.Index(fields=['proprietario', 'status']),
+            models.Index(fields=['canal', 'status']),
             models.Index(fields=['email']),
+            models.Index(fields=['funil', 'estagio']),
         ]
 
     def __str__(self):
-        return f"{self.nome} - {self.status}"
+        return f"{self.nome} - {self.estagio.nome if self.estagio else self.status}"
 
 
 class Conta(models.Model):
@@ -132,6 +161,13 @@ class Conta(models.Model):
     cep = models.CharField(max_length=10, null=True, blank=True)
     
     notas = models.TextField(null=True, blank=True)
+    canal = models.ForeignKey(
+        'Canal', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='contas'
+    )
     proprietario = models.ForeignKey(User, on_delete=models.PROTECT, related_name='contas')
     data_criacao = models.DateTimeField(auto_now_add=True)
     data_atualizacao = models.DateTimeField(auto_now=True)
@@ -145,11 +181,27 @@ class Conta(models.Model):
         ordering = ['nome_empresa']
         indexes = [
             models.Index(fields=['proprietario']),
+            models.Index(fields=['canal']),
             models.Index(fields=['cnpj']),
         ]
 
     def __str__(self):
         return self.nome_empresa
+
+
+class TipoContato(models.Model):
+    """Representa uma categoria/tipo de contato (ex: Padrão, Indicador, Decisor)"""
+    nome = models.CharField(max_length=100, unique=True)
+    descricao = models.TextField(null=True, blank=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Tipo de Contato'
+        verbose_name_plural = 'Tipos de Contatos'
+        ordering = ['nome']
+
+    def __str__(self):
+        return self.nome
 
 
 class Contato(models.Model):
@@ -161,13 +213,24 @@ class Contato(models.Model):
     cargo = models.CharField(max_length=100, null=True, blank=True)
     departamento = models.CharField(max_length=100, null=True, blank=True)
     
-    TIPO_PADRAO = 'PADRAO'
-    TIPO_INDICADOR = 'INDICADOR'
-    TIPO_CHOICES = [
-        (TIPO_PADRAO, 'Padrão'),
-        (TIPO_INDICADOR, 'Indicador de Comissão'),
-    ]
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default=TIPO_PADRAO)
+    tipo_contato = models.ForeignKey(
+        TipoContato,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='contatos'
+    )
+    
+    # Campo legado (para compatibilidade enquanto migra)
+    tipo = models.CharField(max_length=20, default='PADRAO')
+    
+    canal = models.ForeignKey(
+        Canal,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='contatos'
+    )
     
     conta = models.ForeignKey(
         Conta,
@@ -196,8 +259,43 @@ class Contato(models.Model):
         return f"{self.nome} ({self.conta.nome_empresa})"
 
 
+class Funil(models.Model):
+    """Representa um Funil de Vendas (SDR, Vendas, etc)"""
+    TIPO_LEAD = 'LEAD'
+    TIPO_OPORTUNIDADE = 'OPORTUNIDADE'
+    
+    TIPO_CHOICES = [
+        (TIPO_LEAD, 'Leads (SDR)'),
+        (TIPO_OPORTUNIDADE, 'Oportunidades (Vendas)'),
+    ]
+    
+    nome = models.CharField(max_length=100)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default=TIPO_OPORTUNIDADE)
+    is_active = models.BooleanField(default=True)
+    usuarios = models.ManyToManyField(
+        'User', 
+        blank=True, 
+        related_name='funis_acesso',
+        help_text='Usuários que podem ver e usar este funil'
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    estagios = models.ManyToManyField(
+        'EstagioFunil',
+        through='FunilEstagio',
+        related_name='funis_vinculados'
+    )
+
+    class Meta:
+        verbose_name = 'Funil'
+        verbose_name_plural = 'Funis'
+        ordering = ['nome']
+
+    def __str__(self):
+        return f"{self.nome} ({self.get_tipo_display()})"
+
+
 class EstagioFunil(models.Model):
-    """Estágio do Funil de Vendas"""
+    """Definição de um Estágio (pode ser usado em vários funis)"""
     TIPO_ABERTO = 'ABERTO'
     TIPO_GANHO = 'GANHO'
     TIPO_PERDIDO = 'PERDIDO'
@@ -208,19 +306,37 @@ class EstagioFunil(models.Model):
         (TIPO_PERDIDO, 'Fechado - Perdido'),
     ]
     
-    nome = models.CharField(max_length=100)
-    ordem = models.PositiveIntegerField(default=0)
+    nome = models.CharField(max_length=100, unique=True)
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default=TIPO_ABERTO)
     cor = models.CharField(max_length=7, default='#3B82F6', help_text='Cor em hexadecimal')
     
     class Meta:
-        verbose_name = 'Estágio do Funil'
-        verbose_name_plural = 'Estágios do Funil'
-        ordering = ['ordem']
-        unique_together = ['nome']
+        verbose_name = 'Definição de Estágio'
+        verbose_name_plural = 'Definições de Estágios'
+        ordering = ['nome']
 
     def __str__(self):
         return f"{self.nome} ({self.get_tipo_display()})"
+
+
+class FunilEstagio(models.Model):
+    """Tabela de ligação que define quais estágios estão em cada funil e em qual ordem"""
+    funil = models.ForeignKey(Funil, on_delete=models.CASCADE)
+    estagio = models.ForeignKey(EstagioFunil, on_delete=models.CASCADE)
+    ordem = models.PositiveIntegerField(default=0)
+    is_padrao = models.BooleanField(
+        default=False, 
+        help_text='Define se este é o estágio inicial padrão neste funil'
+    )
+
+    class Meta:
+        ordering = ['ordem']
+        unique_together = ['funil', 'estagio']
+        verbose_name = 'Estágio do Funil'
+        verbose_name_plural = 'Estágios dos Funis'
+
+    def __str__(self):
+        return f"{self.funil.nome} > {self.estagio.nome} (Ordem: {self.ordem})"
 
 
 class Plano(models.Model):
@@ -350,6 +466,15 @@ class Oportunidade(models.Model):
         help_text='Canal responsável pelo suporte/faturamento'
     )
     
+    funil = models.ForeignKey(
+        'Funil',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='oportunidades',
+        help_text='Funil de vendas onde esta oportunidade está'
+    )
+    
     descricao = models.TextField(null=True, blank=True)
     motivo_perda = models.TextField(null=True, blank=True)
     data_fechamento_real = models.DateField(null=True, blank=True)
@@ -367,6 +492,7 @@ class Oportunidade(models.Model):
         indexes = [
             models.Index(fields=['proprietario', 'estagio']),
             models.Index(fields=['conta']),
+            models.Index(fields=['funil', 'estagio']),
         ]
 
     def __str__(self):

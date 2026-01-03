@@ -13,10 +13,11 @@ print("=== Criando dados iniciais do CRM ===\n")
 # Criar canais
 print("Criando Canais...")
 canais_data = [
-    {"nome": "Canal Sul"},
-    {"nome": "Canal Norte"},
-    {"nome": "Canal Leste"},
-    {"nome": "Canal Oeste"},
+    {"nome": "Pernambuco"},
+    {"nome": "Paraíba"},
+    {"nome": "Fortaleza"},
+    {"nome": "São Paulo"},
+    {"nome": "Brasilia"},
 ]
 
 for canal_data in canais_data:

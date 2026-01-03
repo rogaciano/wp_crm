@@ -7,10 +7,10 @@
     @confirm="handleSubmit"
     :loading="loading"
   >
-    <div v-if="isGanho" class="mb-6 p-4 bg-green-50 rounded-xl border border-green-100 flex items-center justify-between transition-all animate-in fade-in slide-in-from-top-4">
-      <div class="flex items-center text-green-700 font-bold">
-        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        <span>Negócio Fechado! Pronta para faturar.</span>
+    <div v-if="form.plano" class="mb-6 p-4 bg-primary-50 rounded-xl border border-primary-100 flex items-center justify-between transition-all animate-in fade-in slide-in-from-top-4">
+      <div class="flex items-center text-primary-700 font-bold text-sm">
+        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <span>Dados de Faturamento</span>
       </div>
       <button 
         type="button"
@@ -209,7 +209,7 @@ const form = ref({
 const adicionais_itens = ref([])
 
 const indicadores = computed(() => {
-  return contatos.value.filter(c => c.tipo === 'INDICADOR')
+  return contatos.value.filter(c => c.tipo === 'INDICADOR' || c.tipo_contato_nome === 'INDICADOR')
 })
 
 const isGanho = computed(() => {

@@ -37,17 +37,29 @@ class HierarchyPermission(permissions.BasePermission):
         if user.perfil == 'ADMIN':
             return True
         
-        # Verifica se o objeto tem proprietario
-        if not hasattr(obj, 'proprietario'):
-            return False
-        
-        # Vendedor: só seus próprios objetos
+        # Vendedor: só seus próprios objetos E deve estar em funil que tem acesso
         if user.perfil == 'VENDEDOR':
-            return obj.proprietario == user
+            owner_match = getattr(obj, 'proprietario', None) == user
+            funil_match = True
+            if hasattr(obj, 'funil') and obj.funil:
+                funil_match = user.funis_acesso.filter(id=obj.funil.id).exists()
+            return owner_match and funil_match
         
-        # Responsável: objetos do seu canal
+        # Responsável: objetos do seu canal E de funis que tem acesso
         if user.perfil == 'RESPONSAVEL':
-            return obj.proprietario.canal == user.canal
+            # Canal match: via campo direto ou via proprietário
+            canal_match = False
+            if hasattr(obj, 'canal') and obj.canal:
+                canal_match = (obj.canal == user.canal)
+            elif hasattr(obj, 'proprietario') and obj.proprietario.canal:
+                canal_match = (obj.proprietario.canal == user.canal)
+            
+            # Funil match
+            funil_match = True
+            if hasattr(obj, 'funil') and obj.funil:
+                funil_match = user.funis_acesso.filter(id=obj.funil.id).exists()
+                
+            return canal_match and funil_match
         
         return False
 

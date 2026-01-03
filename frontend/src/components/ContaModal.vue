@@ -153,6 +153,22 @@
             placeholder="00000-000"
           />
         </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Canal Associado
+          </label>
+          <select 
+            v-model="form.canal" 
+            class="input"
+            :disabled="!authStore.isAdmin"
+          >
+            <option :value="null">Sem Canal...</option>
+            <option v-for="canal in canais" :key="canal.id" :value="canal.id">
+              {{ canal.nome }}
+            </option>
+          </select>
+        </div>
       </div>
 
       <!-- Seção de Diagnóstico -->
@@ -236,11 +252,13 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseModal from './BaseModal.vue'
 import api from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
 
+const authStore = useAuthStore()
 const router = useRouter()
 
 const props = defineProps({
@@ -253,6 +271,7 @@ const emit = defineEmits(['close', 'saved'])
 const loading = ref(false)
 const isEdit = ref(false)
 const selectedDiagnosticos = ref([])
+const canais = ref([])
 
 function handleCompare() {
   if (selectedDiagnosticos.value.length !== 2) return
@@ -279,8 +298,24 @@ const form = ref({
   endereco: '',
   cidade: '',
   estado: '',
-  cep: ''
+  cep: '',
+  canal: null
 })
+
+watch(() => props.show, async (newVal) => {
+  if (newVal) {
+    await loadCanais()
+  }
+})
+
+async function loadCanais() {
+  try {
+    const response = await api.get('/canais/')
+    canais.value = response.data.results || response.data
+  } catch (error) {
+    console.error('Erro ao carregar canais:', error)
+  }
+}
 
 watch(() => props.conta, (newConta) => {
   if (newConta) {
@@ -303,7 +338,8 @@ function resetForm() {
     endereco: '',
     cidade: '',
     estado: '',
-    cep: ''
+    cep: '',
+    canal: authStore.isAdmin ? null : (authStore.user?.canal || null)
   }
 }
 

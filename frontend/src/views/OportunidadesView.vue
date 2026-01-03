@@ -7,15 +7,26 @@
       </button>
     </div>
 
-    <!-- Filtro rápido -->
-    <div class="card mb-6 p-4">
-      <input
-        v-model="searchQuery"
-        type="text"
-        placeholder="Buscar por nome ou conta..."
-        class="input"
-        @input="onSearchInput"
-      />
+    <!-- Filtros -->
+    <div class="card mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Buscar nome ou conta..."
+          class="input"
+          @input="onSearchInput"
+        />
+        <select v-model="funilFilter" class="input" @change="loadOportunidades">
+          <option value="">Todos os Funis</option>
+          <option v-for="f in funisOptions" :key="f.id" :value="f.id">{{ f.nome }}</option>
+        </select>
+        <select v-if="authStore.isAdmin" v-model="canalFilter" class="input" @change="loadOportunidades">
+          <option value="">Todos os Canais</option>
+          <option v-for="c in canaisOptions" :key="c.id" :value="c.id">{{ c.nome }}</option>
+        </select>
+        <div v-else></div> <!-- Spacer -->
+      </div>
     </div>
 
     <!-- Indicadores (KPIs) -->
@@ -62,6 +73,7 @@
                 <th class="table-header">Conta</th>
                 <th class="table-header">Valor</th>
                 <th class="table-header">Estágio</th>
+                <th class="table-header">Indicador</th>
                 <th class="table-header">Previsão</th>
                 <th class="table-header">Probabilidade</th>
                 <th class="table-header text-right">Ações</th>
@@ -79,12 +91,18 @@
                     {{ oportunidade.estagio_nome }}
                   </span>
                 </td>
+                <td class="table-cell text-xs text-gray-500">
+                  {{ oportunidade.indicador_nome || 'Direto' }}
+                </td>
                 <td class="table-cell text-gray-500">{{ formatDate(oportunidade.data_fechamento_esperada) }}</td>
                 <td class="table-cell text-gray-500">{{ oportunidade.probabilidade }}%</td>
                 <td class="table-cell text-right">
                   <div class="flex justify-end space-x-3">
                     <button @click="openFaturamentoModal(oportunidade)" class="text-emerald-600 hover:text-emerald-700 font-medium" title="Configurar Faturamento">
                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </button>
+                    <button @click="copyBillingInfo(oportunidade.id)" class="text-indigo-600 hover:text-indigo-700 font-medium" title="Copiar Texto de Faturamento">
+                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
                     </button>
                     <button @click="openEditModal(oportunidade)" class="text-primary-600 hover:text-primary-700 font-medium" title="Editar">
                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -111,7 +129,12 @@
                   {{ oportunidade.estagio_nome }}
                </span>
             </div>
-            
+            <div class="flex justify-between items-end mt-2">
+               <div class="text-xs text-gray-400">
+                  <span class="font-bold uppercase tracking-widest text-[9px]">Indicador:</span>
+                  <span class="ml-1 text-gray-600 outline-none">{{ oportunidade.indicador_nome || 'Direto' }}</span>
+               </div>
+            </div>
             <div class="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-50 cursor-pointer" @click="openEditModal(oportunidade)">
                <div>
                   <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Valor Mensal</p>
@@ -124,6 +147,13 @@
             </div>
 
             <div class="flex justify-end space-x-4 border-t pt-3 mt-4">
+              <button 
+                @click="copyBillingInfo(oportunidade.id)" 
+                class="text-xs font-bold text-indigo-600 uppercase tracking-widest flex items-center"
+              >
+                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
+                 Copiar
+              </button>
               <button 
                 @click="openFaturamentoModal(oportunidade)" 
                 class="text-xs font-bold text-emerald-600 uppercase tracking-widest flex items-center"
@@ -171,6 +201,9 @@ import { ref, onMounted, computed } from 'vue'
 import api from '@/services/api'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
 import FaturamentoModal from '@/components/FaturamentoModal.vue'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 
 // Ícones simples
 const IconPipeline = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>' }
@@ -182,6 +215,10 @@ const oportunidades = ref([])
 const loading = ref(false)
 const error = ref(null)
 const searchQuery = ref('')
+const funilFilter = ref('')
+const canalFilter = ref('')
+const funisOptions = ref([])
+const canaisOptions = ref([])
 const showModal = ref(false)
 const showFaturamentoModal = ref(false)
 const selectedOportunidade = ref(null)
@@ -237,15 +274,30 @@ function formatCurrency(val) {
 
 onMounted(() => {
   loadOportunidades()
+  loadFilterOptions()
 })
+
+async function loadFilterOptions() {
+  try {
+    const [funisRes, canaisRes] = await Promise.all([
+      api.get('/funis/', { params: { tipo: 'OPORTUNIDADE' } }),
+      authStore.isAdmin ? api.get('/canais/') : Promise.resolve({ data: [] })
+    ])
+    funisOptions.value = funisRes.data.results || funisRes.data
+    canaisOptions.value = canaisRes.data.results || canaisRes.data
+  } catch (err) {
+    console.error('Erro ao carregar opções de filtro:', err)
+  }
+}
 
 async function loadOportunidades() {
   loading.value = true
   error.value = null
   try {
-    const params = {}
-    if (searchQuery.value) {
-      params.search = searchQuery.value
+    const params = {
+      search: searchQuery.value || undefined,
+      funil: funilFilter.value || undefined,
+      canal: canalFilter.value || undefined
     }
     
     // Busca lista e stats em paralelo

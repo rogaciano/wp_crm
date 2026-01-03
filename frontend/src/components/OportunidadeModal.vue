@@ -7,10 +7,10 @@
     @confirm="handleSubmit"
     :loading="loading"
   >
-    <div v-if="isEdit && isGanho" class="mb-6 p-4 bg-green-50 rounded-xl border border-green-100 flex items-center justify-between">
-      <div class="flex items-center text-green-700 font-bold">
-        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        <span>Oportunidade Ganha!</span>
+    <div v-if="isEdit" class="mb-6 p-4 bg-primary-50 rounded-xl border border-primary-100 flex items-center justify-between">
+      <div class="flex items-center text-primary-700 font-bold text-sm">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <span>Ações Rápidas</span>
       </div>
       <button 
         type="button"
@@ -66,13 +66,21 @@
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
+              Funil <span class="text-red-500">*</span>
+            </label>
+            <select v-model="form.funil" required class="input">
+              <option :value="null">Selecione o funil...</option>
+              <option v-for="f in funis" :key="f.id" :value="f.id">{{ f.nome }}</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
               Estágio do Funil <span class="text-red-500">*</span>
             </label>
-            <select v-model="form.estagio" required class="input">
-              <option value="">Selecione...</option>
-              <option v-for="estagio in estagios" :key="estagio.id" :value="estagio.id">
-                {{ estagio.nome }}
-              </option>
+            <select v-model="form.estagio" required class="input" :disabled="!form.funil">
+              <option :value="null">{{ form.funil ? 'Selecione o estágio...' : 'Selecione um funil primeiro' }}</option>
+              <option v-for="e in estagios" :key="e.id" :value="e.id">{{ e.nome }}</option>
             </select>
           </div>
 
@@ -103,10 +111,20 @@
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Canal de Suporte (Faturamento)</label>
-            <select v-model="form.canal" class="input">
-              <option value="">Selecione o canal...</option>
+            <select v-model="form.canal" class="input" :disabled="!authStore.isAdmin && authStore.user?.perfil !== 'RESPONSAVEL'">
+              <option :value="null">Selecione o canal...</option>
               <option v-for="canal in canais" :key="canal.id" :value="canal.id">
                 {{ canal.nome }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Indicador (Opcional)</label>
+            <select v-model="form.indicador_comissao" class="input">
+              <option :value="null">Selecione o indicador...</option>
+              <option v-for="contato in indicadores" :key="contato.id" :value="contato.id">
+                {{ contato.nome }}
               </option>
             </select>
           </div>
@@ -134,6 +152,9 @@ import { ref, watch, computed } from 'vue'
 import BaseModal from './BaseModal.vue'
 import api from '@/services/api'
 import { useOportunidadesStore } from '@/stores/oportunidades'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 
 const props = defineProps({
   show: Boolean,
@@ -142,31 +163,33 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'saved'])
 
+const form = ref({
+  nome: '',
+  conta: '',
+  contato_principal: '',
+  funil: null,
+  estagio: null,
+  valor_estimado: 0,
+  data_fechamento_esperada: '',
+  probabilidade: 0,
+  descricao: '',
+  canal: null,
+  indicador_comissao: null
+})
+
 const loading = ref(false)
 const isEdit = ref(false)
 const contas = ref([])
 const contatos = ref([])
 const estagios = ref([])
 const canais = ref([])
-
-const form = ref({
-  nome: '',
-  conta: '',
-  contato_principal: '',
-  estagio: '',
-  valor_estimado: 0,
-  data_fechamento_esperada: '',
-  probabilidade: 0,
-  descricao: '',
-  canal: ''
-})
-
+const funis = ref([])
 const adicionais_itens = ref([])
 
-const indicadores = computed(() => {
-  return contatos.value.filter(c => c.tipo === 'INDICADOR')
-})
 
+const indicadores = computed(() => {
+  return contatos.value.filter(c => c.tipo === 'INDICADOR' || c.tipo_contato_nome === 'INDICADOR')
+})
 
 const isGanho = computed(() => {
   const estagioObj = estagios.value.find(e => e.id === form.value.estagio)
@@ -179,7 +202,48 @@ watch(() => props.show, async (newVal) => {
   }
 })
 
-watch(() => props.oportunidade, (newOportunidade) => {
+watch(() => form.value.funil, async (newFunil) => {
+  if (newFunil) {
+    try {
+      const response = await api.get(`/funis/${newFunil}/estagios/`)
+      const raw = response.data.results || response.data
+      estagios.value = raw.map(v => ({
+        id: v.estagio_id,
+        nome: v.nome,
+        tipo: v.tipo,
+        is_padrao: v.is_padrao
+      }))
+
+      // Se for novo ou não tiver estágio, pega o padrão
+      if (!isEdit.value || !form.value.estagio) {
+        const defaultEstagio = estagios.value.find(e => e.is_padrao) || estagios.value[0]
+        if (defaultEstagio) {
+          form.value.estagio = defaultEstagio.id
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar estágios:', error)
+      estagios.value = []
+    }
+  } else {
+    estagios.value = []
+    form.value.estagio = null
+  }
+})
+
+watch(() => form.value.conta, (newContaId) => {
+  if (newContaId && !isEdit.value) {
+    const selectedConta = contas.value.find(c => c.id === newContaId)
+    if (selectedConta && selectedConta.canal) {
+      form.value.canal = selectedConta.canal
+    } else {
+      // Se a conta não tem canal, volta para o padrão do usuário
+      form.value.canal = authStore.isAdmin ? null : (authStore.user?.canal || null)
+    }
+  }
+})
+
+watch(() => props.oportunidade, async (newOportunidade) => {
   if (newOportunidade) {
     isEdit.value = true
     form.value = { ...newOportunidade }
@@ -194,22 +258,33 @@ watch(() => props.oportunidade, (newOportunidade) => {
 }, { immediate: true })
 
 async function loadOptions() {
-  try {
-    const [contasRes, contatosRes, estagiosRes, canaisRes] = await Promise.all([
-      api.get('/contas/'),
-      api.get('/contatos/'),
-      api.get('/estagios-funil/'),
-      api.get('/canais/')
-    ])
-    contas.value = contasRes.data.results || contasRes.data
-    contatos.value = contatosRes.data.results || contatosRes.data
-    estagios.value = estagiosRes.data.results || estagiosRes.data
-    canais.value = canaisRes.data.results || canaisRes.data
-  } catch (error) {
-    console.error('Erro ao carregar opções:', error)
+  const endpoints = [
+    { key: 'contas', path: '/contas/' },
+    { key: 'contatos', path: '/contatos/' },
+    { key: 'canais', path: '/canais/' },
+    { key: 'funis', path: '/funis/' }
+  ]
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await api.get(endpoint.path)
+      const data = response.data.results || response.data
+      
+      if (endpoint.key === 'funis') {
+        funis.value = data.filter(f => f.tipo === 'OPORTUNIDADE')
+        // Se for novo e houver funis, seleciona o primeiro por padrão
+        if (!isEdit.value && funis.value.length > 0 && !form.value.funil) {
+          form.value.funil = funis.value[0].id
+        }
+      } else {
+        const refs = { contas, contatos, canais }
+        refs[endpoint.key].value = data
+      }
+    } catch (error) {
+      console.warn(`Erro ao carregar ${endpoint.key}:`, error.message)
+    }
   }
 }
-
 
 async function copyBillingText() {
   try {
@@ -224,23 +299,20 @@ async function copyBillingText() {
   }
 }
 
+// Helper para resetar e aplicar padrões
 function resetForm() {
   form.value = {
     nome: '',
     conta: '',
     contato_principal: '',
-    estagio: '',
+    funil: null,
+    estagio: null,
     valor_estimado: 0,
     data_fechamento_esperada: '',
     probabilidade: 0,
     descricao: '',
-    plano: '',
-    periodo_pagamento: 'MENSAL',
-    cortesia: '',
-    cupom_desconto: '',
-    forma_pagamento: '',
-    indicador_comissao: '',
-    canal: ''
+    canal: authStore.isAdmin ? null : (authStore.user?.canal || null),
+    indicador_comissao: null
   }
   adicionais_itens.value = []
 }

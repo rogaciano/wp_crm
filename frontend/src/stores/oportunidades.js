@@ -5,29 +5,53 @@ import api from '../services/api'
 export const useOportunidadesStore = defineStore('oportunidades', () => {
   const oportunidades = ref([])
   const kanbanData = ref([])
+  const funis = ref([])
   const loading = ref(false)
   const error = ref(null)
 
-  async function fetchOportunidades() {
-    loading.value = true
-    error.value = null
+  async function fetchFunis() {
     try {
-      const response = await api.get('/oportunidades/')
-      oportunidades.value = response.data.results || response.data
+      const response = await api.get('/funis/')
+      funis.value = response.data.results || response.data
+      return funis.value
     } catch (err) {
-      error.value = err.message
-      console.error('Error fetching oportunidades:', err)
-    } finally {
-      loading.value = false
+      console.error('Error fetching funis:', err)
+      return []
     }
   }
 
-  async function fetchKanban() {
+  async function fetchKanban(funilId = null, canalId = null) {
     loading.value = true
     error.value = null
     try {
-      const response = await api.get('/oportunidades/kanban/')
-      kanbanData.value = response.data
+      // Determina o endpoint baseado no funil selecionado
+      let endpoint = '/oportunidades/kanban/'
+      let params = {}
+
+      if (canalId) params.canal = canalId
+
+      if (funilId) {
+        params.funil_id = funilId
+        const funil = funis.value.find(f => f.id === funilId)
+        if (funil && funil.tipo === 'LEAD') {
+          endpoint = '/leads/kanban/'
+        }
+      } else if (funis.value.length > 0) {
+        // Usa o primeiro funil se não especificado
+        const funil = funis.value[0]
+        if (funil.tipo === 'LEAD') endpoint = '/leads/kanban/'
+        params.funil_id = funil.id
+      }
+
+      const response = await api.get(endpoint, { params })
+
+      // Padroniza a resposta (leads usam 'items', oportunidades usam 'oportunidades')
+      const data = response.data.map(col => ({
+        ...col,
+        items: col.oportunidades || col.items || []
+      }))
+
+      kanbanData.value = data
     } catch (err) {
       error.value = err.message
       console.error('Error fetching kanban:', err)
@@ -71,6 +95,20 @@ export const useOportunidadesStore = defineStore('oportunidades', () => {
     }
   }
 
+  async function fetchOportunidades() {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await api.get('/oportunidades/')
+      oportunidades.value = response.data.results || response.data
+    } catch (err) {
+      error.value = err.message
+      console.error('Error fetching oportunidades:', err)
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function deleteOportunidade(id) {
     try {
       await api.delete(`/oportunidades/${id}/`)
@@ -84,8 +122,10 @@ export const useOportunidadesStore = defineStore('oportunidades', () => {
   return {
     oportunidades,
     kanbanData,
+    funis,
     loading,
     error,
+    fetchFunis,
     fetchOportunidades,
     fetchKanban,
     createOportunidade,

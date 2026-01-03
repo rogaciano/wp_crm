@@ -73,6 +73,18 @@ const router = createRouter({
           component: () => import('@/views/AtividadesView.vue')
         },
         {
+          path: '/config/funis',
+          name: 'admin-funis',
+          component: () => import('@/views/admin/FunisView.vue'),
+          meta: { requiresAdmin: true }
+        },
+        {
+          path: '/config/tipos-contato',
+          name: 'admin-tipos-contato',
+          component: () => import('@/views/admin/TiposContatoView.vue'),
+          meta: { requiresAdmin: true }
+        },
+        {
           path: '/config/canais',
           name: 'admin-canais',
           component: () => import('@/views/admin/CanaisView.vue'),

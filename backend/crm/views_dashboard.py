@@ -19,7 +19,7 @@ class DashboardViewSet(viewsets.ViewSet):
         data_inicio = timezone.now() - timedelta(days=periodo_dias)
 
         # Debug: Log do usuário e período
-        print(f"🔍 Dashboard - Usuário: {user.username}, Perfil: {user.perfil}, Período: {periodo_dias} dias")
+        print(f"Dashboard - Usuário: {user.username}, Perfil: {user.perfil}, Período: {periodo_dias} dias")
 
         # Filtros de Hierarquia base
         # 1. Filtro para coisas criadas no período (Leads novos)
@@ -60,7 +60,7 @@ class DashboardViewSet(viewsets.ViewSet):
         else:
             opp_filter = base_hierarquia & canal_filter
         
-        print(f"🔍 Filtros - base_hierarquia: {base_hierarquia}, canal_filter: {canal_filter}")
+        print(f"Filtros - base_hierarquia: {base_hierarquia}, canal_filter: {canal_filter}")
         
         # Versão do filtro para uso em modelos relacionados (ex: EstagioFunil -> Oportunidades)
         def prefix_q(q_obj, prefix):
@@ -78,7 +78,7 @@ class DashboardViewSet(viewsets.ViewSet):
         # KPIs de Receita e Win Rate (Baseados no fechamento no período)
         # Para receita ganha, consideramos oportunidades GANHO fechadas no período
         opps_fechamento = Oportunidade.objects.filter(opp_filter & fechamento_filter)
-        print(f"🔍 Oportunidades fechamento: {opps_fechamento.count()}")
+        print(f"Oportunidades fechamento: {opps_fechamento.count()}")
         
         stats_fechamento = opps_fechamento.aggregate(
             receita_ganha=Sum('valor_estimado', filter=Q(estagio__tipo='GANHO')),
@@ -102,7 +102,7 @@ class DashboardViewSet(viewsets.ViewSet):
 
         # KPIs de Pipeline (Baseado no estado ATUAL, independente de quando foi criado)
         opps_pipeline = Oportunidade.objects.filter(opp_filter & Q(estagio__tipo='ABERTO'))
-        print(f"🔍 Oportunidades pipeline: {opps_pipeline.count()}")
+        print(f"Oportunidades pipeline: {opps_pipeline.count()}")
         
         stats_pipeline = opps_pipeline.aggregate(
             pipeline_total=Sum('valor_estimado'),
@@ -115,11 +115,11 @@ class DashboardViewSet(viewsets.ViewSet):
         win_rate = (ganhas / fechadas * 100) if fechadas > 0 else 0
         ticket_medio = (receita / ganhas) if ganhas > 0 else 0
         
-        print(f"🔍 KPIs - Receita: {receita}, Ganhas: {ganhas}, Fechadas: {fechadas}, Win Rate: {win_rate}%")
-        print(f"🔍 Pipeline - Total: {stats_pipeline['pipeline_total']}, Abertas: {stats_pipeline['total_abertas']}")
+        print(f"KPIs - Receita: {receita}, Ganhas: {ganhas}, Fechadas: {fechadas}, Win Rate: {win_rate}%")
+        print(f"Pipeline - Total: {stats_pipeline['pipeline_total']}, Abertas: {stats_pipeline['total_abertas']}")
 
         # 2. Funil de Vendas (Visão Global do Pipeline Atual)
-        funil_query = EstagioFunil.objects.order_by('ordem').annotate(
+        funil_query = EstagioFunil.objects.order_by('nome').annotate(
             valor=Sum('oportunidades__valor_estimado', filter=hierarquia_opp_prefixed & Q(oportunidades__estagio__tipo='ABERTO')),
             quantidade=Count('oportunidades', filter=hierarquia_opp_prefixed & Q(oportunidades__estagio__tipo='ABERTO'))
         )
@@ -137,7 +137,7 @@ class DashboardViewSet(viewsets.ViewSet):
         tendencia = []
         try:
             seis_meses_atras = timezone.now() - timedelta(days=180)
-            print(f"🔍 Calculando tendência - Período: últimos 180 dias (desde {seis_meses_atras.date()})")
+            print(f"Calculando tendência - Período: últimos 180 dias (desde {seis_meses_atras.date()})")
             
             # Query para todas as oportunidades criadas nos últimos 180 dias
             # Se opp_filter está vazio (ADMIN sem região), não aplica filtro
@@ -149,7 +149,7 @@ class DashboardViewSet(viewsets.ViewSet):
                 opps_tendencia = Oportunidade.objects.filter(
                     Q(data_criacao__gte=seis_meses_atras)
                 )
-            print(f"🔍 Total de oportunidades no período de tendência: {opps_tendencia.count()}")
+            print(f"Total de oportunidades no período de tendência: {opps_tendencia.count()}")
             
             tendencia_query = opps_tendencia.annotate(
                 mes=TruncMonth('data_criacao')
@@ -159,7 +159,7 @@ class DashboardViewSet(viewsets.ViewSet):
                 valor=Sum('valor_estimado', filter=Q(estagio__tipo='GANHO'))
             ).order_by('mes')
             
-            print(f"🔍 Meses com dados na tendência: {tendencia_query.count()}")
+            print(f"Meses com dados na tendência: {tendencia_query.count()}")
             
             for item in tendencia_query:
                 mes_str = item['mes'].isoformat() if item['mes'] else None
@@ -169,16 +169,16 @@ class DashboardViewSet(viewsets.ViewSet):
                     'ganhas': item['ganhas'] or 0,
                     'valor': float(item['valor'] or 0)
                 })
-                print(f"🔍 Mês {mes_str}: {item['novas']} novas, {item['ganhas']} ganhas, R$ {item['valor'] or 0}")
+                print(f"Mês {mes_str}: {item['novas']} novas, {item['ganhas']} ganhas, R$ {item['valor'] or 0}")
         except Exception as e:
             import traceback
-            print(f"❌ Erro ao calcular tendência: {e}")
+            print(f"Erro ao calcular tendência: {e}")
             print(traceback.format_exc())
             tendencia = []
 
         # 4. Origem de Leads (Baseado no período selecionado)
         leads_query = Lead.objects.filter(base_hierarquia & periodo_filter) if base_hierarquia else Lead.objects.filter(periodo_filter)
-        print(f"🔍 Leads no período: {leads_query.count()}")
+        print(f"Leads no período: {leads_query.count()}")
         
         origens = leads_query.values('fonte').annotate(
             total=Count('id')
@@ -225,7 +225,7 @@ class DashboardViewSet(viewsets.ViewSet):
             'atividades_atrasadas_lista': list(atrasadas_lista)
         }
         
-        print(f"🔍 Resultado final - KPIs: {resultado['kpis']}")
-        print(f"🔍 Funil items: {len(funil)}, Tendência items: {len(tendencia)}, Origens: {len(origens)}")
+        print(f"Resultado final - KPIs: {resultado['kpis']}")
+        print(f"Funil items: {len(funil)}, Tendência items: {len(tendencia)}, Origens: {len(origens)}")
         
         return Response(resultado)

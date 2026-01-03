@@ -4,10 +4,23 @@ Configuração do Django Admin para CRM
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
-    Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
+    Canal, User, Lead, Conta, Contato, TipoContato, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
     Plano, PlanoAdicional
 )
+
+
+class FunilEstagioInline(admin.TabularInline):
+    model = FunilEstagio
+    extra = 1
+
+@admin.register(Funil)
+class FunilAdmin(admin.ModelAdmin):
+    list_display = ['nome', 'tipo', 'is_active', 'data_criacao']
+    list_filter = ['tipo', 'is_active']
+    search_fields = ['nome']
+    filter_horizontal = ['usuarios']
+    inlines = [FunilEstagioInline]
 
 
 @admin.register(Canal)
@@ -34,8 +47,8 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(Lead)
 class LeadAdmin(admin.ModelAdmin):
-    list_display = ['nome', 'email', 'telefone', 'empresa', 'status', 'fonte', 'proprietario', 'data_criacao']
-    list_filter = ['status', 'fonte', 'data_criacao']
+    list_display = ['nome', 'email', 'telefone', 'empresa', 'funil', 'estagio', 'status', 'proprietario', 'data_criacao']
+    list_filter = ['funil', 'estagio', 'status', 'fonte', 'data_criacao']
     search_fields = ['nome', 'email', 'empresa']
     readonly_fields = ['data_criacao', 'data_atualizacao']
 
@@ -48,28 +61,34 @@ class ContaAdmin(admin.ModelAdmin):
     readonly_fields = ['data_criacao', 'data_atualizacao']
 
 
+@admin.register(TipoContato)
+class TipoContatoAdmin(admin.ModelAdmin):
+    list_display = ['nome', 'data_criacao']
+    search_fields = ['nome']
+
+
 @admin.register(Contato)
 class ContatoAdmin(admin.ModelAdmin):
-    list_display = ['nome', 'email', 'telefone', 'cargo', 'conta', 'proprietario', 'data_criacao']
-    list_filter = ['data_criacao', 'cargo']
+    list_display = ['nome', 'email', 'telefone', 'cargo', 'tipo_contato', 'canal', 'conta', 'proprietario', 'data_criacao']
+    list_filter = ['data_criacao', 'cargo', 'tipo_contato', 'canal']
     search_fields = ['nome', 'email', 'cargo']
     readonly_fields = ['data_criacao', 'data_atualizacao']
 
 
 @admin.register(EstagioFunil)
 class EstagioFunilAdmin(admin.ModelAdmin):
-    list_display = ['nome', 'ordem', 'tipo', 'cor']
+    list_display = ['nome', 'tipo', 'cor']
     list_filter = ['tipo']
-    ordering = ['ordem']
+    search_fields = ['nome']
 
 
 @admin.register(Oportunidade)
 class OportunidadeAdmin(admin.ModelAdmin):
     list_display = [
-        'nome', 'valor_estimado', 'estagio', 'conta',
+        'nome', 'valor_estimado', 'funil', 'estagio', 'conta',
         'data_fechamento_esperada', 'proprietario', 'data_criacao'
     ]
-    list_filter = ['estagio', 'data_criacao', 'data_fechamento_esperada']
+    list_filter = ['funil', 'estagio', 'data_criacao', 'data_fechamento_esperada']
     search_fields = ['nome', 'conta__nome_empresa', 'descricao']
     readonly_fields = ['data_criacao', 'data_atualizacao']
 

@@ -98,9 +98,27 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Tipo de Contato
           </label>
-          <select v-model="form.tipo" class="input">
-            <option value="PADRAO">Padrão</option>
-            <option value="INDICADOR">Indicador de Comissão</option>
+          <select v-model="form.tipo_contato" class="input">
+            <option :value="null">Nenhum...</option>
+            <option v-for="tipo in tiposContato" :key="tipo.id" :value="tipo.id">
+              {{ tipo.nome }}
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Canal Associado
+          </label>
+          <select 
+            v-model="form.canal" 
+            class="input"
+            :disabled="!authStore.isAdmin"
+          >
+            <option :value="null">Sem Canal...</option>
+            <option v-for="canal in canais" :key="canal.id" :value="canal.id">
+              {{ canal.nome }}
+            </option>
           </select>
         </div>
 
@@ -121,9 +139,12 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import BaseModal from './BaseModal.vue'
 import api from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 
 const props = defineProps({
   show: Boolean,
@@ -136,6 +157,8 @@ const emit = defineEmits(['close', 'saved'])
 const loading = ref(false)
 const isEdit = ref(false)
 const contas = ref([])
+const tiposContato = ref([])
+const canais = ref([])
 
 const form = ref({
   nome: '',
@@ -145,13 +168,19 @@ const form = ref({
   cargo: '',
   departamento: '',
   conta: '',
+  tipo_contato: null,
+  canal: null,
   tipo: 'PADRAO',
   notas: ''
 })
 
 watch(() => props.show, async (newVal) => {
   if (newVal) {
+    // Carregar opções de forma independente para evitar bloqueios
     await loadContas()
+    await loadTiposContato()
+    await loadCanais()
+    
     if (props.fixedContaId) {
       form.value.conta = props.fixedContaId
     }
@@ -177,6 +206,24 @@ async function loadContas() {
   }
 }
 
+async function loadTiposContato() {
+  try {
+    const response = await api.get('/tipos-contato/')
+    tiposContato.value = response.data.results || response.data
+  } catch (error) {
+    console.error('Erro ao carregar tipos de contato:', error)
+  }
+}
+
+async function loadCanais() {
+  try {
+    const response = await api.get('/canais/')
+    canais.value = response.data.results || response.data
+  } catch (error) {
+    console.error('Erro ao carregar canais:', error)
+  }
+}
+
 function resetForm() {
   form.value = {
     nome: '',
@@ -186,6 +233,8 @@ function resetForm() {
     cargo: '',
     departamento: '',
     conta: props.fixedContaId || '',
+    tipo_contato: null,
+    canal: authStore.isAdmin ? null : (authStore.user?.canal || null),
     tipo: 'PADRAO',
     notas: ''
   }

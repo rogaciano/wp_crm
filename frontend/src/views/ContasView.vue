@@ -3,7 +3,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Contas</h1>
       <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-sm">
-        + Nova Conta
+        + Nova Conta/Empresa
       </button>
     </div>
 

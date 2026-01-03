@@ -86,13 +86,33 @@
 
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
-            Status
+            Status do Lead
           </label>
           <select v-model="form.status" class="input">
             <option value="Novo">Novo</option>
             <option value="Contatado">Contatado</option>
             <option value="Qualificado">Qualificado</option>
             <option value="Descartado">Descartado</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Funil <span class="text-red-500">*</span>
+          </label>
+          <select v-model="form.funil" required class="input">
+            <option :value="null">Selecione o funil...</option>
+            <option v-for="f in funis" :key="f.id" :value="f.id">{{ f.nome }}</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Estágio <span class="text-red-500">*</span>
+          </label>
+          <select v-model="form.estagio" required class="input" :disabled="!form.funil">
+            <option :value="null">{{ form.funil ? 'Selecione o estágio...' : 'Selecione um funil primeiro' }}</option>
+            <option v-for="e in estagios" :key="e.id" :value="e.id">{{ e.nome }}</option>
           </select>
         </div>
       </div>
@@ -191,7 +211,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseModal from './BaseModal.vue'
 import api from '@/services/api'
@@ -200,14 +220,63 @@ const router = useRouter()
 
 const props = defineProps({
   show: Boolean,
-  lead: Object
+  lead: Object,
+  initialFunilId: Number,
+  initialEstagioId: Number
 })
 
 const emit = defineEmits(['close', 'saved'])
 
+const form = ref({
+  nome: '',
+  email: '',
+  telefone: '',
+  empresa: '',
+  cargo: '',
+  fonte: '',
+  status: 'Novo',
+  funil: null,
+  estagio: null,
+  notas: ''
+})
+
 const loading = ref(false)
 const isEdit = ref(false)
 const selectedDiagnosticos = ref([])
+const funis = ref([])
+const estagios = ref([])
+
+onMounted(async () => {
+  await loadFunis()
+})
+
+async function loadFunis() {
+  try {
+    const response = await api.get('/funis/')
+    funis.value = (response.data.results || response.data).filter(f => f.tipo === 'LEAD')
+  } catch (error) {
+    console.error('Erro ao carregar funis:', error)
+  }
+}
+
+watch(() => form.value.funil, async (newFunil) => {
+  if (newFunil) {
+    try {
+      const response = await api.get(`/funis/${newFunil}/estagios/`)
+      // Normalizar os dados vindos do FunilEstagioSerializer para o select
+      const raw = response.data.results || response.data
+      estagios.value = raw.map(v => ({
+        id: v.estagio_id,
+        nome: v.nome
+      }))
+    } catch (error) {
+      console.error('Erro ao carregar estágios:', error)
+      estagios.value = []
+    }
+  } else {
+    estagios.value = []
+  }
+})
 
 function handleCompare() {
   if (selectedDiagnosticos.value.length !== 2) return
@@ -226,16 +295,6 @@ function handleCompare() {
   window.open(url, '_blank')
 }
 
-const form = ref({
-  nome: '',
-  email: '',
-  telefone: '',
-  empresa: '',
-  cargo: '',
-  fonte: '',
-  status: 'Novo',
-  notas: ''
-})
 
 watch(() => props.lead, (newLead) => {
   if (newLead) {
@@ -256,6 +315,8 @@ function resetForm() {
     cargo: '',
     fonte: '',
     status: 'Novo',
+    funil: props.initialFunilId || null,
+    estagio: props.initialEstagioId || null,
     notas: ''
   }
 }
