@@ -1,7 +1,12 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="show" class="modal-overlay" @click.self="close">
+      <div 
+        v-if="show" 
+        class="modal-overlay" 
+        @mousedown="handleMouseDown"
+        @click.self="handleBackdropClick"
+      >
         <div class="modal-container" :class="sizeClass">
           <div class="modal-header">
             <h3 class="text-xl font-semibold text-gray-900">{{ title }}</h3>
@@ -32,7 +37,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
   show: {
@@ -59,6 +64,10 @@ const props = defineProps({
   loading: {
     type: Boolean,
     default: false
+  },
+  closeOnBackdrop: {
+    type: Boolean,
+    default: true
   }
 })
 
@@ -73,6 +82,19 @@ const sizeClass = computed(() => {
   }
   return sizes[props.size]
 })
+
+const isBackdropClick = ref(false)
+
+function handleMouseDown(e) {
+  // Flag que o clique começou no fundo (overlay)
+  isBackdropClick.value = e.target === e.currentTarget
+}
+
+function handleBackdropClick() {
+  if (props.closeOnBackdrop && isBackdropClick.value) {
+    close()
+  }
+}
 
 function close() {
   emit('close')
