@@ -56,9 +56,9 @@
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Contato Principal
             </label>
-            <select v-model="form.contato_principal" class="input">
-              <option value="">Selecione um contato...</option>
-              <option v-for="contato in contatos" :key="contato.id" :value="contato.id">
+            <select v-model="form.contato_principal" class="input" :disabled="!form.conta">
+              <option value="">{{ form.conta ? 'Selecione um contato...' : 'Selecione uma conta primeiro' }}</option>
+              <option v-for="contato in contatosDaConta" :key="contato.id" :value="contato.id">
                 {{ contato.nome }}
               </option>
             </select>
@@ -192,6 +192,11 @@ const indicadores = computed(() => {
   return contatos.value.filter(c => c.tipo === 'INDICADOR' || c.tipo_contato_nome === 'INDICADOR')
 })
 
+const contatosDaConta = computed(() => {
+  if (!form.value.conta) return []
+  return contatos.value.filter(c => c.conta === form.value.conta)
+})
+
 const isGanho = computed(() => {
   const estagioObj = estagios.value.find(e => e.id === form.value.estagio)
   return estagioObj?.tipo === 'GANHO'
@@ -236,6 +241,14 @@ watch(() => form.value.funil, async (newFunil) => {
 })
 
 watch(() => form.value.conta, (newContaId) => {
+  // Se mudar a conta, verifica se o contato principal ainda é válido
+  if (form.value.contato_principal) {
+    const selectedContato = contatos.value.find(c => c.id === form.value.contato_principal)
+    if (selectedContato && selectedContato.conta !== newContaId) {
+      form.value.contato_principal = ''
+    }
+  }
+
   if (newContaId && !isEdit.value) {
     const selectedConta = contas.value.find(c => c.id === newContaId)
     if (selectedConta && selectedConta.canal) {
