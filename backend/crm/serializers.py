@@ -386,6 +386,7 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
     contato_nome = serializers.SerializerMethodField()
     proprietario_nome = serializers.SerializerMethodField()
     estagio_id = serializers.SerializerMethodField()
+    adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
 
     def get_conta_nome(self, obj):
         return obj.conta.nome_empresa if obj.conta else "N/A"
@@ -403,8 +404,8 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
         model = Oportunidade
         fields = [
             'id', 'nome', 'valor_estimado', 'data_fechamento_esperada',
-            'probabilidade', 'estagio', 'estagio_id', 'conta_nome', 'contato_nome',
-            'proprietario_nome'
+            'probabilidade', 'estagio', 'estagio_id', 'conta', 'conta_nome', 'contato_principal', 'contato_nome',
+            'proprietario_nome', 'plano', 'periodo_pagamento', 'indicador_comissao', 'canal', 'adicionais_detalhes'
         ]
 
 

@@ -564,7 +564,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                 funil__in=user.funis_acesso.all()
             )
             
-        return queryset.select_related('funil', 'estagio', 'conta', 'contato_principal', 'proprietario')
+        return queryset.select_related('funil', 'estagio', 'conta', 'contato_principal', 'proprietario').prefetch_related('oportunidadeadicional_set')
 
     def perform_create(self, serializer):
         # Se não forneceu estágio, busca o padrão do funil
@@ -782,9 +782,9 @@ class PlanoViewSet(viewsets.ModelViewSet):
     serializer_class = PlanoSerializer
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
-        return [HierarchyPermission()]
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
 
 
 class PlanoAdicionalViewSet(viewsets.ModelViewSet):
@@ -793,9 +793,9 @@ class PlanoAdicionalViewSet(viewsets.ModelViewSet):
     serializer_class = PlanoAdicionalSerializer
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
-        return [HierarchyPermission()]
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
 
 
 class AtividadeViewSet(viewsets.ModelViewSet):
