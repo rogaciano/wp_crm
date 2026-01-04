@@ -642,3 +642,38 @@ class DiagnosticoResultado(models.Model):
     def __str__(self):
         entidade = self.lead.nome if self.lead else (self.conta.nome_empresa if self.conta else "N/A")
         return f"Diagnóstico: {entidade} em {self.data_conclusao.strftime('%d/%m/%Y')}"
+
+
+class WhatsappMessage(models.Model):
+    """Histórico de mensagens do WhatsApp via Evolution API"""
+    id_mensagem = models.CharField(max_length=255, unique=True, help_text="ID da mensagem na Evolution API")
+    instancia = models.CharField(max_length=100)
+    
+    # Relacionamentos (opcionais, vinculados pelo número)
+    lead = models.ForeignKey(Lead, on_delete=models.SET_NULL, null=True, blank=True, related_name='mensagens_whatsapp')
+    oportunidade = models.ForeignKey(Oportunidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='mensagens_whatsapp')
+    
+    de_mim = models.BooleanField(default=False, help_text="True se enviada pelo CRM, False se recebida")
+    numero_remetente = models.CharField(max_length=50)
+    numero_destinatario = models.CharField(max_length=50)
+    
+    texto = models.TextField(null=True, blank=True)
+    tipo_mensagem = models.CharField(max_length=50, default='text', help_text="text, image, video, document, etc")
+    url_media = models.URLField(max_length=1000, null=True, blank=True)
+    
+    timestamp = models.DateTimeField()
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Mensagem WhatsApp'
+        verbose_name_plural = 'Mensagens WhatsApp'
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['numero_remetente']),
+            models.Index(fields=['numero_destinatario']),
+            models.Index(fields=['timestamp']),
+        ]
+
+    def __str__(self):
+        direcao = "->" if self.de_mim else "<-"
+        return f"{self.numero_remetente} {direcao} {self.numero_destinatario}: {self.texto[:30]}..."

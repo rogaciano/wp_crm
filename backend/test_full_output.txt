@@ -1,0 +1,64 @@
+﻿============================================================
+TESTE COMPLETO DE ENVIO WHATSAPP
+============================================================
+
+[1] CONFIGURAÃıES:
+  EVOLUTION_API_URL: https://evo.matutec.com.br
+  EVOLUTION_INSTANCE_ID: informsistemas
+  EVOLUTION_API_KEY: 831788F7E5...
+
+[2] BUSCANDO LEAD:
+  Encontrado: ID=6, Nome=diego, Tel=81999216560
+
+[3] TESTANDO ENVIO:
+  Enviado com sucesso!
+  Resposta: {
+    "key": {
+        "remoteJid": "558199216560@s.whatsapp.net",
+        "fromMe": true,
+        "id": "3EB0F993DA878F42DD40E2"
+    },
+    "pushName": "Voc\u00ea",
+    "status": "PENDING",
+    "message": {
+        "conversation": "Teste completo 10:41:13"
+    },
+    "contextInfo": {
+        "mentionedJid": [],
+        "groupMentions": [],
+        "ephemeralSettingTimestamp": {
+            "low": 1767350504,
+            "high": 0,
+            "unsigned": false
+        },
+        "disappearingMode": {
+            "initiator": 0
+        }
+    },
+    "messageType": "conversation",
+    "messageTimestamp": 1767523304,
+    "instanceId": "8a282542-de3b-4efd-8a49-c02e37c3a5c3",
+    "source": "web"
+}
+
+[4] EXTRAINDO ID DA MENSAGEM:
+  ID encontrado em result['key']['id']: 3EB0F993DA878F42DD40E2
+
+[5] FORMATANDO N┌MERO:
+  Original: 81999216560
+  Formatado: 5581999216560
+
+[6] SALVANDO NO BANCO:
+  lead_id a ser usado: 6
+  SUCESSO! Mensagem criada: ID=5, id_mensagem=3EB0F993DA878F42DD40E2
+
+[7] MENSAGENS NO BANCO:
+  [5] 3EB0F993DA878F42DD40E2... de_mim=True lead_id=6
+  [4] 3EB0D19DD4F64A252DF026... de_mim=True lead_id=6
+  [3] test_7726e982582c474ebb00... de_mim=True lead_id=6
+  [2] test_81263bc636014539a8a8... de_mim=True lead_id=6
+  [1] test_6abda8014a474f07973d... de_mim=True lead_id=6
+
+============================================================
+FIM DO TESTE
+============================================================

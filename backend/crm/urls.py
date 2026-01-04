@@ -6,11 +6,13 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     CanalViewSet, UserViewSet, LeadViewSet, ContaViewSet,
     ContatoViewSet, EstagioFunilViewSet, OportunidadeViewSet, AtividadeViewSet,
-    DiagnosticoViewSet, PlanoViewSet, PlanoAdicionalViewSet, FunilViewSet, TipoContatoViewSet
+    DiagnosticoViewSet, PlanoViewSet, PlanoAdicionalViewSet, FunilViewSet, TipoContatoViewSet,
+    WhatsappViewSet, WhatsappWebhookView
 )
 from .views_dashboard import DashboardViewSet
 
 router = DefaultRouter()
+router.register(r'whatsapp', WhatsappViewSet, basename='whatsapp')
 router.register(r'dashboard', DashboardViewSet, basename='dashboard')
 router.register(r'funis', FunilViewSet, basename='funil')
 router.register(r'canais', CanalViewSet, basename='canal')
@@ -28,4 +30,5 @@ router.register(r'adicionais-plano', PlanoAdicionalViewSet, basename='adicional-
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('webhooks/whatsapp/', WhatsappWebhookView.as_view(), name='whatsapp-webhook'),
 ]

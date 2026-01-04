@@ -2,6 +2,7 @@
 Views da API do CRM
 """
 from rest_framework import viewsets, status, filters, permissions
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
@@ -12,18 +13,20 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .models import (
     Canal, User, Lead, Conta, Contato, TipoContato, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
-    Plano, PlanoAdicional
+    Plano, PlanoAdicional, WhatsappMessage
 )
 from .serializers import (
     CanalSerializer, UserSerializer, LeadSerializer, ContaSerializer,
     ContatoSerializer, TipoContatoSerializer, EstagioFunilSerializer, FunilEstagioSerializer, OportunidadeSerializer,
     OportunidadeKanbanSerializer, AtividadeSerializer, LeadConversaoSerializer,
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
-    PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer
+    PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer
 )
 from .services.ai_service import gerar_analise_diagnostico
+from .services.evolution_api import EvolutionService
 from .permissions import HierarchyPermission, IsAdminUser
 from django.utils import timezone
+from django.conf import settings
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -989,6 +992,318 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                 
         except Exception as e:
             return Response(
-                {'error': f'Erro ao salvar diagnóstico: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class WhatsappViewSet(viewsets.ModelViewSet):
+    """ViewSet para histórico e envio de mensagens WhatsApp"""
+    queryset = WhatsappMessage.objects.all()
+    serializer_class = WhatsappMessageSerializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['lead', 'oportunidade', 'numero_remetente', 'numero_destinatario']
+    ordering_fields = ['timestamp']
+
+    def get_queryset(self):
+        # Filtra por número específico se fornecido
+        number = self.request.query_params.get('number')
+        if number:
+            clean_number = ''.join(filter(str.isdigit, str(number)))
+            return self.queryset.filter(
+                Q(numero_remetente__icontains=clean_number) | 
+                Q(numero_destinatario__icontains=clean_number)
+            )
+        return super().get_queryset()
+
+    @action(detail=False, methods=['post'])
+    def send(self, request):
+        """Action para enviar mensagem através do CRM"""
+        import uuid
+        import sys
+        
+        # Log para debug
+        print("=" * 50, file=sys.stderr)
+        print("WHATSAPP SEND REQUEST RECEIVED", file=sys.stderr)
+        print(f"request.data = {request.data}", file=sys.stderr)
+        print("=" * 50, file=sys.stderr)
+        
+        number = request.data.get('number')
+        text = request.data.get('text')
+        lead_id = request.data.get('lead')
+        opp_id = request.data.get('oportunidade')
+        
+        print(f"number={number}, text={text[:20] if text else None}..., lead_id={lead_id}, opp_id={opp_id}", file=sys.stderr)
+
+        if not number or not text:
+            return Response({'error': 'Número e texto são obrigatórios'}, status=400)
+
+        service = EvolutionService()
+        try:
+            print(f"Tentando enviar para {number} via {service.base_url}")
+            result = service.send_text(number, text)
+            print(f"Sucesso na API: {result}")
+            
+            # Extrai ID da mensagem da resposta da Evolution API
+            # A estrutura pode variar: { key: { id: "..." } } ou { data: { key: { id: "..." } } }
+            msg_id = None
+            if isinstance(result, dict):
+                # Tenta formato direto: { key: { id: "..." } }
+                if 'key' in result and isinstance(result['key'], dict):
+                    msg_id = result['key'].get('id')
+                # Tenta formato aninhado: { data: { key: { id: "..." } } }
+                elif 'data' in result and isinstance(result['data'], dict):
+                    data_obj = result['data']
+                    if 'key' in data_obj and isinstance(data_obj['key'], dict):
+                        msg_id = data_obj['key'].get('id')
+            
+            # Se não conseguiu extrair, gera um ID único local
+            if not msg_id:
+                msg_id = f"local_{uuid.uuid4().hex[:20]}"
+                print(f"ID não encontrado na resposta, usando ID local: {msg_id}")
+            
+            # Formata o número para armazenamento consistente
+            formatted_number = service._format_number(number)
+            
+            # Salva localmente
+            msg = WhatsappMessage.objects.create(
+                id_mensagem=msg_id,
+                instancia=settings.EVOLUTION_INSTANCE_ID,
+                de_mim=True,
+                numero_remetente=settings.EVOLUTION_INSTANCE_ID,
+                numero_destinatario=formatted_number,
+                texto=text,
+                timestamp=timezone.now(),
+                lead_id=lead_id,
+                oportunidade_id=opp_id
+            )
+            
+            return Response(WhatsappMessageSerializer(msg).data)
+        except Exception as e:
+            import traceback
+            print(f"ERRO NO VIEWSET: {str(e)}")
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
+
+    @action(detail=False, methods=['post'])
+    def sync(self, request):
+        """
+        Sincroniza mensagens da Evolution API para um número específico.
+        Busca as mensagens mais recentes da API e importa as que ainda não existem.
+        """
+        import sys
+        
+        number = request.data.get('number')
+        lead_id = request.data.get('lead')
+        opp_id = request.data.get('oportunidade')
+        limit = request.data.get('limit', 50)
+        
+        if not number:
+            return Response({'error': 'Número é obrigatório'}, status=400)
+        
+        service = EvolutionService()
+        
+        try:
+            print(f"[SYNC] Buscando mensagens para {number}...", file=sys.stderr)
+            
+            # Busca mensagens da API Evolution
+            api_messages = service.find_messages(number, limit=limit)
+            
+            print(f"[SYNC] Resposta da API: {type(api_messages)}, len={len(api_messages) if isinstance(api_messages, list) else 'N/A'}", file=sys.stderr)
+            
+            # Se a resposta for um dict com 'messages', extrai a lista
+            if isinstance(api_messages, dict):
+                api_messages = api_messages.get('messages', api_messages.get('data', []))
+            
+            if not isinstance(api_messages, list):
+                api_messages = []
+            
+            imported_count = 0
+            skipped_count = 0
+            
+            for msg_data in api_messages:
+                key = msg_data.get('key', {})
+                id_msg = key.get('id')
+                
+                if not id_msg:
+                    continue
+                
+                # Verifica se já existe
+                if WhatsappMessage.objects.filter(id_mensagem=id_msg).exists():
+                    skipped_count += 1
+                    continue
+                
+                remote_jid = key.get('remoteJid', '')
+                from_me = key.get('fromMe', False)
+                
+                # Extrai texto
+                message_content = msg_data.get('message', {})
+                text = ""
+                if 'conversation' in message_content:
+                    text = message_content['conversation']
+                elif 'extendedTextMessage' in message_content:
+                    text = message_content['extendedTextMessage'].get('text', '')
+                
+                # Mídia
+                mtype = 'text'
+                if not text:
+                    for media_type in ['imageMessage', 'videoMessage', 'documentMessage', 'audioMessage']:
+                        if media_type in message_content:
+                            text = message_content[media_type].get('caption', f'[{media_type}]')
+                            mtype = media_type.replace('Message', '')
+                            break
+                
+                # Timestamp
+                ts_int = msg_data.get('messageTimestamp')
+                if ts_int:
+                    dt = timezone.datetime.fromtimestamp(int(ts_int), tz=timezone.utc)
+                else:
+                    dt = timezone.now()
+                
+                # Determina remetente/destinatário
+                remote_number = remote_jid.split('@')[0] if remote_jid else ''
+                
+                if from_me:
+                    numero_remetente = settings.EVOLUTION_INSTANCE_ID
+                    numero_destinatario = remote_number
+                else:
+                    numero_remetente = remote_number
+                    numero_destinatario = settings.EVOLUTION_INSTANCE_ID
+                
+                # Cria a mensagem
+                msg_obj = WhatsappMessage.objects.create(
+                    id_mensagem=id_msg,
+                    instancia=settings.EVOLUTION_INSTANCE_ID,
+                    de_mim=from_me,
+                    numero_remetente=numero_remetente,
+                    numero_destinatario=numero_destinatario,
+                    texto=text or '[sem texto]',
+                    tipo_mensagem=mtype,
+                    timestamp=dt,
+                    lead_id=lead_id,
+                    oportunidade_id=opp_id
+                )
+                
+                # Tenta linkar com Lead/Oportunidade se não foi fornecido
+                if not lead_id and not opp_id:
+                    EvolutionService.identify_and_link_message(msg_obj)
+                
+                imported_count += 1
+            
+            print(f"[SYNC] Importadas: {imported_count}, Ignoradas (duplicatas): {skipped_count}", file=sys.stderr)
+            
+            return Response({
+                'imported': imported_count,
+                'skipped': skipped_count,
+                'message': f'{imported_count} mensagens importadas, {skipped_count} já existiam'
+            })
+            
+        except Exception as e:
+            import traceback
+            print(f"[SYNC] ERRO: {str(e)}", file=sys.stderr)
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
+
+
+class WhatsappWebhookView(APIView):
+    """Recebe notificações da Evolution API (MESSAGES_UPSERT)"""
+    permission_classes = [permissions.AllowAny]  # Evolution envia sem auth JWT
+
+    def post(self, request):
+        import sys
+        
+        data = request.data
+        event = data.get('event', '').lower()  # Normaliza para lowercase
+        instance = data.get('instance', 'unknown')
+        
+        # Log para debug
+        print(f"[WEBHOOK] Event: {event}, Instance: {instance}", file=sys.stderr)
+        
+        # Aceita tanto 'messages.upsert' quanto 'messages_upsert'
+        if event in ['messages.upsert', 'messages_upsert']:
+            # A estrutura pode variar: data.messages ou data.data.messages
+            messages_data = data.get('data', data)
+            if isinstance(messages_data, dict):
+                messages = messages_data.get('messages', [])
+            else:
+                messages = []
+            
+            print(f"[WEBHOOK] Processando {len(messages)} mensagens", file=sys.stderr)
+            
+            for msg_data in messages:
+                try:
+                    key = msg_data.get('key', {})
+                    id_msg = key.get('id')
+                    
+                    if not id_msg:
+                        print(f"[WEBHOOK] Mensagem sem ID, ignorando", file=sys.stderr)
+                        continue
+                    
+                    remote_jid = key.get('remoteJid', '')
+                    from_me = key.get('fromMe', False)
+                    
+                    # Previne duplicatas
+                    if WhatsappMessage.objects.filter(id_mensagem=id_msg).exists():
+                        print(f"[WEBHOOK] Mensagem {id_msg[:10]}... já existe, ignorando", file=sys.stderr)
+                        continue
+
+                    # Extrai texto
+                    message_content = msg_data.get('message', {})
+                    text = ""
+                    if 'conversation' in message_content:
+                        text = message_content['conversation']
+                    elif 'extendedTextMessage' in message_content:
+                        text = message_content['extendedTextMessage'].get('text', '')
+                    elif 'buttonsResponseMessage' in message_content:
+                        text = message_content['buttonsResponseMessage'].get('selectedDisplayText', '')
+                    
+                    # Se for mídia, tenta pegar a legenda
+                    mtype = 'text'
+                    if not text:
+                        for media_type in ['imageMessage', 'videoMessage', 'documentMessage', 'audioMessage']:
+                            if media_type in message_content:
+                                text = message_content[media_type].get('caption', f'[{media_type}]')
+                                mtype = media_type.replace('Message', '')
+                                break
+
+                    # Timestamp
+                    ts_int = msg_data.get('messageTimestamp')
+                    if ts_int:
+                        dt = timezone.datetime.fromtimestamp(int(ts_int), tz=timezone.utc)
+                    else:
+                        dt = timezone.now()
+
+                    # Determina números
+                    remote_number = remote_jid.split('@')[0] if remote_jid else ''
+                    
+                    if from_me:
+                        numero_remetente = instance
+                        numero_destinatario = remote_number
+                    else:
+                        numero_remetente = remote_number
+                        numero_destinatario = instance
+
+                    # Salva
+                    msg_obj = WhatsappMessage.objects.create(
+                        id_mensagem=id_msg,
+                        instancia=instance,
+                        de_mim=from_me,
+                        numero_remetente=numero_remetente,
+                        numero_destinatario=numero_destinatario,
+                        texto=text or '[sem texto]',
+                        tipo_mensagem=mtype,
+                        timestamp=dt
+                    )
+                    
+                    print(f"[WEBHOOK] Mensagem salva: {id_msg[:10]}... de_mim={from_me}", file=sys.stderr)
+                    
+                    # Tenta linkar com Lead/Oportunidade
+                    EvolutionService.identify_and_link_message(msg_obj)
+                    
+                except Exception as e:
+                    print(f"[WEBHOOK] Erro ao processar mensagem: {str(e)}", file=sys.stderr)
+                    import traceback
+                    traceback.print_exc()
+                    continue
+
+        return Response({'status': 'received'}, status=200)
+

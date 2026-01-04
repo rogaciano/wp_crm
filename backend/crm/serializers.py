@@ -7,7 +7,7 @@ from django.contrib.auth.password_validation import validate_password
 from .models import (
     Canal, User, Lead, Conta, Contato, TipoContato, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado, 
-    Plano, PlanoAdicional, OportunidadeAdicional
+    Plano, PlanoAdicional, OportunidadeAdicional, WhatsappMessage
 )
 
 
@@ -285,6 +285,7 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     plano_nome = serializers.SerializerMethodField()
     indicador_nome = serializers.SerializerMethodField()
     canal_nome = serializers.SerializerMethodField()
+    contato_telefone = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
     
     class Meta:
@@ -297,7 +298,7 @@ class OportunidadeSerializer(serializers.ModelSerializer):
             'data_fechamento_real', 'plano', 'plano_nome', 'periodo_pagamento',
             'adicionais_detalhes', 'cortesia', 
             'cupom_desconto', 'forma_pagamento', 'indicador_comissao', 'indicador_nome', 
-            'canal', 'canal_nome', 'data_criacao', 'data_atualizacao'
+            'canal', 'canal_nome', 'contato_telefone', 'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
     
@@ -318,6 +319,9 @@ class OportunidadeSerializer(serializers.ModelSerializer):
 
     def get_contato_nome(self, obj):
         return obj.contato_principal.nome if obj.contato_principal else None
+
+    def get_contato_telefone(self, obj):
+        return obj.contato_principal.telefone if obj.contato_principal else None
 
     def get_plano_nome(self, obj):
         return obj.plano.nome if obj.plano else None
@@ -386,6 +390,7 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
     contato_nome = serializers.SerializerMethodField()
     proprietario_nome = serializers.SerializerMethodField()
     estagio_id = serializers.SerializerMethodField()
+    contato_telefone = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
 
     def get_conta_nome(self, obj):
@@ -393,6 +398,9 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
 
     def get_contato_nome(self, obj):
         return obj.contato_principal.nome if obj.contato_principal else None
+
+    def get_contato_telefone(self, obj):
+        return obj.contato_principal.telefone if obj.contato_principal else None
 
     def get_proprietario_nome(self, obj):
         return obj.proprietario.get_full_name() if obj.proprietario else "N/A"
@@ -404,7 +412,7 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
         model = Oportunidade
         fields = [
             'id', 'nome', 'valor_estimado', 'data_fechamento_esperada',
-            'probabilidade', 'estagio', 'estagio_id', 'conta', 'conta_nome', 'contato_principal', 'contato_nome',
+            'probabilidade', 'estagio', 'estagio_id', 'conta', 'conta_nome', 'contato_principal', 'contato_nome', 'contato_telefone',
             'proprietario_nome', 'plano', 'periodo_pagamento', 'indicador_comissao', 'canal', 'adicionais_detalhes'
         ]
 
@@ -438,3 +446,9 @@ class LeadConversaoSerializer(serializers.Serializer):
         allow_null=True
     )
     canal = serializers.IntegerField(required=False, allow_null=True)
+
+
+class WhatsappMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WhatsappMessage
+        fields = '__all__'

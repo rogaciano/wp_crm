@@ -151,3 +151,8 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
+
+# Evolution API Settings
+EVOLUTION_API_KEY = config('EVOLUTION_API_KEY', default='')
+EVOLUTION_INSTANCE_ID = config('EVOLUTION_INSTANCE_ID', default='')
+EVOLUTION_API_URL = config('EVOLUTION_API_URL', default='https://evo.matutec.com.br')

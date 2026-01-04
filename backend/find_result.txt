@@ -1,0 +1,24 @@
+﻿API URL: https://evo.matutec.com.br
+Instance: informsistemas
+
+N·mero formatado: 5581999216560
+JID: 5581999216560@s.whatsapp.net
+
+URL de busca: https://evo.matutec.com.br/chat/findMessages/informsistemas
+Payload: {
+  "where": {
+    "key": {
+      "remoteJid": "5581999216560@s.whatsapp.net"
+    }
+  },
+  "limit": 20
+}
+
+Buscando mensagens...
+Status: 200
+
+Tipo de resposta: <class 'dict'>
+Resposta Ú dict, keys: dict_keys(['messages'])
+Quantidade de mensagens: 4
+Erro ao parsear JSON: slice(None, 5, None)
+Resposta raw: {"messages":{"total":1,"pages":1,"currentPage":1,"records":[{"id":"cmjz0qjsx005ds14kh7lsjbmr","key":{"id":"3EB0ED709DAEDC253825C5","fromMe":true,"remoteJid":"5581999216560@s.whatsapp.net"},"pushName":"VocÛ","messageType":"conversation","message":{"conversation":"Olß! Esta mensagem foi enviada do meu c¾digo Python."},"messageTimestamp":1743024539,"instanceId":"8a282542-de3b-4efd-8a49-c02e37c3a5c3","source":"web","contextInfo":null,"MessageUpdate":[]}]}}

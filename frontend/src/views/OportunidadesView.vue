@@ -98,6 +98,9 @@
                 <td class="table-cell text-gray-500">{{ oportunidade.probabilidade }}%</td>
                 <td class="table-cell text-right">
                   <div class="flex justify-end space-x-3">
+                    <button @click="openWhatsapp(oportunidade)" class="text-emerald-500 hover:text-emerald-600 font-medium" title="WhatsApp">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
+                    </button>
                     <button @click="openFaturamentoModal(oportunidade)" class="text-emerald-600 hover:text-emerald-700 font-medium" title="Configurar Faturamento">
                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </button>
@@ -147,6 +150,10 @@
             </div>
 
             <div class="flex justify-end space-x-4 border-t pt-3 mt-4">
+              <button @click="openWhatsapp(oportunidade)" class="flex items-center text-xs font-bold text-emerald-600 uppercase tracking-wider">
+                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
+                WhatsApp
+              </button>
               <button 
                 @click="copyBillingInfo(oportunidade.id)" 
                 class="text-xs font-bold text-indigo-600 uppercase tracking-widest flex items-center"
@@ -184,7 +191,16 @@
       :show="showModal"
       :oportunidade="selectedOportunidade"
       @close="closeModal"
-      @saved="loadOportunidades"
+      @saved="handleSaved"
+    />
+
+    <!-- WhatsApp -->
+    <WhatsappChat
+      :show="showWhatsapp"
+      :number="whatsappData.number"
+      :title="whatsappData.title"
+      :oportunidade="whatsappData.oportunidade"
+      @close="showWhatsapp = false"
     />
 
     <FaturamentoModal
@@ -201,6 +217,7 @@ import { ref, onMounted, computed } from 'vue'
 import api from '@/services/api'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
 import FaturamentoModal from '@/components/FaturamentoModal.vue'
+import WhatsappChat from '@/components/WhatsappChat.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
@@ -219,6 +236,14 @@ const funilFilter = ref('')
 const canalFilter = ref('')
 const funisOptions = ref([])
 const canaisOptions = ref([])
+
+// WhatsApp
+const showWhatsapp = ref(false)
+const whatsappData = ref({
+  number: '',
+  title: '',
+  oportunidade: null
+})
 const showModal = ref(false)
 const showFaturamentoModal = ref(false)
 const selectedOportunidade = ref(null)
@@ -360,6 +385,23 @@ async function copyBillingInfo(id) {
     console.error('Erro ao gerar texto:', error)
     alert('Erro ao gerar texto de faturamento. Verifique se o plano está selecionado.')
   }
+}
+
+function handleSaved() {
+  loadOportunidades()
+}
+
+function openWhatsapp(opp) {
+  if (!opp.contato_telefone) {
+    alert('Oportunidade sem telefone de contato cadastrado.')
+    return
+  }
+  whatsappData.value = {
+    number: opp.contato_telefone,
+    title: opp.nome,
+    oportunidade: opp.id
+  }
+  showWhatsapp.value = true
 }
 
 async function deleteOportunidade(id) {
