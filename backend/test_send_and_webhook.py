@@ -8,7 +8,12 @@ import time
 
 # Configura Django
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+
+# Configura pymysql antes de importar Django
+import pymysql
+pymysql.install_as_MySQLdb()
+
 django.setup()
 
 from django.conf import settings
