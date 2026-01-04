@@ -107,6 +107,12 @@ const router = createRouter({
           name: 'admin-planos',
           component: () => import('@/views/admin/PlanosView.vue'),
           meta: { requiresAdmin: true }
+        },
+        {
+          path: '/config/whatsapp',
+          name: 'admin-whatsapp',
+          component: () => import('@/views/admin/WhatsappView.vue'),
+          meta: { requiresAdmin: true }
         }
       ]
     }

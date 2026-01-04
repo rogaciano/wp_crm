@@ -1,6 +1,8 @@
 import api from './api'
 
 export const whatsappService = {
+    // ==================== MENSAGENS ====================
+
     getMessages(params) {
         return api.get('/whatsapp/', { params })
     },
@@ -16,7 +18,40 @@ export const whatsappService = {
         return api.post('/whatsapp/sync/', data)
     },
 
-    // Helper to normalize number if needed on frontend
+    // ==================== CONEXÃO ====================
+
+    // Verifica status da conexão
+    getStatus() {
+        return api.get('/whatsapp/status/')
+    },
+
+    // Obtém QR Code para conexão
+    getQRCode() {
+        return api.get('/whatsapp/qrcode/')
+    },
+
+    // Inicia processo de conexão (retorna status + QR code se necessário)
+    connect() {
+        return api.post('/whatsapp/connect/')
+    },
+
+    // Desconecta o WhatsApp
+    disconnect() {
+        return api.post('/whatsapp/disconnect/')
+    },
+
+    // Reinicia a instância
+    restart() {
+        return api.post('/whatsapp/restart/')
+    },
+
+    // Obtém informações da instância
+    getInstanceInfo() {
+        return api.get('/whatsapp/instance_info/')
+    },
+
+    // ==================== HELPERS ====================
+
     formatNumber(number) {
         if (!number) return ''
         return number.replace(/\D/g, '')
@@ -24,4 +59,3 @@ export const whatsappService = {
 }
 
 export default whatsappService
-

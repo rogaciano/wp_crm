@@ -1015,6 +1015,73 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             )
         return super().get_queryset()
 
+    # ==================== ENDPOINTS DE CONEXÃO ====================
+
+    @action(detail=False, methods=['get'])
+    def status(self, request):
+        """Retorna o status da conexão WhatsApp"""
+        service = EvolutionService()
+        result = service.get_connection_status()
+        return Response(result)
+
+    @action(detail=False, methods=['get'])
+    def qrcode(self, request):
+        """Retorna o QR Code para conexão"""
+        service = EvolutionService()
+        result = service.get_qr_code()
+        return Response(result)
+
+    @action(detail=False, methods=['post'])
+    def connect(self, request):
+        """Inicia o processo de conexão e retorna QR Code"""
+        service = EvolutionService()
+        
+        # Primeiro verifica o status atual
+        status_result = service.get_connection_status()
+        
+        if status_result.get('connected'):
+            return Response({
+                'success': True,
+                'already_connected': True,
+                'message': 'WhatsApp já está conectado',
+                'status': status_result
+            })
+        
+        # Se não está conectado, obtém o QR Code
+        qr_result = service.get_qr_code()
+        
+        return Response({
+            'success': qr_result.get('success', False),
+            'already_connected': False,
+            'qr_code': qr_result.get('qr_code'),
+            'qr_base64': qr_result.get('qr_base64'),
+            'status': status_result
+        })
+
+    @action(detail=False, methods=['post'])
+    def disconnect(self, request):
+        """Desconecta o WhatsApp"""
+        service = EvolutionService()
+        result = service.disconnect()
+        return Response(result)
+
+    @action(detail=False, methods=['post'])
+    def restart(self, request):
+        """Reinicia a instância"""
+        service = EvolutionService()
+        result = service.restart_instance()
+        return Response(result)
+
+    @action(detail=False, methods=['get'])
+    def instance_info(self, request):
+        """Retorna informações da instância"""
+        service = EvolutionService()
+        result = service.get_instance_info()
+        return Response(result)
+
+    # ==================== ENDPOINTS DE MENSAGEM ====================
+
+
     @action(detail=False, methods=['post'])
     def send(self, request):
         """Action para enviar mensagem através do CRM"""
