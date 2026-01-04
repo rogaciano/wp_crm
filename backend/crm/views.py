@@ -1106,12 +1106,12 @@ class WhatsappViewSet(viewsets.ModelViewSet):
 
         service = EvolutionService()
         try:
-            print(f"Tentando enviar para {number} via {service.base_url}")
+            print(f"Tentando enviar para {number} via {service.base_url}", file=sys.stderr)
             result = service.send_text(number, text)
-            print(f"Sucesso na API: {result}")
-            
+            print(f"Sucesso na API: {result}", file=sys.stderr)
+
             # Extrai ID da mensagem da resposta da Evolution API
-            # A estrutura pode variar: { key: { id: "..." } } ou { data: { key: { id: "..." } } }
+            # A estrutura pode variar bastante, vamos tentar todos os formatos possíveis
             msg_id = None
             if isinstance(result, dict):
                 # Tenta formato direto: { key: { id: "..." } }
@@ -1122,11 +1122,19 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                     data_obj = result['data']
                     if 'key' in data_obj and isinstance(data_obj['key'], dict):
                         msg_id = data_obj['key'].get('id')
-            
+                # Tenta formato alternativo: { message: { key: { id: "..." } } }
+                elif 'message' in result and isinstance(result['message'], dict):
+                    if 'key' in result['message'] and isinstance(result['message']['key'], dict):
+                        msg_id = result['message']['key'].get('id')
+
+            # Log detalhado para debug
+            print(f"[SEND] Estrutura da resposta: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}", file=sys.stderr)
+            print(f"[SEND] ID extraído: {msg_id}", file=sys.stderr)
+
             # Se não conseguiu extrair, gera um ID único local
             if not msg_id:
                 msg_id = f"local_{uuid.uuid4().hex[:20]}"
-                print(f"ID não encontrado na resposta, usando ID local: {msg_id}")
+                print(f"[SEND] ID não encontrado na resposta, usando ID local: {msg_id}", file=sys.stderr)
             
             # Formata o número para armazenamento consistente
             formatted_number = service._format_number(number)
@@ -1277,40 +1285,47 @@ class WhatsappWebhookView(APIView):
 
     def post(self, request):
         import sys
-        
+
         data = request.data
         event = data.get('event', '').lower()  # Normaliza para lowercase
         instance = data.get('instance', 'unknown')
-        
+
         # Log para debug
         print(f"[WEBHOOK] Event: {event}, Instance: {instance}", file=sys.stderr)
-        
-        # Aceita tanto 'messages.upsert' quanto 'messages_upsert'
-        if event in ['messages.upsert', 'messages_upsert']:
+
+        # Aceita mensagens recebidas/atualizadas e mensagens enviadas
+        if event in ['messages.upsert', 'messages_upsert', 'send_message', 'messages.update', 'messages_update']:
             # A estrutura pode variar: data.messages ou data.data.messages
             messages_data = data.get('data', data)
             if isinstance(messages_data, dict):
                 messages = messages_data.get('messages', [])
+                # Para evento send_message, pode vir no formato diferente
+                if not messages and 'message' in messages_data:
+                    messages = [messages_data]
             else:
                 messages = []
-            
-            print(f"[WEBHOOK] Processando {len(messages)} mensagens", file=sys.stderr)
-            
+
+            print(f"[WEBHOOK] Processando {len(messages)} mensagens do evento '{event}'", file=sys.stderr)
+
             for msg_data in messages:
                 try:
+                    # Log da estrutura da mensagem para debug
+                    print(f"[WEBHOOK] Estrutura da mensagem: {list(msg_data.keys())}", file=sys.stderr)
+
                     key = msg_data.get('key', {})
                     id_msg = key.get('id')
-                    
+
                     if not id_msg:
-                        print(f"[WEBHOOK] Mensagem sem ID, ignorando", file=sys.stderr)
+                        print(f"[WEBHOOK] Mensagem sem ID, ignorando. Keys: {list(msg_data.keys())}", file=sys.stderr)
                         continue
                     
                     remote_jid = key.get('remoteJid', '')
                     from_me = key.get('fromMe', False)
                     
-                    # Previne duplicatas
-                    if WhatsappMessage.objects.filter(id_mensagem=id_msg).exists():
-                        print(f"[WEBHOOK] Mensagem {id_msg[:10]}... já existe, ignorando", file=sys.stderr)
+                    # Previne duplicatas - verifica se já existe a mensagem com esse ID
+                    existing_msg = WhatsappMessage.objects.filter(id_mensagem=id_msg).first()
+                    if existing_msg:
+                        print(f"[WEBHOOK] Mensagem {id_msg[:10]}... já existe (ID: {existing_msg.id}), ignorando", file=sys.stderr)
                         continue
 
                     # Extrai texto
