@@ -1,6 +1,8 @@
 """
 Views da API do CRM
 """
+import sys
+import logging
 from rest_framework import viewsets, status, filters, permissions
 from rest_framework.views import APIView
 from rest_framework.decorators import action
@@ -9,6 +11,8 @@ from rest_framework.pagination import PageNumberPagination
 from django.db import transaction
 from django.db.models import Q, Sum, Count, Avg
 from django_filters.rest_framework import DjangoFilterBackend
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     Canal, User, Lead, Conta, Contato, TipoContato, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
