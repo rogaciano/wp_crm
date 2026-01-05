@@ -273,6 +273,19 @@ watch(() => props.show, async (newVal) => {
   if (newVal) {
     // Primeiro sincroniza da Evolution API, depois carrega do banco local
     await syncMessages()
+    
+    // Processa mídias pendentes (áudios não transcritos, imagens sem preview)
+    try {
+      const mediaResult = await whatsappService.processPendingMedia(props.number)
+      if (mediaResult.data.processed_audio > 0 || mediaResult.data.processed_images > 0) {
+        console.log('[WhatsappChat] Mídias processadas:', mediaResult.data)
+        // Recarrega mensagens para pegar as atualizações
+        await loadMessages()
+      }
+    } catch (error) {
+      console.error('[WhatsappChat] Erro ao processar mídias:', error)
+    }
+    
     scrollToBottom()
     nextTick(() => inputRef.value?.focus())
   }

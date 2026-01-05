@@ -29,6 +29,11 @@ export const whatsappService = {
         return api.get('/whatsapp/unread_counts/')
     },
 
+    // Processa mídias pendentes (áudios, imagens) quando o chat abre
+    processPendingMedia(number) {
+        return api.post('/whatsapp/process_pending_media/', { number })
+    },
+
     // ==================== CONEXÃO ====================
 
     // Verifica status da conexão

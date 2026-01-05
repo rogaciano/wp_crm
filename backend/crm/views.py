@@ -1382,6 +1382,104 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             'total': leads_unread + opps_unread
         })
 
+    @action(detail=False, methods=['post'])
+    def process_pending_media(self, request):
+        """
+        Processa mídias pendentes (áudios não transcritos, imagens sem base64).
+        Chamado quando o chat é aberto para garantir que as mídias sejam processadas.
+        """
+        number = request.data.get('number')
+        if not number:
+            return Response({'error': 'number required'}, status=400)
+        
+        # Remove formatação do número
+        import re
+        clean_number = re.sub(r'\D', '', str(number))
+        
+        # Busca mensagens pendentes deste número
+        from django.db.models import Q
+        
+        pending_audio = WhatsappMessage.objects.filter(
+            Q(numero_remetente__icontains=clean_number) | Q(numero_destinatario__icontains=clean_number),
+            tipo_mensagem='audio',
+            texto__in=['🎤 [Áudio]', '🎤 [Áudio não transcrito]', '[audioMessage]']
+        )
+        
+        pending_images = WhatsappMessage.objects.filter(
+            Q(numero_remetente__icontains=clean_number) | Q(numero_destinatario__icontains=clean_number),
+            tipo_mensagem='image',
+            media_base64__isnull=True
+        )
+        
+        processed_audio = 0
+        processed_images = 0
+        
+        # Processa áudios
+        if pending_audio.exists():
+            from .services.evolution_api import EvolutionService
+            from .services.audio_transcription import transcribe_from_base64
+            
+            evolution = EvolutionService()
+            
+            for msg in pending_audio[:5]:  # Limita para não demorar muito
+                try:
+                    key = {
+                        'id': msg.id_mensagem,
+                        'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
+                        'fromMe': msg.de_mim
+                    }
+                    
+                    media_result = evolution.get_media_base64(key)
+                    
+                    if media_result and media_result.get('base64'):
+                        transcription = transcribe_from_base64(
+                            media_result['base64'],
+                            media_result.get('mimetype', '')
+                        )
+                        
+                        if transcription and transcription.get('text'):
+                            duration = transcription.get('duration', 0)
+                            msg.texto = f"🎤 [Áudio {int(duration)}s]: {transcription['text']}"
+                            msg.save(update_fields=['texto'])
+                            processed_audio += 1
+                            
+                except Exception as e:
+                    print(f"[ProcessMedia] Erro ao processar áudio {msg.id}: {e}", file=sys.stderr)
+        
+        # Processa imagens
+        if pending_images.exists():
+            from .services.evolution_api import EvolutionService
+            evolution = EvolutionService()
+            
+            for msg in pending_images[:10]:  # Limita
+                try:
+                    key = {
+                        'id': msg.id_mensagem,
+                        'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
+                        'fromMe': msg.de_mim
+                    }
+                    
+                    media_result = evolution.get_media_base64(key)
+                    
+                    if media_result and media_result.get('base64'):
+                        mimetype = media_result.get('mimetype', 'image/jpeg')
+                        base64_data = media_result['base64']
+                        
+                        if not base64_data.startswith('data:'):
+                            base64_data = f"data:{mimetype};base64,{base64_data}"
+                        
+                        msg.media_base64 = base64_data
+                        msg.save(update_fields=['media_base64'])
+                        processed_images += 1
+                        
+                except Exception as e:
+                    print(f"[ProcessMedia] Erro ao processar imagem {msg.id}: {e}", file=sys.stderr)
+        
+        return Response({
+            'processed_audio': processed_audio,
+            'processed_images': processed_images
+        })
+
 
 class WhatsappWebhookView(APIView):
     """Recebe notificações da Evolution API (MESSAGES_UPSERT)"""
@@ -1459,6 +1557,7 @@ class WhatsappWebhookView(APIView):
                     # Mídia
                     mtype = 'text'
                     media_base64 = None
+                    needs_async_processing = False
                     
                     if not text:
                         for media_type in ['imageMessage', 'videoMessage', 'documentMessage', 'audioMessage']:
@@ -1470,53 +1569,27 @@ class WhatsappWebhookView(APIView):
                                 # Extrai URL da mídia para referência
                                 media_url = media_content.get('url') or media_content.get('directPath')
                                 
-                                # Tenta baixar a mídia via Evolution API (base64)
-                                try:
-                                    evolution_service = EvolutionService()
-                                    media_result = evolution_service.get_media_base64(key)
+                                # Define texto temporário e marca para processamento assíncrono
+                                if media_type == 'audioMessage':
+                                    if not text:
+                                        text = "🎤 [Áudio]"
+                                    needs_async_processing = True
+                                    print(f"[WEBHOOK] Áudio detectado, agendando transcrição assíncrona", file=sys.stderr)
                                     
-                                    if media_result:
-                                        media_base64 = media_result.get('base64')
-                                        mimetype = media_result.get('mimetype', '')
+                                elif media_type == 'imageMessage':
+                                    if not text:
+                                        text = "📷 [Imagem]"
+                                    needs_async_processing = True
+                                    print(f"[WEBHOOK] Imagem detectada, agendando download assíncrono", file=sys.stderr)
+                                    
+                                elif media_type == 'videoMessage':
+                                    if not text:
+                                        text = "🎥 [Vídeo]"
                                         
-                                        # Para áudios, tenta transcrever automaticamente
-                                        if media_type == 'audioMessage' and media_base64:
-                                            try:
-                                                from .services.audio_transcription import transcribe_from_base64
-                                                
-                                                print(f"[WEBHOOK] Transcrevendo áudio...", file=sys.stderr)
-                                                result = transcribe_from_base64(media_base64, mimetype)
-                                                
-                                                if result and result.get('text'):
-                                                    transcription = result['text']
-                                                    duration = result.get('duration', 0)
-                                                    text = f"🎤 [Áudio {int(duration)}s]: {transcription}"
-                                                    print(f"[WEBHOOK] Áudio transcrito: {len(transcription)} caracteres", file=sys.stderr)
-                                                else:
-                                                    text = "🎤 [Áudio]"
-                                            except Exception as e:
-                                                print(f"[WEBHOOK] Erro ao transcrever áudio: {str(e)}", file=sys.stderr)
-                                                text = "🎤 [Áudio]"
-                                        
-                                        # Para imagens, guarda o base64 para exibição no frontend
-                                        elif media_type == 'imageMessage' and media_base64:
-                                            if not text:
-                                                text = "📷 [Imagem]"
-                                            # Guarda o base64 com prefixo para exibição direta
-                                            if not media_base64.startswith('data:'):
-                                                media_base64 = f"data:{mimetype};base64,{media_base64}"
-                                        
-                                        elif media_type == 'videoMessage':
-                                            if not text:
-                                                text = "🎥 [Vídeo]"
-                                        
-                                        elif media_type == 'documentMessage':
-                                            filename = media_content.get('fileName', 'documento')
-                                            if not text:
-                                                text = f"📄 [{filename}]"
-                                                
-                                except Exception as e:
-                                    print(f"[WEBHOOK] Erro ao baixar mídia: {str(e)}", file=sys.stderr)
+                                elif media_type == 'documentMessage':
+                                    filename = media_content.get('fileName', 'documento')
+                                    if not text:
+                                        text = f"📄 [{filename}]"
                                 
                                 if not text:
                                     text = f'[{media_type}]'
@@ -1546,7 +1619,7 @@ class WhatsappWebhookView(APIView):
                         texto=text or '[sem texto]',
                         tipo_mensagem=mtype,
                         url_media=media_url,
-                        media_base64=media_base64 if mtype == 'image' else None,  # Só salva base64 para imagens
+                        media_base64=media_base64 if mtype == 'image' else None,
                         timestamp=dt
                     )
                     
