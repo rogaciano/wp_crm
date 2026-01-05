@@ -229,19 +229,31 @@ watch(() => props.show, async (newVal) => {
   }
 })
 
-// Polling para sincronizar periodicamente enquanto o chat estiver aberto
+// Polling para atualizar o chat com o que o Webhook insere no banco
 let interval = null
 onMounted(() => {
   interval = setInterval(async () => {
-    if (props.show && !syncing.value && !loading.value) {
-      // Sincroniza a cada 15 segundos para buscar novas mensagens
-      await syncMessages()
+    if (props.show && !loading.value) {
+      // Busca apenas no banco de dados local (muito mais leve)
+      const oldLength = messages.value.length
+      await loadMessages()
+      
+      // Se chegaram mensagens novas enquanto o chat está aberto, marca como lidas
+      if (messages.value.length > oldLength) {
+        const hasNewReceived = messages.value.slice(oldLength).some(m => !m.de_mim)
+        if (hasNewReceived) {
+          await markAsRead()
+        }
+      }
     }
-  }, 15000)
+  }, 5000) // Verifica o banco local a cada 5 segundos (rápido e leve)
 })
 
-watch(() => props.number, async () => {
-  if (props.show) await syncMessages()
+// Sincronização PESADA (com a API externa) apenas no início ou se o número mudar
+watch(() => props.number, async (newNum) => {
+  if (props.show && newNum) {
+    await syncMessages()
+  }
 })
 </script>
 

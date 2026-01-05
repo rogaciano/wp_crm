@@ -278,6 +278,7 @@
 
 ### Longo Prazo
 - [ ] Integração com e-mail (envio automático)
+- [ ] Django Channels (WebSockets para notificações em tempo real e chat instantâneo)
 - [ ] Webhooks para integrações
 - [ ] Relatórios personalizados
 - [ ] Mobile app (React Native)
