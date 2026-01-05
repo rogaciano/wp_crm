@@ -229,31 +229,50 @@ class EvolutionService:
         if not remote_number:
             return
 
-        # Limpa o número para buscar no banco
-        clean_num = ''.join(filter(str.isdigit, str(remote_number)))
+        # Limpa o número: remove '@s.whatsapp.net' e caracteres não numéricos
+        clean_num = str(remote_number).split('@')[0]
+        clean_num = ''.join(filter(str.isdigit, clean_num))
         
-        # Cria variações para busca (com e sem 55, com e sem 9o dígito)
-        variations = [clean_num]
-        if clean_num.startswith('55') and len(clean_num) >= 12:
-            variations.append(clean_num[2:])
-            if len(clean_num) == 13: # Com 9o dígito
-                variations.append(clean_num[:4] + clean_num[5:]) # Sem 9
-            elif len(clean_num) == 12: # Sem 9o dígito
-                variations.append(clean_num[:4] + '9' + clean_num[4:]) # Com 9
-        
-        # Monta a query para Lead
-        q_lead = Q()
-        for v in variations:
-            q_lead |= Q(telefone__icontains=v)
+        if not clean_num:
+            return
             
-        lead = Lead.objects.filter(q_lead).first()
+        # Cria variações para busca (com e sem 55, com e sem 9o dígito)
+        variations = set([clean_num])
+        
+        # Se tem 55...
+        if clean_num.startswith('55'):
+            variations.add(clean_num[2:]) # Sem 55
+            # Lida com 9o dígito
+            if len(clean_num) == 13: # Com 9 (55 + 2 + 1 + 8)
+                variations.add(clean_num[:4] + clean_num[5:]) # Remove o 9
+            elif len(clean_num) == 12: # Sem 9 (55 + 2 + 8)
+                variations.add(clean_num[:4] + '9' + clean_num[4:]) # Adiciona o 9
+        else:
+            # Se não tem 55, tenta adicionar
+            variations.add('55' + clean_num)
+            # Tenta lidar com 9o dígito na versão sem 55
+            if len(clean_num) == 11: # Com 9 (2 + 1 + 8)
+                variations.add(clean_num[0:2] + clean_num[3:]) # Remove o 9
+            elif len(clean_num) == 10: # Sem 9 (2 + 8)
+                variations.add(clean_num[0:2] + '9' + clean_num[2:]) # Adiciona o 9
+
+        # Filtros de busca
+        q_filter = Q()
+        for v in variations:
+            if len(v) >= 8: # Evita números muito curtos
+                q_filter |= Q(telefone__icontains=v)
+            
+        # Tenta Lead
+        lead = Lead.objects.filter(q_filter).first()
         if lead:
             message_obj.lead = lead
             
-        # Monta a query para Oportunidade (via contato principal)
+        # Tenta Oportunidade (via contato principal)
         q_opp = Q()
         for v in variations:
-            q_opp |= Q(contato_principal__telefone__icontains=v) | Q(contato_principal__celular__icontains=v)
+            if len(v) >= 8:
+                q_opp |= Q(contato_principal__telefone__icontains=v) | \
+                         Q(contato_principal__celular__icontains=v)
             
         opp = Oportunidade.objects.filter(q_opp).first()
         if opp:

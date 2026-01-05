@@ -37,8 +37,12 @@
       </div>
 
       <!-- Messages Area -->
-      <div ref="messageContainer" class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#e5ddd5] chat-bg">
-        <div v-if="loading" class="flex justify-center py-4">
+      <div 
+        ref="messageContainer" 
+        class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#e5ddd5] chat-bg scroll-smooth"
+        @scroll="handleScroll"
+      >
+        <div v-if="loading && messages.length === 0" class="flex justify-center py-4">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
         </div>
         
@@ -49,7 +53,11 @@
             </div>
           </div>
 
-          <div v-for="msg in messages" :key="msg.id" :class="['flex', msg.de_mim ? 'justify-end' : 'justify-start']">
+          <div 
+            v-for="(msg, index) in messages" 
+            :key="msg.id || index" 
+            :class="['flex', msg.de_mim ? 'justify-end' : 'justify-start']"
+          >
             <div :class="['max-w-[85%] px-3 py-2 rounded-lg shadow-sm relative', 
                           msg.de_mim ? 'bg-[#dcf8c6] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none']">
               <p class="text-sm whitespace-pre-wrap break-words">{{ msg.texto }}</p>
@@ -111,6 +119,15 @@ const syncing = ref(false)
 const newMessage = ref('')
 const messageContainer = ref(null)
 const inputRef = ref(null)
+const isAtBottom = ref(true)
+
+// Detecta se o usuário está no final do scroll
+const handleScroll = () => {
+  if (!messageContainer.value) return
+  const { scrollTop, scrollHeight, clientHeight } = messageContainer.value
+  const threshold = 100 // pixels do fundo
+  isAtBottom.value = scrollHeight - scrollTop - clientHeight < threshold
+}
 
 // Sincroniza mensagens da Evolution API para o banco local
 const syncMessages = async () => {
@@ -159,24 +176,34 @@ const markAsRead = async () => {
   }
 }
 
-const loadMessages = async () => {
+const loadMessages = async (silent = false) => {
   if (!props.number) return
-  loading.value = true
+  if (!silent) loading.value = true
+  
   try {
-    console.log('[WhatsappChat] Carregando mensagens para número:', props.number)
     const response = await whatsappService.getMessages({
       number: props.number,
       ordering: 'timestamp'
     })
-    console.log('[WhatsappChat] Resposta da API:', response.data)
-    console.log('[WhatsappChat] Total de mensagens:', response.data.results?.length || response.data.length)
-    messages.value = response.data.results || response.data
-    console.log('[WhatsappChat] Mensagens carregadas:', messages.value.length)
-    scrollToBottom()
+    
+    const newMessages = response.data.results || response.data
+    
+    // Só atualiza se houver mudança real para evitar re-renders desnecessários
+    if (JSON.stringify(newMessages) !== JSON.stringify(messages.value)) {
+      const hadMessages = messages.value.length > 0
+      const wasAtBottom = isAtBottom.value || !hadMessages
+      
+      messages.value = newMessages
+      
+      // Rola para o fundo apenas se o usuário já estava lá ou se é o primeiro load
+      if (wasAtBottom) {
+        scrollToBottom()
+      }
+    }
   } catch (error) {
     console.error('[WhatsappChat] Erro ao carregar mensagens:', error)
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 
@@ -233,12 +260,11 @@ watch(() => props.show, async (newVal) => {
 let interval = null
 onMounted(() => {
   interval = setInterval(async () => {
-    if (props.show && !loading.value) {
-      // Busca apenas no banco de dados local (muito mais leve)
+    if (props.show && !loading.value && !syncing.value) {
+      // Busca no banco local de forma silenciosa
       const oldLength = messages.value.length
-      await loadMessages()
+      await loadMessages(true) // silent=true
       
-      // Se chegaram mensagens novas enquanto o chat está aberto, marca como lidas
       if (messages.value.length > oldLength) {
         const hasNewReceived = messages.value.slice(oldLength).some(m => !m.de_mim)
         if (hasNewReceived) {
@@ -246,7 +272,7 @@ onMounted(() => {
         }
       }
     }
-  }, 5000) // Verifica o banco local a cada 5 segundos (rápido e leve)
+  }, 5000)
 })
 
 // Sincronização PESADA (com a API externa) apenas no início ou se o número mudar
