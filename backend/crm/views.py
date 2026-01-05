@@ -1559,9 +1559,15 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         # Tenta transcrever
         transcription_text = None
         duration = 0
+        transcription_error = None
         
         try:
+            logger.info(f"[TranscribeAudio] Iniciando transcrição para msg {message_id}")
+            logger.info(f"[TranscribeAudio] Mimetype: {mimetype}, Base64 len: {len(base64_data)}")
+            
             result = transcribe_from_base64(base64_data, mimetype)
+            logger.info(f"[TranscribeAudio] Resultado: {result}")
+            
             if result and result.get('text'):
                 transcription_text = result['text']
                 duration = result.get('duration', 0)
@@ -1569,15 +1575,23 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                 # Atualiza a mensagem no banco
                 msg.texto = f"🎤 [Áudio {int(duration)}s]: {transcription_text}"
                 msg.save(update_fields=['texto'])
+                logger.info(f"[TranscribeAudio] Sucesso! Texto: {transcription_text[:50]}...")
+            else:
+                transcription_error = "Transcrição retornou vazio"
+                logger.warning(f"[TranscribeAudio] {transcription_error}")
         except Exception as e:
-            print(f"[TranscribeAudio] Erro: {e}", file=sys.stderr)
+            transcription_error = str(e)
+            logger.error(f"[TranscribeAudio] Erro: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
         
         return Response({
             'success': True,
             'audio_url': audio_url,
             'transcription': transcription_text,
             'duration': duration,
-            'updated_text': msg.texto
+            'updated_text': msg.texto,
+            'error': transcription_error
         })
 
 
