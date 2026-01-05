@@ -204,6 +204,7 @@
       :lead="whatsappData.lead"
       :oportunidade="whatsappData.oportunidade"
       @close="showWhatsapp = false"
+      @messagesRead="whatsappStore.fetchUnreadCounts"
     />
   </div>
 </template>
@@ -212,6 +213,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useOportunidadesStore } from '@/stores/oportunidades'
 import { useAuthStore } from '@/stores/auth'
+import { useWhatsappStore } from '@/stores/whatsapp'
 import { storeToRefs } from 'pinia'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
 import LeadModal from '@/components/LeadModal.vue'
@@ -219,6 +221,7 @@ import WhatsappChat from '@/components/WhatsappChat.vue'
 import api from '@/services/api'
 
 const authStore = useAuthStore()
+const whatsappStore = useWhatsappStore()
 
 const oportunidadesStore = useOportunidadesStore()
 const { kanbanData, loading, error, funis } = storeToRefs(oportunidadesStore)

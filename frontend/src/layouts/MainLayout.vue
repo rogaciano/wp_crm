@@ -205,10 +205,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useWhatsappStore } from '@/stores/whatsapp'
 import api from '@/services/api'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const whatsappStore = useWhatsappStore()
 
 const isSidebarOpen = ref(false)
 
@@ -216,15 +218,15 @@ const user = computed(() => authStore.user)
 const isAdmin = computed(() => authStore.isAdmin)
 
 const atrasadasCount = ref(0)
-const whatsappUnread = ref({ leads: 0, oportunidades: 0, total: 0 })
+const whatsappUnread = computed(() => whatsappStore.unreadCounts)
 
 onMounted(() => {
   fetchAtividadesStats()
-  fetchWhatsappUnread()
+  whatsappStore.fetchUnreadCounts()
   // Atualiza stats de atividades a cada 5 minutos
   setInterval(fetchAtividadesStats, 5 * 60 * 1000)
   // Atualiza WhatsApp a cada 1 minuto
-  setInterval(fetchWhatsappUnread, 60 * 1000)
+  setInterval(() => whatsappStore.fetchUnreadCounts(), 60 * 1000)
 })
 
 async function fetchAtividadesStats() {
@@ -237,15 +239,7 @@ async function fetchAtividadesStats() {
   }
 }
 
-async function fetchWhatsappUnread() {
-  if (!authStore.isAuthenticated) return
-  try {
-    const response = await api.get('/whatsapp/unread_counts/')
-    whatsappUnread.value = response.data
-  } catch (error) {
-    console.error('Erro ao buscar mensagens não lidas:', error)
-  }
-}
+// Removida função fetchWhatsappUnread pois agora está na store
 
 function toggleSidebar() {
   isSidebarOpen.value = !isSidebarOpen.value

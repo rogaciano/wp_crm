@@ -102,7 +102,7 @@ const props = defineProps({
   oportunidade: [Number, String]
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'messagesRead'])
 
 const messages = ref([])
 const loading = ref(false)
@@ -145,11 +145,15 @@ const syncMessages = async () => {
 
 const markAsRead = async () => {
   try {
-    await whatsappService.marcarLidas({
+    const response = await whatsappService.marcarLidas({
       number: props.number,
       lead: props.lead,
       oportunidade: props.oportunidade
     })
+    // Se marcou mensagens novas como lidas, avisa o layout para atualizar o contador
+    if (response.data.updated_count > 0) {
+      emit('messagesRead')
+    }
   } catch (error) {
     console.error('[WhatsappChat] Erro ao marcar como lidas:', error)
   }
@@ -220,6 +224,7 @@ watch(() => props.show, async (newVal) => {
   if (newVal) {
     // Primeiro sincroniza da Evolution API, depois carrega do banco local
     await syncMessages()
+    scrollToBottom()
     nextTick(() => inputRef.value?.focus())
   }
 })

@@ -249,6 +249,7 @@
         :title="whatsappData.title"
         :lead="whatsappData.lead"
         @close="showWhatsapp = false"
+        @messagesRead="whatsappStore.fetchUnreadCounts"
       />
     </div>
   </div>
@@ -261,8 +262,10 @@ import LeadModal from '@/components/LeadModal.vue'
 import LeadConversionModal from '@/components/LeadConversionModal.vue'
 import WhatsappChat from '@/components/WhatsappChat.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useWhatsappStore } from '@/stores/whatsapp'
 
 const authStore = useAuthStore()
+const whatsappStore = useWhatsappStore()
 
 // Ícones simples
 const IconUsers = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354l1.108 3.541H16.8l-2.909 2.112 1.108 3.541-2.909-2.112-2.909 2.112 1.108-3.541-2.909-2.112h3.692L12 4.354z" /></svg>' }
