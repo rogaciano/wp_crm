@@ -1326,15 +1326,23 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         lead_id = request.data.get('lead')
         opp_id = request.data.get('oportunidade')
         
+        # Filtro base: mensagens recebidas e não lidas
         q_filter = Q(lida=False, de_mim=False)
         
-        if lead_id:
-            q_filter &= Q(lead_id=lead_id)
-        elif opp_id:
-            q_filter &= Q(oportunidade_id=opp_id)
-        elif number:
-            clean_number = ''.join(filter(str.isdigit, str(number)))
-            q_filter &= Q(numero_remetente__icontains=clean_number)
+        # Se informou ID, prioriza ele, mas se não achar nada pelo ID, tenta pelo número
+        # Isso ajuda se a vinculação falhou
+        if lead_id or opp_id or number:
+            sub_filter = Q()
+            if lead_id:
+                sub_filter |= Q(lead_id=lead_id)
+            if opp_id:
+                sub_filter |= Q(oportunidade_id=opp_id)
+            if number:
+                clean_number = ''.join(filter(str.isdigit, str(number)))
+                if len(clean_number) >= 8:
+                    sub_filter |= Q(numero_remetente__icontains=clean_number)
+            
+            q_filter &= sub_filter
         else:
             return Response({'error': 'Informe number, lead ou oportunidade'}, status=400)
             
@@ -1381,47 +1389,59 @@ class WhatsappWebhookView(APIView):
 
     def post(self, request):
         import sys
+        import json
 
         data = request.data
-        event = data.get('event', '').lower()  # Normaliza para lowercase
+        
+        # Log para debug (ajuda muito a identificar mudanças na API Evolution)
+        # print(f"[WEBHOOK] Payload: {json.dumps(data)[:500]}...", file=sys.stderr)
+        
+        event = data.get('event', '').lower()
         instance = data.get('instance', 'unknown')
 
-        # Log para debug
-        print(f"[WEBHOOK] Event: {event}, Instance: {instance}", file=sys.stderr)
-
-        # Aceita mensagens recebidas/atualizadas e mensagens enviadas
-        if event in ['messages.upsert', 'messages_upsert', 'send_message', 'messages.update', 'messages_update']:
-            # A estrutura pode variar: data.messages ou data.data.messages
-            messages_data = data.get('data', data)
-            if isinstance(messages_data, dict):
-                messages = messages_data.get('messages', [])
-                # Para evento send_message, pode vir no formato diferente
-                if not messages and 'message' in messages_data:
-                    messages = [messages_data]
+        # Normaliza o nome do evento
+        event = event.replace('_', '.')
+        
+        # Aceita mensagens recebidas/atribuídas e enviadas
+        if 'messages' in event or 'message' in event:
+            # Tenta encontrar a lista de mensagens em qualquer lugar do payload
+            messages = []
+            
+            # Formatos comuns da Evolution API:
+            # 1. data['data']['messages']
+            # 2. data['messages']
+            # 3. data['data'] (se for uma única mensagem)
+            
+            if 'data' in data and isinstance(data['data'], dict) and 'messages' in data['data']:
+                messages = data['data']['messages']
+            elif 'messages' in data:
+                messages = data['messages']
+            elif 'data' in data:
+                messages = [data['data']] if isinstance(data['data'], dict) else []
             else:
-                messages = []
+                # Se não achou nos lugares comuns, procura por 'key' no root (formado de mensagem única)
+                if 'key' in data:
+                    messages = [data]
 
-            print(f"[WEBHOOK] Processando {len(messages)} mensagens do evento '{event}'", file=sys.stderr)
+            if not messages:
+                # print(f"[WEBHOOK] Nenhum conteúdo de mensagem encontrado para o evento {event}", file=sys.stderr)
+                return Response({'status': 'ignored'}, status=200)
+
+            # print(f"[WEBHOOK] Processando {len(messages)} mensagens do evento '{event}'", file=sys.stderr)
 
             for msg_data in messages:
                 try:
-                    # Log da estrutura da mensagem para debug
-                    print(f"[WEBHOOK] Estrutura da mensagem: {list(msg_data.keys())}", file=sys.stderr)
-
                     key = msg_data.get('key', {})
                     id_msg = key.get('id')
 
                     if not id_msg:
-                        print(f"[WEBHOOK] Mensagem sem ID, ignorando. Keys: {list(msg_data.keys())}", file=sys.stderr)
                         continue
                     
                     remote_jid = key.get('remoteJid', '')
                     from_me = key.get('fromMe', False)
                     
-                    # Previne duplicatas - verifica se já existe a mensagem com esse ID
-                    existing_msg = WhatsappMessage.objects.filter(id_mensagem=id_msg).first()
-                    if existing_msg:
-                        print(f"[WEBHOOK] Mensagem {id_msg[:10]}... já existe (ID: {existing_msg.id}), ignorando", file=sys.stderr)
+                    # Previne duplicatas
+                    if WhatsappMessage.objects.filter(id_mensagem=id_msg).exists():
                         continue
 
                     # Extrai texto
@@ -1434,7 +1454,7 @@ class WhatsappWebhookView(APIView):
                     elif 'buttonsResponseMessage' in message_content:
                         text = message_content['buttonsResponseMessage'].get('selectedDisplayText', '')
                     
-                    # Se for mídia, tenta pegar a legenda
+                    # Mídia
                     mtype = 'text'
                     if not text:
                         for media_type in ['imageMessage', 'videoMessage', 'documentMessage', 'audioMessage']:
@@ -1445,10 +1465,7 @@ class WhatsappWebhookView(APIView):
 
                     # Timestamp
                     ts_int = msg_data.get('messageTimestamp')
-                    if ts_int:
-                        dt = timezone.datetime.fromtimestamp(int(ts_int), tz=timezone.utc)
-                    else:
-                        dt = timezone.now()
+                    dt = timezone.datetime.fromtimestamp(int(ts_int), tz=timezone.utc) if ts_int else timezone.now()
 
                     # Determina números
                     remote_number = remote_jid.split('@')[0] if remote_jid else ''
@@ -1472,15 +1489,11 @@ class WhatsappWebhookView(APIView):
                         timestamp=dt
                     )
                     
-                    print(f"[WEBHOOK] Mensagem salva: {id_msg[:10]}... de_mim={from_me}", file=sys.stderr)
-                    
                     # Tenta linkar com Lead/Oportunidade
                     EvolutionService.identify_and_link_message(msg_obj)
                     
                 except Exception as e:
                     print(f"[WEBHOOK] Erro ao processar mensagem: {str(e)}", file=sys.stderr)
-                    import traceback
-                    traceback.print_exc()
                     continue
 
         return Response({'status': 'received'}, status=200)
