@@ -449,6 +449,16 @@ class LeadConversaoSerializer(serializers.Serializer):
 
 
 class WhatsappMessageSerializer(serializers.ModelSerializer):
+    contato = serializers.SerializerMethodField()
+
+    def get_contato(self, obj):
+        """Retorna o número do contato (o que não é a instância/de_mim)"""
+        # Se fui eu que mandei, o contato é o destinatário
+        # Se recebi, o contato é o remetente
+        if obj.de_mim:
+            return obj.numero_destinatario
+        return obj.numero_remetente
+
     class Meta:
         model = WhatsappMessage
         fields = '__all__'

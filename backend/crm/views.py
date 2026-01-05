@@ -1007,37 +1007,53 @@ class WhatsappViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         import sys
         from django.conf import settings
-        # Filtra por número específico se fornecido
+        
+        # Filtros de lead/oportunidade funcionam via DjangoFilterBackend
+        # Mas o filtro de 'number' é customizado para pegar a conversa
         number = self.request.query_params.get('number')
-        print(f"[GET_QUERYSET] Parâmetro number recebido: {number}", file=sys.stderr)
-
+        
         if number:
+            # Limpa o número para pegar apenas dígitos
             clean_number = ''.join(filter(str.isdigit, str(number)))
-            print(f"[GET_QUERYSET] Número limpo: {clean_number}", file=sys.stderr)
-            print(f"[GET_QUERYSET] Instance ID: {settings.EVOLUTION_INSTANCE_ID}", file=sys.stderr)
+            
+            # Criamos variações do número para aumentar a chance de match
+            # Ex: com 55, sem 55, com 9o dígito, sem 9o dígito
+            variations = [clean_number]
+            
+            # Se for um número brasileiro sem 55
+            if len(clean_number) >= 10 and not clean_number.startswith('55'):
+                variations.append('55' + clean_number)
+            
+            # Se for um número brasileiro com 55
+            if clean_number.startswith('55') and len(clean_number) >= 12:
+                variations.append(clean_number[2:]) # Versão sem DDI
+                
+                # Lidar com o 9o dígito (específico do Brasil)
+                # Formato: 55 + DDD (2) + 9 + Numero (8) = 13 dígitos
+                if len(clean_number) == 13:
+                    # Versão sem o 9
+                    variations.append(clean_number[:4] + clean_number[5:])
+                # Formato: 55 + DDD (2) + Numero (8) = 12 dígitos
+                elif len(clean_number) == 12:
+                    # Versão com o 9
+                    variations.append(clean_number[:4] + '9' + clean_number[4:])
+            
+            # Remove duplicatas
+            variations = list(set(variations))
+            
+            # Busca mensagens onde qualquer uma das variações aparece em remetente ou destinatário
+            q_filter = Q()
+            for v in variations:
+                q_filter |= Q(numero_remetente__icontains=v)
+                q_filter |= Q(numero_destinatario__icontains=v)
+            
+            queryset = self.queryset.filter(q_filter)
+            
+            # Opcional: Filtra pela instância atual para evitar mensagens de outras contas se houver
+            # Mas geralmente no CRM queremos ver tudo que pertence a este contato
+            
+            return queryset.order_by('timestamp')
 
-            # Busca mensagens onde o número aparece em qualquer campo
-            # OU onde a conversa é entre o número e a instância
-            queryset = self.queryset.filter(
-                Q(numero_remetente__icontains=clean_number) |
-                Q(numero_destinatario__icontains=clean_number) |
-                # Mensagens enviadas: remetente=INSTANCE_ID e destinatario=numero
-                (Q(numero_remetente=settings.EVOLUTION_INSTANCE_ID) & Q(numero_destinatario__icontains=clean_number)) |
-                # Mensagens recebidas: remetente=numero e destinatario=INSTANCE_ID
-                (Q(numero_remetente__icontains=clean_number) & Q(numero_destinatario=settings.EVOLUTION_INSTANCE_ID))
-            )
-
-            count = queryset.count()
-            print(f"[GET_QUERYSET] Mensagens encontradas: {count}", file=sys.stderr)
-
-            if count > 0:
-                # Mostra algumas mensagens para debug
-                for msg in queryset[:3]:
-                    print(f"[GET_QUERYSET]   - ID: {msg.id}, Rem: {msg.numero_remetente}, Dest: {msg.numero_destinatario}, de_mim: {msg.de_mim}", file=sys.stderr)
-
-            return queryset
-
-        print(f"[GET_QUERYSET] Nenhum filtro de número, retornando todas", file=sys.stderr)
         return super().get_queryset()
 
     # ==================== ENDPOINTS DE CONEXÃO ====================

@@ -226,25 +226,36 @@ class EvolutionService:
         # Pega o número remoto (remetente ou destinatário que não seja a instância)
         remote_number = message_obj.numero_remetente if not message_obj.de_mim else message_obj.numero_destinatario
         
-        # Limpa o número para buscar no banco (removendo 55 se houver pra facilitar busca flexível)
-        clean_num = remote_number
-        if clean_num.startswith('55'):
-            clean_num = clean_num[2:]
-            
-        # Busca Lead
-        lead = Lead.objects.filter(
-            Q(telefone__icontains=clean_num) | Q(telefone__icontains=remote_number)
-        ).first()
+        if not remote_number:
+            return
+
+        # Limpa o número para buscar no banco
+        clean_num = ''.join(filter(str.isdigit, str(remote_number)))
         
+        # Cria variações para busca (com e sem 55, com e sem 9o dígito)
+        variations = [clean_num]
+        if clean_num.startswith('55') and len(clean_num) >= 12:
+            variations.append(clean_num[2:])
+            if len(clean_num) == 13: # Com 9o dígito
+                variations.append(clean_num[:4] + clean_num[5:]) # Sem 9
+            elif len(clean_num) == 12: # Sem 9o dígito
+                variations.append(clean_num[:4] + '9' + clean_num[4:]) # Com 9
+        
+        # Monta a query para Lead
+        q_lead = Q()
+        for v in variations:
+            q_lead |= Q(telefone__icontains=v)
+            
+        lead = Lead.objects.filter(q_lead).first()
         if lead:
             message_obj.lead = lead
             
-        # Busca Oportunidade (via contato principal)
-        opp = Oportunidade.objects.filter(
-            Q(contato_principal__telefone__icontains=clean_num) | 
-            Q(contato_principal__telefone__icontains=remote_number)
-        ).first()
-        
+        # Monta a query para Oportunidade (via contato principal)
+        q_opp = Q()
+        for v in variations:
+            q_opp |= Q(contato_principal__telefone__icontains=v) | Q(contato_principal__celular__icontains=v)
+            
+        opp = Oportunidade.objects.filter(q_opp).first()
         if opp:
             message_obj.oportunidade = opp
             
