@@ -397,7 +397,13 @@ function openWhatsapp(opp) {
     return
   }
   // Remove formatação do telefone (mantém apenas números)
-  const cleanNumber = opp.contato_telefone.replace(/\D/g, '')
+  let cleanNumber = opp.contato_telefone.replace(/\D/g, '')
+
+  // Adiciona código do país (55) se não estiver presente
+  if (!cleanNumber.startsWith('55') && cleanNumber.length <= 11) {
+    cleanNumber = '55' + cleanNumber
+  }
+
   whatsappData.value = {
     number: cleanNumber,
     title: opp.nome,
