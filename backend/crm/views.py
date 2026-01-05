@@ -1351,16 +1351,20 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         
         # Aplicar filtros de hierarquia similares aos ViewSets de Lead/Oportunidade
         if user.perfil == 'ADMIN':
-            leads_unread = unread_base.filter(lead__isnull=False).count()
+            # ADMIN vê tudo. Mensagens não vinculadas a oportunidades contam como leads
+            leads_unread = unread_base.filter(oportunidade__isnull=True).count()
             opps_unread = unread_base.filter(oportunidade__isnull=False).count()
         elif user.perfil == 'RESPONSAVEL':
+            # RESPONSAVEL vê mensagens de leads/oportunidades do seu canal
+            # E também mensagens não vinculadas (se houver apenas uma instância, assumimos que é do canal)
             leads_unread = unread_base.filter(
-                Q(lead__canal=user.canal) | Q(lead__proprietario__canal=user.canal)
+                Q(lead__canal=user.canal) | Q(lead__proprietario__canal=user.canal) | Q(lead__isnull=True, oportunidade__isnull=True)
             ).count()
             opps_unread = unread_base.filter(
                 Q(oportunidade__canal=user.canal) | Q(oportunidade__proprietario__canal=user.canal)
             ).count()
         else: # VENDEDOR
+            # VENDEDOR vê apenas o que é dele
             leads_unread = unread_base.filter(lead__proprietario=user).count()
             opps_unread = unread_base.filter(oportunidade__proprietario=user).count()
             
