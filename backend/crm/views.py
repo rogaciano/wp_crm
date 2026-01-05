@@ -1396,20 +1396,52 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         import re
         clean_number = re.sub(r'\D', '', str(number))
         
-        # Busca mensagens pendentes deste número
+        # Gera variações do número (com e sem 9º dígito)
+        variations = set([clean_number])
+        
+        # Remove DDI se existir
+        base = clean_number[2:] if clean_number.startswith('55') else clean_number
+        variations.add(base)
+        variations.add('55' + base)
+        
+        # Variação com/sem 9º dígito
+        if len(base) == 11 and base[2] == '9':
+            # Tem 9, gera sem
+            without_9 = base[:2] + base[3:]
+            variations.add(without_9)
+            variations.add('55' + without_9)
+        elif len(base) == 10:
+            # Não tem 9, gera com
+            with_9 = base[:2] + '9' + base[2:]
+            variations.add(with_9)
+            variations.add('55' + with_9)
+        
+        # Adiciona últimos 8 dígitos
+        if len(clean_number) >= 8:
+            variations.add(clean_number[-8:])
+        
+        # Busca mensagens pendentes com todas as variações
         from django.db.models import Q
         
+        q_filter = Q()
+        for v in variations:
+            if len(v) >= 8:
+                q_filter |= Q(numero_remetente__icontains=v) | Q(numero_destinatario__icontains=v)
+        
         pending_audio = WhatsappMessage.objects.filter(
-            Q(numero_remetente__icontains=clean_number) | Q(numero_destinatario__icontains=clean_number),
+            q_filter,
             tipo_mensagem='audio',
             texto__in=['🎤 [Áudio]', '🎤 [Áudio não transcrito]', '[audioMessage]']
         )
         
         pending_images = WhatsappMessage.objects.filter(
-            Q(numero_remetente__icontains=clean_number) | Q(numero_destinatario__icontains=clean_number),
+            q_filter,
             tipo_mensagem='image',
             media_base64__isnull=True
         )
+        
+        print(f"[ProcessMedia] Número: {number}, Variações: {variations}", file=sys.stderr)
+        print(f"[ProcessMedia] Áudios pendentes: {pending_audio.count()}, Imagens: {pending_images.count()}", file=sys.stderr)
         
         processed_audio = 0
         processed_images = 0
