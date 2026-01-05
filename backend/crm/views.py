@@ -1522,12 +1522,17 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         Transcreve um áudio específico por ID.
         Retorna a transcrição e o base64 do áudio para reprodução.
         """
+        print(f"[TRANSCRIBE] Endpoint chamado!", file=sys.stderr, flush=True)
+        
         message_id = request.data.get('message_id')
+        print(f"[TRANSCRIBE] message_id: {message_id}", file=sys.stderr, flush=True)
+        
         if not message_id:
             return Response({'error': 'message_id required'}, status=400)
         
         try:
             msg = WhatsappMessage.objects.get(id=message_id)
+            print(f"[TRANSCRIBE] Mensagem encontrada: {msg.id}, tipo: {msg.tipo_mensagem}", file=sys.stderr, flush=True)
         except WhatsappMessage.DoesNotExist:
             return Response({'error': 'message not found'}, status=404)
         
@@ -1537,6 +1542,8 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         # Baixa o áudio da Evolution API
         from .services.evolution_api import EvolutionService
         from .services.audio_transcription import transcribe_from_base64
+        
+        print(f"[TRANSCRIBE] Baixando áudio...", file=sys.stderr, flush=True)
         
         evolution = EvolutionService()
         key = {
