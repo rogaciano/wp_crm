@@ -281,33 +281,64 @@ class EvolutionService:
         clean_num = str(remote_number).split('@')[0]
         clean_num = ''.join(filter(str.isdigit, clean_num))
         
-        if not clean_num:
+        if not clean_num or len(clean_num) < 8:
             return
-            
-        # Cria variações para busca (com e sem 55, com e sem 9o dígito)
-        variations = set([clean_num])
         
-        # Se tem 55...
-        if clean_num.startswith('55'):
-            variations.add(clean_num[2:]) # Sem 55
-            # Lida com 9o dígito
-            if len(clean_num) == 13: # Com 9 (55 + 2 + 1 + 8)
-                variations.add(clean_num[:4] + clean_num[5:]) # Remove o 9
-            elif len(clean_num) == 12: # Sem 9 (55 + 2 + 8)
-                variations.add(clean_num[:4] + '9' + clean_num[4:]) # Adiciona o 9
-        else:
-            # Se não tem 55, tenta adicionar
+        # Gera TODAS as variações possíveis do número
+        variations = set()
+        
+        # Número original
+        variations.add(clean_num)
+        
+        # Remove DDI 55 se existir
+        base_num = clean_num[2:] if clean_num.startswith('55') else clean_num
+        variations.add(base_num)
+        
+        # Adiciona DDI 55 se não tiver
+        if not clean_num.startswith('55'):
             variations.add('55' + clean_num)
-            # Tenta lidar com 9o dígito na versão sem 55
-            if len(clean_num) == 11: # Com 9 (2 + 1 + 8)
-                variations.add(clean_num[0:2] + clean_num[3:]) # Remove o 9
-            elif len(clean_num) == 10: # Sem 9 (2 + 8)
-                variations.add(clean_num[0:2] + '9' + clean_num[2:]) # Adiciona o 9
-
-        # Filtros de busca
+        
+        # Gera variações com/sem o 9º dígito para cada variação base
+        for num in list(variations):
+            # Formato: DDD (2) + 9 (1) + número (8) = 11 dígitos (sem DDI)
+            # Formato: 55 + DDD (2) + 9 (1) + número (8) = 13 dígitos (com DDI)
+            
+            if num.startswith('55'):
+                ddd = num[2:4]  # Pega DDD
+                rest = num[4:]  # Resto do número
+                
+                if len(rest) == 9 and rest.startswith('9'):
+                    # Tem 9, gera sem
+                    variations.add('55' + ddd + rest[1:])
+                    variations.add(ddd + rest[1:])
+                elif len(rest) == 8:
+                    # Não tem 9, gera com
+                    variations.add('55' + ddd + '9' + rest)
+                    variations.add(ddd + '9' + rest)
+            else:
+                if len(num) >= 10:
+                    ddd = num[0:2]
+                    rest = num[2:]
+                    
+                    if len(rest) == 9 and rest.startswith('9'):
+                        # Tem 9, gera sem
+                        variations.add(ddd + rest[1:])
+                        variations.add('55' + ddd + rest[1:])
+                    elif len(rest) == 8:
+                        # Não tem 9, gera com
+                        variations.add(ddd + '9' + rest)
+                        variations.add('55' + ddd + '9' + rest)
+        
+        # Adiciona os últimos 8 dígitos como fallback (mais agressivo)
+        if len(clean_num) >= 8:
+            variations.add(clean_num[-8:])
+        
+        # logger.debug(f"[Evolution] Variações geradas para {remote_number}: {variations}")
+        
+        # Filtros de busca para Lead
         q_filter = Q()
         for v in variations:
-            if len(v) >= 8: # Evita números muito curtos
+            if len(v) >= 8:
                 q_filter |= Q(telefone__icontains=v)
             
         # Tenta Lead
