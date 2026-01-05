@@ -1,6 +1,7 @@
 """
 Serializers para a API do CRM
 """
+import re
 from rest_framework import serializers
 from django.db import transaction
 from django.contrib.auth.password_validation import validate_password
@@ -9,6 +10,69 @@ from .models import (
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado, 
     Plano, PlanoAdicional, OportunidadeAdicional, WhatsappMessage
 )
+
+
+def normalize_phone_brazil(phone: str) -> str:
+    """
+    Normaliza um telefone brasileiro para o formato 55DDDNNNNNNNNN (13 dígitos).
+    
+    Aceita formatos como:
+    - (81) 9 9921-6560
+    - 81999216560
+    - +55 81 999216560
+    - 5581999216560
+    
+    Retorna:
+    - 5581999216560 (sempre 13 dígitos com DDI e 9º dígito)
+    - String vazia se inválido
+    """
+    if not phone:
+        return ''
+    
+    # Remove tudo que não é dígito
+    digits = re.sub(r'\D', '', str(phone))
+    
+    if not digits:
+        return ''
+    
+    # Remove DDI 55 se existir para processar
+    if digits.startswith('55') and len(digits) >= 12:
+        digits = digits[2:]
+    
+    # Agora digits deve ter DDD + número (10 ou 11 dígitos)
+    if len(digits) == 10:
+        # Formato antigo sem 9: adiciona o 9
+        ddd = digits[:2]
+        numero = digits[2:]
+        digits = ddd + '9' + numero
+    elif len(digits) == 11:
+        # Formato com 9: ok
+        pass
+    elif len(digits) == 8:
+        # Só o número sem DDD: não podemos assumir DDD
+        return ''
+    else:
+        # Formato irreconhecível
+        return ''
+    
+    # Adiciona DDI 55
+    return '55' + digits
+
+
+def format_phone_display(phone: str) -> str:
+    """
+    Formata um telefone normalizado para exibição: (81) 9 9921-6560
+    """
+    if not phone or len(phone) != 13:
+        return phone or ''
+    
+    # 5581999216560 -> (81) 9 9921-6560
+    ddd = phone[2:4]
+    p1 = phone[4:5]  # 9
+    p2 = phone[5:9]  # 9921
+    p3 = phone[9:13] # 6560
+    
+    return f"({ddd}) {p1} {p2}-{p3}"
 
 
 class CanalSerializer(serializers.ModelSerializer):
@@ -126,23 +190,40 @@ class LeadSerializer(serializers.ModelSerializer):
     canal_nome = serializers.CharField(source='canal.nome', read_only=True)
     
     whatsapp_nao_lidas = serializers.SerializerMethodField()
+    telefone_formatado = serializers.SerializerMethodField()
 
     class Meta:
         model = Lead
         fields = [
-            'id', 'nome', 'email', 'telefone', 'empresa', 'cargo',
+            'id', 'nome', 'email', 'telefone', 'telefone_formatado', 'empresa', 'cargo',
             'fonte', 'status', 'funil', 'funil_nome', 'estagio', 'estagio_nome', 'estagio_cor',
             'canal', 'canal_nome',
             'notas', 'proprietario', 'proprietario_nome', 'proprietario_canal',
             'diagnosticos', 'whatsapp_nao_lidas', 'data_criacao', 'data_atualizacao'
         ]
-        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos', 'whatsapp_nao_lidas']
+        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos', 'whatsapp_nao_lidas', 'telefone_formatado']
     
     def get_whatsapp_nao_lidas(self, obj):
         return obj.mensagens_whatsapp.filter(lida=False, de_mim=False).count()
     
     def get_proprietario_canal(self, obj):
         return obj.proprietario.canal.id if obj.proprietario and obj.proprietario.canal else None
+    
+    def get_telefone_formatado(self, obj):
+        """Retorna o telefone formatado para exibição: (81) 9 9921-6560"""
+        return format_phone_display(obj.telefone) if obj.telefone else ''
+    
+    def validate_telefone(self, value):
+        """Valida e normaliza o telefone para formato brasileiro padrão"""
+        if not value:
+            return value
+        
+        normalized = normalize_phone_brazil(value)
+        if not normalized:
+            raise serializers.ValidationError(
+                "Telefone inválido. Use o formato: (DDD) 9 XXXX-XXXX ou apenas os números."
+            )
+        return normalized
 
     def create(self, validated_data):
         # Define o proprietário como o usuário logado
@@ -160,6 +241,9 @@ class LeadSerializer(serializers.ModelSerializer):
                         validated_data['estagio'] = estagio_padrao
         
         return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        return super().update(instance, validated_data)
 
 
 class ContaSerializer(serializers.ModelSerializer):
@@ -205,17 +289,41 @@ class ContatoSerializer(serializers.ModelSerializer):
     conta_nome = serializers.CharField(source='conta.nome_empresa', read_only=True)
     tipo_contato_nome = serializers.CharField(source='tipo_contato.nome', read_only=True)
     canal_nome = serializers.CharField(source='canal.nome', read_only=True)
+    telefone_formatado = serializers.SerializerMethodField()
+    celular_formatado = serializers.SerializerMethodField()
     
     class Meta:
         model = Contato
         fields = [
-            'id', 'nome', 'email', 'telefone', 'celular', 'cargo',
+            'id', 'nome', 'email', 'telefone', 'telefone_formatado', 'celular', 'celular_formatado', 'cargo',
             'departamento', 'tipo_contato', 'tipo_contato_nome', 'tipo', 
             'conta', 'conta_nome', 'canal', 'canal_nome',
             'proprietario', 'proprietario_nome', 'notas',
             'data_criacao', 'data_atualizacao'
         ]
-        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
+        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'telefone_formatado', 'celular_formatado']
+    
+    def get_telefone_formatado(self, obj):
+        return format_phone_display(obj.telefone) if obj.telefone else ''
+    
+    def get_celular_formatado(self, obj):
+        return format_phone_display(obj.celular) if obj.celular else ''
+    
+    def validate_telefone(self, value):
+        if not value:
+            return value
+        normalized = normalize_phone_brazil(value)
+        if not normalized:
+            raise serializers.ValidationError("Telefone inválido. Use formato: (DDD) 9 XXXX-XXXX")
+        return normalized
+    
+    def validate_celular(self, value):
+        if not value:
+            return value
+        normalized = normalize_phone_brazil(value)
+        if not normalized:
+            raise serializers.ValidationError("Celular inválido. Use formato: (DDD) 9 XXXX-XXXX")
+        return normalized
     
     def create(self, validated_data):
         validated_data['proprietario'] = self.context['request'].user

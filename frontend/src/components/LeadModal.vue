@@ -37,11 +37,9 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Telefone
           </label>
-          <input
+          <PhoneInput
             v-model="form.telefone"
-            type="text"
-            class="input"
-            placeholder="(00) 0000-0000"
+            input-class="input"
           />
         </div>
 
@@ -214,6 +212,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseModal from './BaseModal.vue'
+import PhoneInput from './PhoneInput.vue'
 import api from '@/services/api'
 
 const router = useRouter()
