@@ -318,8 +318,17 @@ const openImage = (base64) => {
 // Verifica se um áudio está pendente de transcrição
 const isAudioPending = (msg) => {
   if (msg.tipo_mensagem !== 'audio') return false
-  const pendingTexts = ['🎤 [Áudio]', '🎤 [Áudio não transcrito]', '[audioMessage]']
-  return pendingTexts.some(t => msg.texto === t || msg.texto?.startsWith(t))
+  
+  // Áudio transcrito tem formato: "🎤 [Áudio Xs]: texto..."
+  // Áudio pendente é apenas: "🎤 [Áudio]" ou similar
+  const texto = msg.texto || ''
+  
+  // Se contém "s]:" significa que foi transcrito (ex: "🎤 [Áudio 4s]: Olá...")
+  if (texto.includes('s]:')) return false
+  
+  // Verifica se é um texto de áudio pendente
+  const pendingPatterns = ['🎤 [Áudio]', '🎤 [Áudio não transcrito]', '[audioMessage]', '🎤 [Audio]']
+  return pendingPatterns.some(p => texto.includes(p) || texto === p)
 }
 
 // Transcreve um áudio específico
