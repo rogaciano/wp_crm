@@ -1006,6 +1006,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         import sys
+        from django.conf import settings
         # Filtra por número específico se fornecido
         number = self.request.query_params.get('number')
         print(f"[GET_QUERYSET] Parâmetro number recebido: {number}", file=sys.stderr)
@@ -1013,10 +1014,17 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         if number:
             clean_number = ''.join(filter(str.isdigit, str(number)))
             print(f"[GET_QUERYSET] Número limpo: {clean_number}", file=sys.stderr)
+            print(f"[GET_QUERYSET] Instance ID: {settings.EVOLUTION_INSTANCE_ID}", file=sys.stderr)
 
+            # Busca mensagens onde o número aparece em qualquer campo
+            # OU onde a conversa é entre o número e a instância
             queryset = self.queryset.filter(
                 Q(numero_remetente__icontains=clean_number) |
-                Q(numero_destinatario__icontains=clean_number)
+                Q(numero_destinatario__icontains=clean_number) |
+                # Mensagens enviadas: remetente=INSTANCE_ID e destinatario=numero
+                (Q(numero_remetente=settings.EVOLUTION_INSTANCE_ID) & Q(numero_destinatario__icontains=clean_number)) |
+                # Mensagens recebidas: remetente=numero e destinatario=INSTANCE_ID
+                (Q(numero_remetente__icontains=clean_number) & Q(numero_destinatario=settings.EVOLUTION_INSTANCE_ID))
             )
 
             count = queryset.count()
