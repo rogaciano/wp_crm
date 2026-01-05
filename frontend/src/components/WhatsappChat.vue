@@ -115,7 +115,8 @@ const inputRef = ref(null)
 // Sincroniza mensagens da Evolution API para o banco local
 const syncMessages = async () => {
   if (!props.number || syncing.value) return
-  
+
+  console.log('[WhatsappChat] Iniciando sincronização para número:', props.number)
   syncing.value = true
   try {
     const response = await whatsappService.syncMessages({
@@ -124,14 +125,16 @@ const syncMessages = async () => {
       oportunidade: props.oportunidade,
       limit: 50
     })
-    
-    console.log('Sync result:', response.data)
-    
+
+    console.log('[WhatsappChat] Sync result:', response.data)
+    console.log('[WhatsappChat] Mensagens importadas:', response.data.imported)
+    console.log('[WhatsappChat] Mensagens já existentes:', response.data.skipped)
+
     // Recarrega as mensagens do banco local
     await loadMessages()
-    
+
   } catch (error) {
-    console.error('Erro ao sincronizar mensagens:', error)
+    console.error('[WhatsappChat] Erro ao sincronizar mensagens:', error)
   } finally {
     syncing.value = false
   }
@@ -141,14 +144,18 @@ const loadMessages = async () => {
   if (!props.number) return
   loading.value = true
   try {
+    console.log('[WhatsappChat] Carregando mensagens para número:', props.number)
     const response = await whatsappService.getMessages({
       number: props.number,
       ordering: 'timestamp'
     })
+    console.log('[WhatsappChat] Resposta da API:', response.data)
+    console.log('[WhatsappChat] Total de mensagens:', response.data.results?.length || response.data.length)
     messages.value = response.data.results || response.data
+    console.log('[WhatsappChat] Mensagens carregadas:', messages.value.length)
     scrollToBottom()
   } catch (error) {
-    console.error('Erro ao carregar mensagens:', error)
+    console.error('[WhatsappChat] Erro ao carregar mensagens:', error)
   } finally {
     loading.value = false
   }

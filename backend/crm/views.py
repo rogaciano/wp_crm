@@ -1005,14 +1005,31 @@ class WhatsappViewSet(viewsets.ModelViewSet):
     ordering_fields = ['timestamp']
 
     def get_queryset(self):
+        import sys
         # Filtra por número específico se fornecido
         number = self.request.query_params.get('number')
+        print(f"[GET_QUERYSET] Parâmetro number recebido: {number}", file=sys.stderr)
+
         if number:
             clean_number = ''.join(filter(str.isdigit, str(number)))
-            return self.queryset.filter(
-                Q(numero_remetente__icontains=clean_number) | 
+            print(f"[GET_QUERYSET] Número limpo: {clean_number}", file=sys.stderr)
+
+            queryset = self.queryset.filter(
+                Q(numero_remetente__icontains=clean_number) |
                 Q(numero_destinatario__icontains=clean_number)
             )
+
+            count = queryset.count()
+            print(f"[GET_QUERYSET] Mensagens encontradas: {count}", file=sys.stderr)
+
+            if count > 0:
+                # Mostra algumas mensagens para debug
+                for msg in queryset[:3]:
+                    print(f"[GET_QUERYSET]   - ID: {msg.id}, Rem: {msg.numero_remetente}, Dest: {msg.numero_destinatario}, de_mim: {msg.de_mim}", file=sys.stderr)
+
+            return queryset
+
+        print(f"[GET_QUERYSET] Nenhum filtro de número, retornando todas", file=sys.stderr)
         return super().get_queryset()
 
     # ==================== ENDPOINTS DE CONEXÃO ====================
