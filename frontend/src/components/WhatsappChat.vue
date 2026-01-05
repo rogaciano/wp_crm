@@ -339,6 +339,7 @@ const handleTranscribeAudio = async (msg, onlyPlay = false) => {
   
   try {
     const response = await whatsappService.transcribeAudio(msg.id)
+    console.log('[WhatsappChat] Resposta transcrição:', response.data)
     
     if (response.data.success) {
       // Atualiza o URL do áudio para reprodução
@@ -349,10 +350,17 @@ const handleTranscribeAudio = async (msg, onlyPlay = false) => {
       // Atualiza o texto da mensagem localmente
       if (response.data.updated_text && !onlyPlay) {
         const msgIndex = messages.value.findIndex(m => m.id === msg.id)
+        console.log('[WhatsappChat] Atualizando mensagem index:', msgIndex, 'texto:', response.data.updated_text)
         if (msgIndex !== -1) {
-          messages.value[msgIndex].texto = response.data.updated_text
+          // Força reatividade criando novo objeto
+          messages.value[msgIndex] = {
+            ...messages.value[msgIndex],
+            texto: response.data.updated_text
+          }
         }
       }
+    } else {
+      console.error('[WhatsappChat] Transcrição falhou:', response.data)
     }
   } catch (error) {
     console.error('[WhatsappChat] Erro ao transcrever áudio:', error)
