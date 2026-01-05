@@ -1319,6 +1319,57 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             traceback.print_exc()
             return Response({'error': str(e)}, status=500)
 
+    @action(detail=False, methods=['post'])
+    def marcar_lidas(self, request):
+        """Marca mensagens como lidas para um número, lead ou oportunidade"""
+        number = request.data.get('number')
+        lead_id = request.data.get('lead')
+        opp_id = request.data.get('oportunidade')
+        
+        q_filter = Q(lida=False, de_mim=False)
+        
+        if lead_id:
+            q_filter &= Q(lead_id=lead_id)
+        elif opp_id:
+            q_filter &= Q(oportunidade_id=opp_id)
+        elif number:
+            clean_number = ''.join(filter(str.isdigit, str(number)))
+            q_filter &= Q(numero_remetente__icontains=clean_number)
+        else:
+            return Response({'error': 'Informe number, lead ou oportunidade'}, status=400)
+            
+        updated = WhatsappMessage.objects.filter(q_filter).update(lida=True)
+        return Response({'status': 'success', 'updated_count': updated})
+
+    @action(detail=False, methods=['get'])
+    def unread_counts(self, request):
+        """Retorna o total de mensagens não lidas para o usuário logado"""
+        user = request.user
+        
+        # Filtro base: mensagens recebidas e não lidas
+        unread_base = WhatsappMessage.objects.filter(lida=False, de_mim=False)
+        
+        # Aplicar filtros de hierarquia similares aos ViewSets de Lead/Oportunidade
+        if user.perfil == 'ADMIN':
+            leads_unread = unread_base.filter(lead__isnull=False).count()
+            opps_unread = unread_base.filter(oportunidade__isnull=False).count()
+        elif user.perfil == 'RESPONSAVEL':
+            leads_unread = unread_base.filter(
+                Q(lead__canal=user.canal) | Q(lead__proprietario__canal=user.canal)
+            ).count()
+            opps_unread = unread_base.filter(
+                Q(oportunidade__canal=user.canal) | Q(oportunidade__proprietario__canal=user.canal)
+            ).count()
+        else: # VENDEDOR
+            leads_unread = unread_base.filter(lead__proprietario=user).count()
+            opps_unread = unread_base.filter(oportunidade__proprietario=user).count()
+            
+        return Response({
+            'leads': leads_unread,
+            'oportunidades': opps_unread,
+            'total': leads_unread + opps_unread
+        })
+
 
 class WhatsappWebhookView(APIView):
     """Recebe notificações da Evolution API (MESSAGES_UPSERT)"""

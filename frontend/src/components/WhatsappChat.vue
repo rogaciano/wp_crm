@@ -133,10 +133,25 @@ const syncMessages = async () => {
     // Recarrega as mensagens do banco local
     await loadMessages()
 
+    // Marca como lidas após sincronizar (se houver mensagens novas)
+    await markAsRead()
+
   } catch (error) {
     console.error('[WhatsappChat] Erro ao sincronizar mensagens:', error)
   } finally {
     syncing.value = false
+  }
+}
+
+const markAsRead = async () => {
+  try {
+    await whatsappService.marcarLidas({
+      number: props.number,
+      lead: props.lead,
+      oportunidade: props.oportunidade
+    })
+  } catch (error) {
+    console.error('[WhatsappChat] Erro ao marcar como lidas:', error)
   }
 }
 

@@ -18,6 +18,17 @@ export const whatsappService = {
         return api.post('/whatsapp/sync/', data)
     },
 
+    // Marca mensagens como lidas
+    marcarLidas(data) {
+        // data: { number, lead, oportunidade }
+        return api.post('/whatsapp/marcar_lidas/', data)
+    },
+
+    // Busca contagem global de não lidas para o menu
+    getUnreadCounts() {
+        return api.get('/whatsapp/unread_counts/')
+    },
+
     // ==================== CONEXÃO ====================
 
     // Verifica status da conexão

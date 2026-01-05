@@ -159,6 +159,16 @@
                  <button @click.stop="editItem(item)" class="p-1 bg-white shadow-sm border border-gray-100 rounded text-gray-300 hover:text-primary-500 hover:border-primary-100 transition-all">
                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                  </button>
+                 <button 
+                  @click.stop="openWhatsapp(item)" 
+                  class="p-1 bg-white shadow-sm border border-gray-100 rounded text-emerald-500 hover:text-emerald-700 hover:border-emerald-100 transition-all relative"
+                  title="Abrir WhatsApp"
+                 >
+                   <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
+                   <span v-if="item.whatsapp_nao_lidas > 0" class="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[8px] font-black text-white ring-2 ring-white">
+                     {{ item.whatsapp_nao_lidas }}
+                   </span>
+                 </button>
               </div>
             </div>
             
@@ -186,6 +196,15 @@
       @close="showLeadModal = false"
       @saved="handleSaved"
     />
+
+    <WhatsappChat
+      :show="showWhatsapp"
+      :number="whatsappData.number"
+      :title="whatsappData.title"
+      :lead="whatsappData.lead"
+      :oportunidade="whatsappData.oportunidade"
+      @close="showWhatsapp = false"
+    />
   </div>
 </template>
 
@@ -196,6 +215,7 @@ import { useAuthStore } from '@/stores/auth'
 import { storeToRefs } from 'pinia'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
 import LeadModal from '@/components/LeadModal.vue'
+import WhatsappChat from '@/components/WhatsappChat.vue'
 import api from '@/services/api'
 
 const authStore = useAuthStore()
@@ -211,6 +231,14 @@ const showLeadModal = ref(false)
 const selectedOportunidade = ref(null)
 const selectedLead = ref(null)
 const draggedItem = ref(null)
+
+const showWhatsapp = ref(false)
+const whatsappData = ref({
+  number: '',
+  title: '',
+  lead: null,
+  oportunidade: null
+})
 
 const activeStage = ref(null)
 const kanbanContainer = ref(null)
@@ -356,5 +384,27 @@ async function copyBillingInfo(id) {
     console.error('Erro ao gerar texto:', error)
     alert('Erro ao gerar texto de faturamento. Verifique se o plano está selecionado na oportunidade.')
   }
+}
+
+function openWhatsapp(item) {
+  const number = selectedFunil.value?.tipo === 'LEAD' ? item.telefone : item.contato_telefone
+  if (!number) {
+    alert('Contato sem telefone cadastrado.')
+    return
+  }
+  
+  // Remove formatação do telefone
+  let cleanNumber = number.replace(/\D/g, '')
+  if (!cleanNumber.startsWith('55') && cleanNumber.length <= 11) {
+    cleanNumber = '55' + cleanNumber
+  }
+
+  whatsappData.value = {
+    number: cleanNumber,
+    title: item.nome,
+    lead: selectedFunil.value?.tipo === 'LEAD' ? item.id : null,
+    oportunidade: selectedFunil.value?.tipo === 'OPORTUNIDADE' ? item.id : null
+  }
+  showWhatsapp.value = true
 }
 </script>

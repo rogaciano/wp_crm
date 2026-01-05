@@ -72,7 +72,14 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            <span>Leads</span>
+            <span class="flex-1">Leads</span>
+            <span 
+              v-if="whatsappUnread.leads > 0" 
+              class="flex items-center justify-center min-w-[20px] h-5 px-1 bg-emerald-500 text-white text-[10px] font-black rounded-full shadow-sm"
+              title="Mensagens não lidas de Leads"
+            >
+              {{ whatsappUnread.leads }}
+            </span>
           </router-link>
 
           <router-link @click="closeSidebar" to="/contas" class="nav-link" active-class="nav-link-active">
@@ -93,7 +100,14 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span>Oportunidades</span>
+            <span class="flex-1">Oportunidades</span>
+            <span 
+              v-if="whatsappUnread.oportunidades > 0" 
+              class="flex items-center justify-center min-w-[20px] h-5 px-1 bg-emerald-500 text-white text-[10px] font-black rounded-full shadow-sm"
+              title="Mensagens não lidas de Oportunidades"
+            >
+              {{ whatsappUnread.oportunidades }}
+            </span>
           </router-link>
 
           <router-link @click="closeSidebar" to="/atividades" class="nav-link" active-class="nav-link-active">
@@ -202,11 +216,15 @@ const user = computed(() => authStore.user)
 const isAdmin = computed(() => authStore.isAdmin)
 
 const atrasadasCount = ref(0)
+const whatsappUnread = ref({ leads: 0, oportunidades: 0, total: 0 })
 
 onMounted(() => {
   fetchAtividadesStats()
-  // Atualiza a cada 5 minutos
+  fetchWhatsappUnread()
+  // Atualiza stats de atividades a cada 5 minutos
   setInterval(fetchAtividadesStats, 5 * 60 * 1000)
+  // Atualiza WhatsApp a cada 1 minuto
+  setInterval(fetchWhatsappUnread, 60 * 1000)
 })
 
 async function fetchAtividadesStats() {
@@ -216,6 +234,16 @@ async function fetchAtividadesStats() {
     atrasadasCount.value = response.data.atrasadas
   } catch (error) {
     console.error('Erro ao buscar stats de atividades:', error)
+  }
+}
+
+async function fetchWhatsappUnread() {
+  if (!authStore.isAuthenticated) return
+  try {
+    const response = await api.get('/whatsapp/unread_counts/')
+    whatsappUnread.value = response.data
+  } catch (error) {
+    console.error('Erro ao buscar mensagens não lidas:', error)
   }
 }
 

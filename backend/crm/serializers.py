@@ -125,6 +125,8 @@ class LeadSerializer(serializers.ModelSerializer):
     estagio_cor = serializers.CharField(source='estagio.cor', read_only=True)
     canal_nome = serializers.CharField(source='canal.nome', read_only=True)
     
+    whatsapp_nao_lidas = serializers.SerializerMethodField()
+
     class Meta:
         model = Lead
         fields = [
@@ -132,9 +134,12 @@ class LeadSerializer(serializers.ModelSerializer):
             'fonte', 'status', 'funil', 'funil_nome', 'estagio', 'estagio_nome', 'estagio_cor',
             'canal', 'canal_nome',
             'notas', 'proprietario', 'proprietario_nome', 'proprietario_canal',
-            'diagnosticos', 'data_criacao', 'data_atualizacao'
+            'diagnosticos', 'whatsapp_nao_lidas', 'data_criacao', 'data_atualizacao'
         ]
-        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos']
+        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos', 'whatsapp_nao_lidas']
+    
+    def get_whatsapp_nao_lidas(self, obj):
+        return obj.mensagens_whatsapp.filter(lida=False, de_mim=False).count()
     
     def get_proprietario_canal(self, obj):
         return obj.proprietario.canal.id if obj.proprietario and obj.proprietario.canal else None
@@ -286,6 +291,7 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     indicador_nome = serializers.SerializerMethodField()
     canal_nome = serializers.SerializerMethodField()
     contato_telefone = serializers.SerializerMethodField()
+    whatsapp_nao_lidas = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
     
     class Meta:
@@ -298,9 +304,12 @@ class OportunidadeSerializer(serializers.ModelSerializer):
             'data_fechamento_real', 'plano', 'plano_nome', 'periodo_pagamento',
             'adicionais_detalhes', 'cortesia', 
             'cupom_desconto', 'forma_pagamento', 'indicador_comissao', 'indicador_nome', 
-            'canal', 'canal_nome', 'contato_telefone', 'data_criacao', 'data_atualizacao'
+            'canal', 'canal_nome', 'contato_telefone', 'whatsapp_nao_lidas', 'data_criacao', 'data_atualizacao'
         ]
-        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
+        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'whatsapp_nao_lidas']
+    
+    def get_whatsapp_nao_lidas(self, obj):
+        return obj.mensagens_whatsapp.filter(lida=False, de_mim=False).count()
     
     def get_proprietario_nome(self, obj):
         return obj.proprietario.get_full_name() if obj.proprietario else "N/A"
@@ -391,10 +400,14 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
     proprietario_nome = serializers.SerializerMethodField()
     estagio_id = serializers.SerializerMethodField()
     contato_telefone = serializers.SerializerMethodField()
+    whatsapp_nao_lidas = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
 
     def get_conta_nome(self, obj):
         return obj.conta.nome_empresa if obj.conta else "N/A"
+
+    def get_whatsapp_nao_lidas(self, obj):
+        return obj.mensagens_whatsapp.filter(lida=False, de_mim=False).count()
 
     def get_contato_nome(self, obj):
         return obj.contato_principal.nome if obj.contato_principal else None
@@ -413,7 +426,7 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'nome', 'valor_estimado', 'data_fechamento_esperada',
             'probabilidade', 'estagio', 'estagio_id', 'conta', 'conta_nome', 'contato_principal', 'contato_nome', 'contato_telefone',
-            'proprietario_nome', 'plano', 'periodo_pagamento', 'indicador_comissao', 'canal', 'adicionais_detalhes'
+            'proprietario_nome', 'plano', 'periodo_pagamento', 'indicador_comissao', 'canal', 'whatsapp_nao_lidas', 'adicionais_detalhes'
         ]
 
 
