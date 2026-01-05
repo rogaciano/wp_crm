@@ -1512,6 +1512,70 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             'processed_images': processed_images
         })
 
+    @action(detail=False, methods=['post'])
+    def transcribe_audio(self, request):
+        """
+        Transcreve um áudio específico por ID.
+        Retorna a transcrição e o base64 do áudio para reprodução.
+        """
+        message_id = request.data.get('message_id')
+        if not message_id:
+            return Response({'error': 'message_id required'}, status=400)
+        
+        try:
+            msg = WhatsappMessage.objects.get(id=message_id)
+        except WhatsappMessage.DoesNotExist:
+            return Response({'error': 'message not found'}, status=404)
+        
+        if msg.tipo_mensagem != 'audio':
+            return Response({'error': 'message is not audio'}, status=400)
+        
+        # Baixa o áudio da Evolution API
+        from .services.evolution_api import EvolutionService
+        from .services.audio_transcription import transcribe_from_base64
+        
+        evolution = EvolutionService()
+        key = {
+            'id': msg.id_mensagem,
+            'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
+            'fromMe': msg.de_mim
+        }
+        
+        media_result = evolution.get_media_base64(key)
+        
+        if not media_result or not media_result.get('base64'):
+            return Response({'error': 'could not download audio'}, status=500)
+        
+        base64_data = media_result['base64']
+        mimetype = media_result.get('mimetype', 'audio/ogg')
+        
+        # Formata o base64 para reprodução
+        audio_url = f"data:{mimetype};base64,{base64_data}"
+        
+        # Tenta transcrever
+        transcription_text = None
+        duration = 0
+        
+        try:
+            result = transcribe_from_base64(base64_data, mimetype)
+            if result and result.get('text'):
+                transcription_text = result['text']
+                duration = result.get('duration', 0)
+                
+                # Atualiza a mensagem no banco
+                msg.texto = f"🎤 [Áudio {int(duration)}s]: {transcription_text}"
+                msg.save(update_fields=['texto'])
+        except Exception as e:
+            print(f"[TranscribeAudio] Erro: {e}", file=sys.stderr)
+        
+        return Response({
+            'success': True,
+            'audio_url': audio_url,
+            'transcription': transcription_text,
+            'duration': duration,
+            'updated_text': msg.texto
+        })
+
 
 class WhatsappWebhookView(APIView):
     """Recebe notificações da Evolution API (MESSAGES_UPSERT)"""

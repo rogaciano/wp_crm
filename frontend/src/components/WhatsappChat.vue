@@ -71,6 +71,48 @@
                 />
               </div>
               
+              <!-- Áudio com controles -->
+              <div v-if="msg.tipo_mensagem === 'audio'" class="mb-2">
+                <!-- Player de áudio (se disponível) -->
+                <audio 
+                  v-if="audioUrls[msg.id]" 
+                  :src="audioUrls[msg.id]" 
+                  controls 
+                  class="w-full max-w-[250px] h-8"
+                ></audio>
+                
+                <!-- Botões de ação para áudio não transcrito -->
+                <div v-if="isAudioPending(msg)" class="flex items-center space-x-2 mt-1">
+                  <button 
+                    @click="handleTranscribeAudio(msg)"
+                    :disabled="transcribingId === msg.id"
+                    class="text-xs bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded-full flex items-center space-x-1 disabled:opacity-50"
+                  >
+                    <svg v-if="transcribingId !== msg.id" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+                    </svg>
+                    <svg v-else class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    <span>{{ transcribingId === msg.id ? 'Transcrevendo...' : 'Transcrever' }}</span>
+                  </button>
+                  
+                  <button 
+                    v-if="!audioUrls[msg.id]"
+                    @click="handleTranscribeAudio(msg, true)"
+                    :disabled="transcribingId === msg.id"
+                    class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded-full flex items-center space-x-1 disabled:opacity-50"
+                  >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Ouvir</span>
+                  </button>
+                </div>
+              </div>
+              
               <!-- Texto ou Caption -->
               <p class="text-sm whitespace-pre-wrap break-words">{{ msg.texto }}</p>
               
@@ -133,6 +175,10 @@ const newMessage = ref('')
 const messageContainer = ref(null)
 const inputRef = ref(null)
 const isAtBottom = ref(true)
+
+// Controle de áudios
+const transcribingId = ref(null)
+const audioUrls = ref({})
 
 // Detecta se o usuário está no final do scroll
 const handleScroll = () => {
@@ -266,6 +312,44 @@ const openImage = (base64) => {
   if (win) {
     win.document.write(`<img src="${base64}" style="max-width: 100%; height: auto;">`)
     win.document.title = 'Imagem WhatsApp'
+  }
+}
+
+// Verifica se um áudio está pendente de transcrição
+const isAudioPending = (msg) => {
+  if (msg.tipo_mensagem !== 'audio') return false
+  const pendingTexts = ['🎤 [Áudio]', '🎤 [Áudio não transcrito]', '[audioMessage]']
+  return pendingTexts.some(t => msg.texto === t || msg.texto?.startsWith(t))
+}
+
+// Transcreve um áudio específico
+const handleTranscribeAudio = async (msg, onlyPlay = false) => {
+  if (transcribingId.value === msg.id) return
+  
+  transcribingId.value = msg.id
+  
+  try {
+    const response = await whatsappService.transcribeAudio(msg.id)
+    
+    if (response.data.success) {
+      // Atualiza o URL do áudio para reprodução
+      if (response.data.audio_url) {
+        audioUrls.value[msg.id] = response.data.audio_url
+      }
+      
+      // Atualiza o texto da mensagem localmente
+      if (response.data.updated_text && !onlyPlay) {
+        const msgIndex = messages.value.findIndex(m => m.id === msg.id)
+        if (msgIndex !== -1) {
+          messages.value[msgIndex].texto = response.data.updated_text
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[WhatsappChat] Erro ao transcrever áudio:', error)
+    alert('Erro ao processar áudio. Tente novamente.')
+  } finally {
+    transcribingId.value = null
   }
 }
 
