@@ -60,7 +60,20 @@
           >
             <div :class="['max-w-[85%] px-3 py-2 rounded-lg shadow-sm relative', 
                           msg.de_mim ? 'bg-[#dcf8c6] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none']">
+              
+              <!-- Imagem -->
+              <div v-if="msg.tipo_mensagem === 'image' && msg.media_base64" class="mb-2">
+                <img 
+                  :src="msg.media_base64" 
+                  alt="Imagem" 
+                  class="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                  @click="openImage(msg.media_base64)"
+                />
+              </div>
+              
+              <!-- Texto ou Caption -->
               <p class="text-sm whitespace-pre-wrap break-words">{{ msg.texto }}</p>
+              
               <div class="flex items-center justify-end space-x-1 mt-1">
                 <span class="text-[9px] text-gray-400">{{ formatTime(msg.timestamp) }}</span>
                 <svg v-if="msg.de_mim" class="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59 21 7z"/></svg>
@@ -245,6 +258,15 @@ const formatTime = (ts) => {
   if (!ts) return ''
   const date = new Date(ts)
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+const openImage = (base64) => {
+  // Abre a imagem em uma nova aba
+  const win = window.open()
+  if (win) {
+    win.document.write(`<img src="${base64}" style="max-width: 100%; height: auto;">`)
+    win.document.title = 'Imagem WhatsApp'
+  }
 }
 
 watch(() => props.show, async (newVal) => {

@@ -148,3 +148,54 @@ def transcribe_from_url(url: str, headers: dict = None, language: str = 'pt') ->
         return None
     
     return transcribe_audio(audio_path, language)
+
+
+def transcribe_from_base64(base64_data: str, mimetype: str = '', language: str = 'pt') -> dict:
+    """
+    Transcreve áudio a partir de dados Base64 (formato da Evolution API).
+    
+    Args:
+        base64_data: String Base64 do áudio
+        mimetype: Tipo MIME do áudio (ex: audio/ogg; codecs=opus)
+        language: Código do idioma
+    
+    Returns:
+        dict com 'text' e 'segments' ou None se falhar
+    """
+    import base64
+    
+    try:
+        # Determina a extensão do arquivo baseado no mimetype
+        if 'opus' in mimetype or 'ogg' in mimetype:
+            ext = '.ogg'
+        elif 'mp3' in mimetype or 'mpeg' in mimetype:
+            ext = '.mp3'
+        elif 'wav' in mimetype:
+            ext = '.wav'
+        elif 'webm' in mimetype:
+            ext = '.webm'
+        elif 'mp4' in mimetype or 'm4a' in mimetype:
+            ext = '.m4a'
+        else:
+            ext = '.ogg'  # Padrão do WhatsApp
+        
+        # Remove prefixo data:audio/... se existir
+        if base64_data.startswith('data:'):
+            base64_data = base64_data.split(',', 1)[-1]
+        
+        # Decodifica o Base64
+        audio_bytes = base64.b64decode(base64_data)
+        
+        # Salva em arquivo temporário
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_file:
+            tmp_file.write(audio_bytes)
+            audio_path = tmp_file.name
+        
+        logger.info(f"[Whisper] Áudio Base64 salvo: {audio_path} ({len(audio_bytes)} bytes)")
+        
+        # Transcreve
+        return transcribe_audio(audio_path, language)
+        
+    except Exception as e:
+        logger.error(f"[Whisper] Erro ao processar áudio Base64: {str(e)}")
+        return None

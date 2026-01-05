@@ -658,8 +658,9 @@ class WhatsappMessage(models.Model):
     numero_destinatario = models.CharField(max_length=50)
     
     texto = models.TextField(null=True, blank=True)
-    tipo_mensagem = models.CharField(max_length=50, default='text', help_text="text, image, video, document, etc")
+    tipo_mensagem = models.CharField(max_length=50, default='text', help_text="text, image, video, document, audio, etc")
     url_media = models.URLField(max_length=1000, null=True, blank=True)
+    media_base64 = models.TextField(null=True, blank=True, help_text="Base64 da mídia para exibição direta")
     
     lida = models.BooleanField(default=False, help_text="True se a mensagem já foi visualizada no CRM")
     timestamp = models.DateTimeField()

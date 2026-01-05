@@ -220,6 +220,54 @@ class EvolutionService:
             logger.error(f"Erro ao buscar mensagens para {number}: {str(e)}")
             return []
 
+    def get_media_base64(self, message_key: dict):
+        """
+        Obtém a mídia de uma mensagem em formato Base64.
+        
+        Args:
+            message_key: O objeto 'key' da mensagem do webhook, contendo:
+                - id: ID da mensagem
+                - remoteJid: JID do remetente
+                - fromMe: Se foi enviada por nós
+        
+        Returns:
+            dict com 'base64' e 'mimetype' ou None se falhar
+        """
+        url = f"{self.base_url}/chat/getBase64FromMediaMessage/{self.instance}"
+        
+        payload = {
+            "message": {
+                "key": message_key
+            },
+            "convertToMp4": False
+        }
+        
+        try:
+            logger.info(f"[Evolution] Baixando mídia: {message_key.get('id', '')[:20]}...")
+            response = requests.post(url, json=payload, headers=self.headers, timeout=60)
+            response.raise_for_status()
+            data = response.json()
+            
+            base64_data = data.get('base64')
+            mimetype = data.get('mimetype', '')
+            
+            if base64_data:
+                logger.info(f"[Evolution] Mídia baixada: {len(base64_data)} caracteres, tipo: {mimetype}")
+                return {
+                    'base64': base64_data,
+                    'mimetype': mimetype
+                }
+            else:
+                logger.warning(f"[Evolution] Resposta sem base64: {list(data.keys())}")
+                return None
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"[Evolution] Erro ao baixar mídia: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"[Evolution] Erro inesperado ao baixar mídia: {str(e)}")
+            return None
+
     @staticmethod
     def identify_and_link_message(message_obj):
         """Tenta identificar Lead ou Oportunidade pelo número da mensagem e vincula"""
