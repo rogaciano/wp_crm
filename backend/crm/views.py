@@ -1447,6 +1447,8 @@ class WhatsappWebhookView(APIView):
                     # Extrai texto
                     message_content = msg_data.get('message', {})
                     text = ""
+                    media_url = None
+                    
                     if 'conversation' in message_content:
                         text = message_content['conversation']
                     elif 'extendedTextMessage' in message_content:
@@ -1459,8 +1461,38 @@ class WhatsappWebhookView(APIView):
                     if not text:
                         for media_type in ['imageMessage', 'videoMessage', 'documentMessage', 'audioMessage']:
                             if media_type in message_content:
-                                text = message_content[media_type].get('caption', f'[{media_type}]')
+                                media_content = message_content[media_type]
+                                text = media_content.get('caption', '')
                                 mtype = media_type.replace('Message', '')
+                                
+                                # Extrai URL da mídia (pode estar em diferentes lugares)
+                                media_url = media_content.get('url') or media_content.get('directPath')
+                                
+                                # Para áudios, tenta transcrever automaticamente
+                                if media_type == 'audioMessage' and media_url:
+                                    try:
+                                        from .services.audio_transcription import transcribe_from_url
+                                        
+                                        # Monta URL completa se necessário
+                                        if media_url and not media_url.startswith('http'):
+                                            media_url = f"https://mmg.whatsapp.net{media_url}"
+                                        
+                                        print(f"[WEBHOOK] Transcrevendo áudio: {media_url[:50]}...", file=sys.stderr)
+                                        result = transcribe_from_url(media_url)
+                                        
+                                        if result and result.get('text'):
+                                            transcription = result['text']
+                                            duration = result.get('duration', 0)
+                                            text = f"🎤 [Áudio {int(duration)}s]: {transcription}"
+                                            print(f"[WEBHOOK] Áudio transcrito: {len(transcription)} caracteres", file=sys.stderr)
+                                        else:
+                                            text = "🎤 [Áudio não transcrito]"
+                                    except Exception as e:
+                                        print(f"[WEBHOOK] Erro ao transcrever áudio: {str(e)}", file=sys.stderr)
+                                        text = "🎤 [Áudio - erro na transcrição]"
+                                
+                                if not text:
+                                    text = f'[{media_type}]'
                                 break
 
                     # Timestamp
@@ -1486,6 +1518,7 @@ class WhatsappWebhookView(APIView):
                         numero_destinatario=numero_destinatario,
                         texto=text or '[sem texto]',
                         tipo_mensagem=mtype,
+                        url_media=media_url,
                         timestamp=dt
                     )
                     

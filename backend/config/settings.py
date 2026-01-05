@@ -156,3 +156,13 @@ SPECTACULAR_SETTINGS = {
 EVOLUTION_API_KEY = config('EVOLUTION_API_KEY', default='')
 EVOLUTION_INSTANCE_ID = config('EVOLUTION_INSTANCE_ID', default='')
 EVOLUTION_API_URL = config('EVOLUTION_API_URL', default='https://evo.matutec.com.br')
+
+# Whisper Audio Transcription Settings
+# Modelos disponíveis: tiny, base, small, medium, large-v2, large-v3
+# Quanto maior o modelo, melhor a qualidade mas mais lento e usa mais memória
+WHISPER_MODEL_SIZE = config('WHISPER_MODEL_SIZE', default='base')
+# Dispositivo: 'cpu' ou 'cuda' (GPU NVIDIA)
+WHISPER_DEVICE = config('WHISPER_DEVICE', default='cpu')
+# Tipo de computação: 'int8' (cpu), 'float16' (gpu), 'int8_float16' (gpu híbrido)
+WHISPER_COMPUTE_TYPE = config('WHISPER_COMPUTE_TYPE', default='int8')
+
