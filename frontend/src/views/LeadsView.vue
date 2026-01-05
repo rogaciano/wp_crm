@@ -429,8 +429,10 @@ function openWhatsapp(lead) {
     alert('Lead sem telefone cadastrado.')
     return
   }
+  // Remove formatação do telefone (mantém apenas números)
+  const cleanNumber = lead.telefone.replace(/\D/g, '')
   whatsappData.value = {
-    number: lead.telefone,
+    number: cleanNumber,
     title: lead.nome,
     lead: lead.id
   }

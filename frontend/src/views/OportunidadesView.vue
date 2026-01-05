@@ -396,8 +396,10 @@ function openWhatsapp(opp) {
     alert('Oportunidade sem telefone de contato cadastrado.')
     return
   }
+  // Remove formatação do telefone (mantém apenas números)
+  const cleanNumber = opp.contato_telefone.replace(/\D/g, '')
   whatsappData.value = {
-    number: opp.contato_telefone,
+    number: cleanNumber,
     title: opp.nome,
     oportunidade: opp.id
   }
