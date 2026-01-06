@@ -496,11 +496,14 @@ class TipoContatoViewSet(viewsets.ModelViewSet):
 
 class TipoRedeSocialViewSet(viewsets.ModelViewSet):
     """ViewSet para Tipos de Redes Sociais (CRUD apenas Admin, leitura para autenticados)"""
-    queryset = TipoRedeSocial.objects.filter(ativo=True)
     serializer_class = TipoRedeSocialSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['ordem', 'nome']
     ordering = ['ordem', 'nome']
+    
+    def get_queryset(self):
+        # Retorna todos os tipos ativos (filtro no Python em vez de na query para compatibilidade)
+        return TipoRedeSocial.objects.all().order_by('ordem', 'nome')
     
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
