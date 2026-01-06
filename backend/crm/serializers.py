@@ -401,12 +401,6 @@ class ContatoSerializer(serializers.ModelSerializer):
     celular_formatado = serializers.SerializerMethodField()
     foto_url = serializers.SerializerMethodField()
     redes_sociais = ContatoRedeSocialSerializer(many=True, read_only=True)
-    redes_sociais_input = serializers.ListField(
-        child=serializers.DictField(),
-        write_only=True,
-        required=False,
-        help_text='Lista de redes sociais: [{"tipo": 1, "valor": "usuario"}]'
-    )
     
     class Meta:
         model = Contato
@@ -415,7 +409,7 @@ class ContatoSerializer(serializers.ModelSerializer):
             'departamento', 'chave_pix', 'foto', 'foto_url', 'tipo_contato', 'tipo_contato_nome', 'tipo',
             'conta', 'conta_nome', 'canal', 'canal_nome',
             'proprietario', 'proprietario_nome', 'notas',
-            'redes_sociais', 'redes_sociais_input',
+            'redes_sociais',
             'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'telefone_formatado', 'celular_formatado', 'foto_url', 'redes_sociais']
@@ -452,6 +446,26 @@ class ContatoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Celular inválido. Use formato: (DDD) 9 XXXX-XXXX")
         return normalized
     
+    def _get_redes_sociais_data(self):
+        """Extrai redes sociais do request"""
+        import json
+        request = self.context.get('request')
+        if not request:
+            return None
+        
+        redes_data = request.data.get('redes_sociais_input')
+        if redes_data is None:
+            return None
+        
+        # Se vier como string JSON, converter para lista
+        if isinstance(redes_data, str):
+            try:
+                redes_data = json.loads(redes_data)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        
+        return redes_data if isinstance(redes_data, list) else []
+    
     def _salvar_redes_sociais(self, contato, redes_sociais_data):
         """Salva as redes sociais do contato"""
         # Remove todas as existentes e recria
@@ -464,32 +478,25 @@ class ContatoSerializer(serializers.ModelSerializer):
                     valor=rede['valor']
                 )
     
-    def to_internal_value(self, data):
-        """Processa os dados de entrada, convertendo JSON string para lista se necessário"""
-        import json
-        # Se redes_sociais_input vier como string JSON (do FormData), converter para lista
-        if 'redes_sociais_input' in data and isinstance(data.get('redes_sociais_input'), str):
-            try:
-                # Criar cópia mutável do QueryDict
-                mutable_data = data.copy()
-                mutable_data['redes_sociais_input'] = json.loads(data['redes_sociais_input'])
-                data = mutable_data
-            except (json.JSONDecodeError, TypeError):
-                pass
-        return super().to_internal_value(data)
-    
     def create(self, validated_data):
-        redes_sociais_data = validated_data.pop('redes_sociais_input', [])
         validated_data['proprietario'] = self.context['request'].user
         contato = super().create(validated_data)
-        self._salvar_redes_sociais(contato, redes_sociais_data)
+        
+        # Processar redes sociais do request
+        redes_sociais_data = self._get_redes_sociais_data()
+        if redes_sociais_data:
+            self._salvar_redes_sociais(contato, redes_sociais_data)
+        
         return contato
     
     def update(self, instance, validated_data):
-        redes_sociais_data = validated_data.pop('redes_sociais_input', None)
         contato = super().update(instance, validated_data)
+        
+        # Processar redes sociais do request
+        redes_sociais_data = self._get_redes_sociais_data()
         if redes_sociais_data is not None:
             self._salvar_redes_sociais(contato, redes_sociais_data)
+        
         return contato
 
 
