@@ -38,11 +38,9 @@
             <p class="text-3xl font-bold text-gray-900 mt-1">{{ tipo.total }}</p>
           </div>
           <div
-            :class="['h-12 w-12 rounded-lg flex items-center justify-center', getTipoColor(index)]"
+            :class="['h-12 w-12 rounded-lg flex items-center justify-center text-3xl', getTipoColor(index)]"
           >
-            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
+            {{ tipo.emoji || '👤' }}
           </div>
         </div>
       </div>
@@ -85,10 +83,14 @@
                 <td class="table-cell text-gray-500 whitespace-nowrap">{{ contato.telefone_formatado || contato.telefone }}</td>
                 <td class="table-cell text-gray-500 break-words">{{ contato.cargo }}</td>
                 <td class="table-cell text-gray-500 whitespace-nowrap">
-                  <span v-if="contato.tipo_contato_nome" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                  <span v-if="contato.tipo_contato_nome" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                    <span>{{ contato.tipo_contato_emoji || '👤' }}</span>
                     {{ contato.tipo_contato_nome }}
                   </span>
-                  <span v-else class="text-gray-400 text-xs">Sem tipo</span>
+                  <span v-else class="text-gray-400 text-xs inline-flex items-center gap-1">
+                    <span>👤</span>
+                    Sem tipo
+                  </span>
                 </td>
                 <td class="table-cell text-gray-500 font-medium break-words">{{ contato.conta_nome }}</td>
                 <td class="table-cell text-right whitespace-nowrap">
@@ -112,7 +114,8 @@
             <div class="mb-3">
               <div class="flex items-center justify-between">
                 <h3 class="font-bold text-gray-900">{{ contato.nome }}</h3>
-                <span v-if="contato.tipo_contato_nome" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                <span v-if="contato.tipo_contato_nome" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                  <span>{{ contato.tipo_contato_emoji || '👤' }}</span>
                   {{ contato.tipo_contato_nome }}
                 </span>
               </div>

@@ -561,7 +561,7 @@ class ContatoViewSet(viewsets.ModelViewSet):
 
         # Contatos agrupados por tipo_contato
         stats_por_tipo = queryset.values(
-            'tipo_contato__id', 'tipo_contato__nome'
+            'tipo_contato__id', 'tipo_contato__nome', 'tipo_contato__emoji'
         ).annotate(
             total=Count('id')
         ).order_by('-total')
@@ -572,15 +572,18 @@ class ContatoViewSet(viewsets.ModelViewSet):
             # Garante que sempre há um nome válido
             tipo_id = stat['tipo_contato__id']
             tipo_nome = stat['tipo_contato__nome']
+            tipo_emoji = stat['tipo_contato__emoji']
 
             # Se o nome é None/vazio, é um contato sem tipo
             if not tipo_nome:
                 tipo_nome = 'Sem Tipo'
                 tipo_id = 'null'  # Usa string 'null' para diferenciar de undefined no frontend
+                tipo_emoji = '👤'  # Emoji padrão para contatos sem tipo
 
             tipos.append({
                 'id': tipo_id,
                 'nome': tipo_nome,
+                'emoji': tipo_emoji or '👤',  # Emoji padrão se não tiver
                 'total': stat['total']
             })
 

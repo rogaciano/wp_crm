@@ -396,23 +396,24 @@ class ContatoSerializer(serializers.ModelSerializer):
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
     conta_nome = serializers.CharField(source='conta.nome_empresa', read_only=True)
     tipo_contato_nome = serializers.CharField(source='tipo_contato.nome', read_only=True)
+    tipo_contato_emoji = serializers.CharField(source='tipo_contato.emoji', read_only=True)
     canal_nome = serializers.CharField(source='canal.nome', read_only=True)
     telefone_formatado = serializers.SerializerMethodField()
     celular_formatado = serializers.SerializerMethodField()
     foto_url = serializers.SerializerMethodField()
     redes_sociais = ContatoRedeSocialSerializer(many=True, read_only=True)
-    
+
     class Meta:
         model = Contato
         fields = [
             'id', 'nome', 'email', 'telefone', 'telefone_formatado', 'celular', 'celular_formatado', 'cargo',
-            'departamento', 'chave_pix', 'foto', 'foto_url', 'tipo_contato', 'tipo_contato_nome', 'tipo',
+            'departamento', 'chave_pix', 'foto', 'foto_url', 'tipo_contato', 'tipo_contato_nome', 'tipo_contato_emoji', 'tipo',
             'conta', 'conta_nome', 'canal', 'canal_nome',
             'proprietario', 'proprietario_nome', 'notas',
             'redes_sociais',
             'data_criacao', 'data_atualizacao'
         ]
-        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'telefone_formatado', 'celular_formatado', 'foto_url', 'redes_sociais']
+        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'telefone_formatado', 'celular_formatado', 'foto_url', 'redes_sociais', 'tipo_contato_emoji']
     
     def get_foto_url(self, obj):
         if obj.foto:
