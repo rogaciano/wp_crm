@@ -80,18 +80,18 @@
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="contato in contatos" :key="contato.id" class="hover:bg-gray-50">
-                <td class="table-cell font-medium text-gray-900">{{ contato.nome }}</td>
+                <td class="table-cell font-medium text-gray-900 max-w-xs break-words">{{ contato.nome }}</td>
                 <td class="table-cell text-gray-500">{{ contato.email }}</td>
-                <td class="table-cell text-gray-500">{{ contato.telefone_formatado || contato.telefone }}</td>
+                <td class="table-cell text-gray-500 whitespace-nowrap">{{ contato.telefone_formatado || contato.telefone }}</td>
                 <td class="table-cell text-gray-500">{{ contato.cargo }}</td>
-                <td class="table-cell text-gray-500">
+                <td class="table-cell text-gray-500 whitespace-nowrap">
                   <span v-if="contato.tipo_contato_nome" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
                     {{ contato.tipo_contato_nome }}
                   </span>
                   <span v-else class="text-gray-400 text-xs">Sem tipo</span>
                 </td>
-                <td class="table-cell text-gray-500 font-medium">{{ contato.conta_nome }}</td>
-                <td class="table-cell text-right">
+                <td class="table-cell text-gray-500 font-medium max-w-xs break-words">{{ contato.conta_nome }}</td>
+                <td class="table-cell text-right whitespace-nowrap">
                   <div class="flex justify-end space-x-3">
                     <button @click="openModal(contato)" class="text-primary-600 hover:text-primary-700 font-medium">Editar</button>
                     <button @click="deleteContato(contato.id)" class="text-red-600 hover:text-red-700 font-medium">Excluir</button>
