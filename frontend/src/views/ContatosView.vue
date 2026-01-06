@@ -5,6 +5,49 @@
       <button @click="openModal()" class="btn btn-primary w-full sm:w-auto shadow-sm">+ Novo Contato</button>
     </div>
 
+    <!-- Cards de Estatísticas/Filtros -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <!-- Card Total -->
+      <div
+        @click="filterByTipo(null)"
+        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2', selectedTipo === null ? 'border-primary-500 bg-primary-50' : 'border-transparent hover:border-gray-300']"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total de Contatos</p>
+            <p class="text-3xl font-bold text-gray-900 mt-1">{{ stats.total }}</p>
+          </div>
+          <div class="h-12 w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cards por Tipo -->
+      <div
+        v-for="(tipo, index) in stats.por_tipo"
+        :key="tipo.id || 'sem-tipo'"
+        @click="filterByTipo(tipo.id)"
+        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2', selectedTipo === tipo.id ? 'border-primary-500 bg-primary-50' : 'border-transparent hover:border-gray-300']"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">{{ tipo.nome }}</p>
+            <p class="text-3xl font-bold text-gray-900 mt-1">{{ tipo.total }}</p>
+          </div>
+          <div
+            :class="['h-12 w-12 rounded-lg flex items-center justify-center', getTipoColor(index)]"
+          >
+            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card mb-6">
       <input
         v-model="searchQuery"
@@ -109,18 +152,62 @@ const contatos = ref([])
 const searchQuery = ref('')
 const showModal = ref(false)
 const selectedContato = ref(null)
+const loading = ref(false)
+const stats = ref({ total: 0, por_tipo: [] })
+const selectedTipo = ref(null)
+
+// Cores para os cards de tipos (gradientes bonitos)
+const tipoColors = [
+  'bg-gradient-to-br from-purple-500 to-purple-600',
+  'bg-gradient-to-br from-green-500 to-green-600',
+  'bg-gradient-to-br from-orange-500 to-orange-600',
+  'bg-gradient-to-br from-pink-500 to-pink-600',
+  'bg-gradient-to-br from-indigo-500 to-indigo-600',
+  'bg-gradient-to-br from-red-500 to-red-600',
+  'bg-gradient-to-br from-teal-500 to-teal-600',
+  'bg-gradient-to-br from-yellow-500 to-yellow-600',
+]
 
 onMounted(() => {
+  loadEstatisticas()
   loadContatos()
 })
 
-async function loadContatos() {
+async function loadEstatisticas() {
   try {
-    const response = await api.get('/contatos/', { params: { search: searchQuery.value } })
+    const response = await api.get('/contatos/estatisticas/')
+    stats.value = response.data
+  } catch (error) {
+    console.error('Erro ao carregar estatísticas:', error)
+  }
+}
+
+async function loadContatos() {
+  loading.value = true
+  try {
+    const params = { search: searchQuery.value }
+
+    // Adiciona filtro por tipo se selecionado
+    if (selectedTipo.value !== null) {
+      params.tipo_contato = selectedTipo.value
+    }
+
+    const response = await api.get('/contatos/', { params })
     contatos.value = response.data.results || response.data
   } catch (error) {
     console.error('Erro ao carregar contatos:', error)
+  } finally {
+    loading.value = false
   }
+}
+
+function getTipoColor(index) {
+  return tipoColors[index % tipoColors.length]
+}
+
+function filterByTipo(tipoId) {
+  selectedTipo.value = tipoId
+  loadContatos()
 }
 
 function openModal(contato = null) {
@@ -130,10 +217,11 @@ function openModal(contato = null) {
 
 async function deleteContato(id) {
   if (!confirm('Tem certeza que deseja excluir este contato?')) return
-  
+
   try {
     await api.delete(`/contatos/${id}/`)
     loadContatos()
+    loadEstatisticas()
   } catch (error) {
     console.error('Erro ao excluir contato:', error)
     alert('Erro ao excluir contato')

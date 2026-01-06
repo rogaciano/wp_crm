@@ -96,6 +96,18 @@
 
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
+            Chave PIX
+          </label>
+          <input
+            v-model="form.chave_pix"
+            type="text"
+            class="input"
+            placeholder="Ex: email@exemplo.com, CPF, telefone ou chave aleatória"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
             Tipo de Contato
           </label>
           <select v-model="form.tipo_contato" class="input">
@@ -167,6 +179,7 @@ const form = ref({
   celular: '',
   cargo: '',
   departamento: '',
+  chave_pix: '',
   conta: '',
   tipo_contato: null,
   canal: null,
@@ -232,6 +245,7 @@ function resetForm() {
     celular: '',
     cargo: '',
     departamento: '',
+    chave_pix: '',
     conta: props.fixedContaId || '',
     tipo_contato: null,
     canal: authStore.isAdmin ? null : (authStore.user?.canal || null),

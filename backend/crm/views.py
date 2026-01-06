@@ -502,10 +502,10 @@ class ContatoViewSet(viewsets.ModelViewSet):
     filterset_fields = ['conta', 'tipo', 'tipo_contato', 'canal']
     search_fields = ['nome', 'email', 'conta__nome_empresa']
     ordering_fields = ['nome', 'data_criacao']
-    
+
     def get_queryset(self):
         user = self.request.user
-        
+
         if user.perfil == 'ADMIN':
             return Contato.objects.all()
         elif user.perfil in ['RESPONSAVEL', 'VENDEDOR']:
@@ -518,12 +518,44 @@ class ContatoViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         canal = serializer.validated_data.get('canal')
-        
+
         # Se não for ADMIN ou não forneceu canal, usa o do usuário
         if user.perfil != 'ADMIN' or not canal:
             canal = user.canal
-            
+
         serializer.save(proprietario=user, canal=canal)
+
+    @action(detail=False, methods=['get'])
+    def estatisticas(self, request):
+        """
+        Retorna estatísticas de contatos agrupadas por tipo de contato
+        GET /api/contatos/estatisticas/
+        """
+        queryset = self.get_queryset()
+
+        # Total geral de contatos
+        total = queryset.count()
+
+        # Contatos agrupados por tipo_contato
+        stats_por_tipo = queryset.values(
+            'tipo_contato__id', 'tipo_contato__nome'
+        ).annotate(
+            total=Count('id')
+        ).order_by('-total')
+
+        # Formatar resultado
+        tipos = []
+        for stat in stats_por_tipo:
+            tipos.append({
+                'id': stat['tipo_contato__id'],
+                'nome': stat['tipo_contato__nome'] or 'Sem Tipo',
+                'total': stat['total']
+            })
+
+        return Response({
+            'total': total,
+            'por_tipo': tipos
+        })
 
 
 class EstagioFunilViewSet(viewsets.ModelViewSet):

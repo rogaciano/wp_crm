@@ -296,7 +296,7 @@ class ContatoSerializer(serializers.ModelSerializer):
         model = Contato
         fields = [
             'id', 'nome', 'email', 'telefone', 'telefone_formatado', 'celular', 'celular_formatado', 'cargo',
-            'departamento', 'tipo_contato', 'tipo_contato_nome', 'tipo', 
+            'departamento', 'chave_pix', 'tipo_contato', 'tipo_contato_nome', 'tipo',
             'conta', 'conta_nome', 'canal', 'canal_nome',
             'proprietario', 'proprietario_nome', 'notas',
             'data_criacao', 'data_atualizacao'

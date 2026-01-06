@@ -212,6 +212,7 @@ class Contato(models.Model):
     celular = models.CharField(max_length=20, null=True, blank=True)
     cargo = models.CharField(max_length=100, null=True, blank=True)
     departamento = models.CharField(max_length=100, null=True, blank=True)
+    chave_pix = models.CharField(max_length=255, null=True, blank=True)
     
     tipo_contato = models.ForeignKey(
         TipoContato,
