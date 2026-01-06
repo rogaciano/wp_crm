@@ -34,6 +34,11 @@ export const whatsappService = {
         return api.post('/whatsapp/process_pending_media/', { number })
     },
 
+    // Baixa apenas o áudio (sem transcrever)
+    getAudio(messageId) {
+        return api.post('/whatsapp/get_audio/', { message_id: messageId })
+    },
+
     // Transcreve um áudio específico por ID
     transcribeAudio(messageId) {
         return api.post('/whatsapp/transcribe_audio/', { message_id: messageId })

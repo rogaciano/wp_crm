@@ -1517,81 +1517,127 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         })
 
     @action(detail=False, methods=['post'])
-    def transcribe_audio(self, request):
+    def get_audio(self, request):
         """
-        Transcreve um áudio específico por ID.
-        Retorna a transcrição e o base64 do áudio para reprodução.
+        Baixa apenas o áudio de uma mensagem sem transcrever.
+        Útil para reprodução sem processamento.
         """
-        print(f"[TRANSCRIBE] Endpoint chamado!", file=sys.stderr, flush=True)
-        
         message_id = request.data.get('message_id')
-        print(f"[TRANSCRIBE] message_id: {message_id}", file=sys.stderr, flush=True)
-        
+
         if not message_id:
             return Response({'error': 'message_id required'}, status=400)
-        
+
         try:
             msg = WhatsappMessage.objects.get(id=message_id)
-            print(f"[TRANSCRIBE] Mensagem encontrada: {msg.id}, tipo: {msg.tipo_mensagem}", file=sys.stderr, flush=True)
         except WhatsappMessage.DoesNotExist:
             return Response({'error': 'message not found'}, status=404)
-        
+
         if msg.tipo_mensagem != 'audio':
             return Response({'error': 'message is not audio'}, status=400)
-        
+
         # Baixa o áudio da Evolution API
         from .services.evolution_api import EvolutionService
-        from .services.audio_transcription import transcribe_from_base64
-        
-        print(f"[TRANSCRIBE] Baixando áudio...", file=sys.stderr, flush=True)
-        
+
         evolution = EvolutionService()
         key = {
             'id': msg.id_mensagem,
             'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
             'fromMe': msg.de_mim
         }
-        
+
         media_result = evolution.get_media_base64(key)
-        
+
         if not media_result or not media_result.get('base64'):
-            return Response({'error': 'could not download audio'}, status=500)
-        
+            return Response({'error': 'could_not_download_audio'}, status=500)
+
         base64_data = media_result['base64']
         mimetype = media_result.get('mimetype', 'audio/ogg')
-        
+
         # Formata o base64 para reprodução
         audio_url = f"data:{mimetype};base64,{base64_data}"
-        
+
+        return Response({
+            'success': True,
+            'audio_url': audio_url,
+            'mimetype': mimetype
+        })
+
+    @action(detail=False, methods=['post'])
+    def transcribe_audio(self, request):
+        """
+        Transcreve um áudio específico por ID.
+        Retorna a transcrição e o base64 do áudio para reprodução.
+        """
+        print(f"[TRANSCRIBE] Endpoint chamado!", file=sys.stderr, flush=True)
+
+        message_id = request.data.get('message_id')
+        print(f"[TRANSCRIBE] message_id: {message_id}", file=sys.stderr, flush=True)
+
+        if not message_id:
+            return Response({'error': 'message_id required'}, status=400)
+
+        try:
+            msg = WhatsappMessage.objects.get(id=message_id)
+            print(f"[TRANSCRIBE] Mensagem encontrada: {msg.id}, tipo: {msg.tipo_mensagem}", file=sys.stderr, flush=True)
+        except WhatsappMessage.DoesNotExist:
+            return Response({'error': 'message not found'}, status=404)
+
+        if msg.tipo_mensagem != 'audio':
+            return Response({'error': 'message is not audio'}, status=400)
+
+        # Baixa o áudio da Evolution API
+        from .services.evolution_api import EvolutionService
+        from .services.audio_transcription import transcribe_from_base64
+
+        print(f"[TRANSCRIBE] Baixando áudio...", file=sys.stderr, flush=True)
+
+        evolution = EvolutionService()
+        key = {
+            'id': msg.id_mensagem,
+            'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
+            'fromMe': msg.de_mim
+        }
+
+        media_result = evolution.get_media_base64(key)
+
+        if not media_result or not media_result.get('base64'):
+            return Response({'error': 'could_not_download_audio'}, status=500)
+
+        base64_data = media_result['base64']
+        mimetype = media_result.get('mimetype', 'audio/ogg')
+
+        # Formata o base64 para reprodução
+        audio_url = f"data:{mimetype};base64,{base64_data}"
+
         # Tenta transcrever
         transcription_text = None
         duration = 0
         transcription_error = None
-        
+
         try:
             logger.info(f"[TranscribeAudio] Iniciando transcrição para msg {message_id}")
             logger.info(f"[TranscribeAudio] Mimetype: {mimetype}, Base64 len: {len(base64_data)}")
-            
+
             result = transcribe_from_base64(base64_data, mimetype)
             logger.info(f"[TranscribeAudio] Resultado: {result}")
-            
+
             if result and result.get('text'):
                 transcription_text = result['text']
                 duration = result.get('duration', 0)
-                
+
                 # Atualiza a mensagem no banco
                 msg.texto = f"🎤 [Áudio {int(duration)}s]: {transcription_text}"
                 msg.save(update_fields=['texto'])
                 logger.info(f"[TranscribeAudio] Sucesso! Texto: {transcription_text[:50]}...")
             else:
-                transcription_error = "Transcrição retornou vazio"
+                transcription_error = "transcription_empty"
                 logger.warning(f"[TranscribeAudio] {transcription_error}")
         except Exception as e:
             transcription_error = str(e)
             logger.error(f"[TranscribeAudio] Erro: {e}")
             import traceback
             logger.error(traceback.format_exc())
-        
+
         return Response({
             'success': True,
             'audio_url': audio_url,

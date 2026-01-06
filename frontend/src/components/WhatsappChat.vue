@@ -14,23 +14,29 @@
         </div>
         <div class="flex items-center space-x-2">
           <!-- Botão de Sincronização -->
-          <button 
-            @click="syncMessages" 
+          <button
+            @click="syncMessages"
             :disabled="syncing"
-            class="p-2 hover:bg-white/10 rounded-full transition-colors"
+            :aria-label="syncing ? 'Sincronizando mensagens' : 'Sincronizar mensagens do WhatsApp'"
             title="Sincronizar mensagens"
+            class="p-2 hover:bg-white/10 rounded-full transition-colors disabled:opacity-50"
           >
-            <svg 
-              :class="['w-5 h-5', syncing ? 'animate-spin' : '']" 
-              fill="none" 
-              stroke="currentColor" 
+            <svg
+              :class="['w-5 h-5', syncing ? 'animate-spin' : '']"
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
           <!-- Botão de Fechar -->
-          <button @click="$emit('close')" class="p-2 hover:bg-white/10 rounded-full transition-colors">
+          <button
+            @click="$emit('close')"
+            aria-label="Fechar chat do WhatsApp"
+            title="Fechar chat"
+            class="p-2 hover:bg-white/10 rounded-full transition-colors"
+          >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -74,19 +80,24 @@
               <!-- Áudio com controles -->
               <div v-if="msg.tipo_mensagem === 'audio'" class="mb-2">
                 <!-- Player de áudio (se disponível) -->
-                <audio 
-                  v-if="audioUrls[msg.id]" 
-                  :src="audioUrls[msg.id]" 
-                  controls 
+                <audio
+                  v-if="audioUrls[msg.id]"
+                  :src="audioUrls[msg.id]"
+                  controls
                   class="w-full max-w-[250px] h-8"
+                  aria-label="Player de áudio do WhatsApp"
                 ></audio>
-                
-                <!-- Botões de ação para áudio não transcrito -->
-                <div v-if="isAudioPending(msg)" class="flex items-center space-x-2 mt-1">
-                  <button 
+
+                <!-- Botões de ação para áudio -->
+                <div class="flex items-center space-x-2 mt-1">
+                  <!-- Botão Transcrever (apenas se não foi transcrito ainda) -->
+                  <button
+                    v-if="isAudioPending(msg)"
                     @click="handleTranscribeAudio(msg)"
                     :disabled="transcribingId === msg.id"
-                    class="text-xs bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded-full flex items-center space-x-1 disabled:opacity-50"
+                    :aria-label="transcribingId === msg.id ? 'Transcrevendo áudio' : 'Transcrever áudio para texto'"
+                    title="Transcrever áudio para texto"
+                    class="text-xs bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded-full flex items-center space-x-1 disabled:opacity-50 transition-colors"
                   >
                     <svg v-if="transcribingId !== msg.id" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
@@ -97,18 +108,25 @@
                     </svg>
                     <span>{{ transcribingId === msg.id ? 'Transcrevendo...' : 'Transcrever' }}</span>
                   </button>
-                  
-                  <button 
+
+                  <!-- Botão Ouvir/Carregar áudio -->
+                  <button
                     v-if="!audioUrls[msg.id]"
-                    @click="handleTranscribeAudio(msg, true)"
-                    :disabled="transcribingId === msg.id"
-                    class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded-full flex items-center space-x-1 disabled:opacity-50"
+                    @click="handlePlayAudio(msg)"
+                    :disabled="loadingAudioId === msg.id"
+                    :aria-label="loadingAudioId === msg.id ? 'Carregando áudio' : 'Carregar e reproduzir áudio'"
+                    title="Carregar áudio para reprodução"
+                    class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded-full flex items-center space-x-1 disabled:opacity-50 transition-colors"
                   >
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg v-if="loadingAudioId !== msg.id" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    <span>Ouvir</span>
+                    <svg v-else class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    <span>{{ loadingAudioId === msg.id ? 'Carregando...' : 'Ouvir' }}</span>
                   </button>
                 </div>
               </div>
@@ -127,20 +145,23 @@
 
       <!-- Input Area -->
       <div class="p-4 bg-gray-50 border-t border-gray-200">
-        <form @submit.prevent="send" class="flex items-end space-x-2">
+        <form @submit.prevent="send" class="flex items-end space-x-2" aria-label="Formulário de envio de mensagem">
           <div class="flex-1 relative">
             <textarea
               v-model="newMessage"
               rows="1"
               @keydown.enter.exact.prevent="send"
               placeholder="Digite uma mensagem..."
+              aria-label="Campo de texto para digitar mensagem"
               class="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none outline-none max-h-32 shadow-sm"
               ref="inputRef"
             ></textarea>
           </div>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             :disabled="!newMessage.trim() || sending"
+            :aria-label="sending ? 'Enviando mensagem' : 'Enviar mensagem'"
+            title="Enviar mensagem"
             class="p-3 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 transition-all shadow-md disabled:bg-gray-300 disabled:shadow-none translate-y-[-2px]"
           >
             <svg v-if="!sending" class="w-5 h-5 rotate-90" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -178,7 +199,71 @@ const isAtBottom = ref(true)
 
 // Controle de áudios
 const transcribingId = ref(null)
+const loadingAudioId = ref(null)
 const audioUrls = ref({})
+
+// Cache de áudios no localStorage
+const AUDIO_CACHE_PREFIX = 'whatsapp_audio_'
+const AUDIO_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000 // 7 dias
+
+// Carrega áudio do cache
+const loadAudioFromCache = (messageId) => {
+  try {
+    const cached = localStorage.getItem(AUDIO_CACHE_PREFIX + messageId)
+    if (!cached) return null
+
+    const data = JSON.parse(cached)
+    const now = Date.now()
+
+    // Verifica se ainda é válido
+    if (now - data.timestamp > AUDIO_CACHE_MAX_AGE) {
+      localStorage.removeItem(AUDIO_CACHE_PREFIX + messageId)
+      return null
+    }
+
+    return data.url
+  } catch (error) {
+    console.error('[AudioCache] Erro ao carregar do cache:', error)
+    return null
+  }
+}
+
+// Salva áudio no cache
+const saveAudioToCache = (messageId, url) => {
+  try {
+    const data = {
+      url: url,
+      timestamp: Date.now()
+    }
+    localStorage.setItem(AUDIO_CACHE_PREFIX + messageId, JSON.stringify(data))
+  } catch (error) {
+    console.error('[AudioCache] Erro ao salvar no cache:', error)
+    // Se der erro (quota exceeded), limpa áudios antigos
+    cleanOldAudioCache()
+  }
+}
+
+// Limpa áudios antigos do cache
+const cleanOldAudioCache = () => {
+  try {
+    const now = Date.now()
+    const keysToRemove = []
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith(AUDIO_CACHE_PREFIX)) {
+        const data = JSON.parse(localStorage.getItem(key))
+        if (now - data.timestamp > AUDIO_CACHE_MAX_AGE) {
+          keysToRemove.push(key)
+        }
+      }
+    }
+
+    keysToRemove.forEach(key => localStorage.removeItem(key))
+  } catch (error) {
+    console.error('[AudioCache] Erro ao limpar cache:', error)
+  }
+}
 
 // Detecta se o usuário está no final do scroll
 const handleScroll = () => {
@@ -238,22 +323,34 @@ const markAsRead = async () => {
 const loadMessages = async (silent = false) => {
   if (!props.number) return
   if (!silent) loading.value = true
-  
+
   try {
     const response = await whatsappService.getMessages({
       number: props.number,
       ordering: 'timestamp'
     })
-    
+
     const newMessages = response.data.results || response.data
-    
+
     // Só atualiza se houver mudança real para evitar re-renders desnecessários
     if (JSON.stringify(newMessages) !== JSON.stringify(messages.value)) {
       const hadMessages = messages.value.length > 0
       const wasAtBottom = isAtBottom.value || !hadMessages
-      
+
       messages.value = newMessages
-      
+
+      // Carrega áudios do cache para mensagens de áudio
+      nextTick(() => {
+        newMessages.forEach(msg => {
+          if (msg.tipo_mensagem === 'audio') {
+            const cachedUrl = loadAudioFromCache(msg.id)
+            if (cachedUrl) {
+              audioUrls.value[msg.id] = cachedUrl
+            }
+          }
+        })
+      })
+
       // Rola para o fundo apenas se o usuário já estava lá ou se é o primeiro load
       if (wasAtBottom) {
         scrollToBottom()
@@ -315,40 +412,86 @@ const openImage = (base64) => {
   }
 }
 
-// Verifica se um áudio está pendente de transcrição
+// Verifica se um áudio está pendente de transcrição (usa regex para maior precisão)
 const isAudioPending = (msg) => {
   if (msg.tipo_mensagem !== 'audio') return false
-  
-  // Áudio transcrito tem formato: "🎤 [Áudio Xs]: texto..."
-  // Áudio pendente é apenas: "🎤 [Áudio]" ou similar
   const texto = msg.texto || ''
-  
-  // Se contém "s]:" significa que foi transcrito (ex: "🎤 [Áudio 4s]: Olá...")
-  if (texto.includes('s]:')) return false
-  
-  // Verifica se é um texto de áudio pendente
-  const pendingPatterns = ['🎤 [Áudio]', '🎤 [Áudio não transcrito]', '[audioMessage]', '🎤 [Audio]']
-  return pendingPatterns.some(p => texto.includes(p) || texto === p)
+  // Detecta se já foi transcrito (formato: "🎤 [Áudio Xs]: texto..." onde X é número de segundos)
+  return !/🎤\s*\[Áudio\s+\d+s\]:/.test(texto)
+}
+
+// Mensagens de erro amigáveis
+const getErrorMessage = (errorCode) => {
+  const errorMessages = {
+    'could_not_download_audio': 'Não foi possível baixar o áudio do servidor. Verifique sua conexão.',
+    'transcription_empty': 'O áudio não contém fala reconhecível ou está muito baixo.',
+    'message not found': 'Mensagem não encontrada no banco de dados.',
+    'message is not audio': 'Esta mensagem não é um áudio.',
+    'timeout': 'Tempo limite excedido. O áudio pode ser muito longo.'
+  }
+  return errorMessages[errorCode] || 'Erro ao processar áudio. Tente novamente.'
+}
+
+// Reproduz um áudio (baixa sem transcrever)
+const handlePlayAudio = async (msg) => {
+  if (loadingAudioId.value === msg.id) return
+
+  // Verifica se já tem no cache local
+  const cachedUrl = loadAudioFromCache(msg.id)
+  if (cachedUrl) {
+    console.log('[WhatsappChat] Áudio carregado do cache:', msg.id)
+    audioUrls.value[msg.id] = cachedUrl
+    return
+  }
+
+  // Verifica se já está carregado na memória
+  if (audioUrls.value[msg.id]) {
+    return
+  }
+
+  loadingAudioId.value = msg.id
+
+  try {
+    const response = await whatsappService.getAudio(msg.id)
+    console.log('[WhatsappChat] Áudio baixado:', response.data)
+
+    if (response.data.success && response.data.audio_url) {
+      audioUrls.value[msg.id] = response.data.audio_url
+      saveAudioToCache(msg.id, response.data.audio_url)
+    } else {
+      const errorMsg = getErrorMessage(response.data.error)
+      alert(errorMsg)
+    }
+  } catch (error) {
+    console.error('[WhatsappChat] Erro ao baixar áudio:', error)
+    const errorMsg = error.code === 'ECONNABORTED'
+      ? getErrorMessage('timeout')
+      : getErrorMessage(error.response?.data?.error || 'unknown')
+    alert(errorMsg)
+  } finally {
+    loadingAudioId.value = null
+  }
 }
 
 // Transcreve um áudio específico
-const handleTranscribeAudio = async (msg, onlyPlay = false) => {
+const handleTranscribeAudio = async (msg) => {
   if (transcribingId.value === msg.id) return
-  
+
   transcribingId.value = msg.id
-  
+
   try {
     const response = await whatsappService.transcribeAudio(msg.id)
     console.log('[WhatsappChat] Resposta transcrição:', response.data)
-    
+
     if (response.data.success) {
       // Atualiza o URL do áudio para reprodução
       if (response.data.audio_url) {
         audioUrls.value[msg.id] = response.data.audio_url
+        saveAudioToCache(msg.id, response.data.audio_url)
       }
-      
-      // Atualiza o texto da mensagem localmente
-      if (response.data.updated_text && !onlyPlay) {
+
+      // Atualiza o texto da mensagem localmente se foi transcrito
+      if (response.data.updated_text && response.data.transcription) {
         const msgIndex = messages.value.findIndex(m => m.id === msg.id)
         console.log('[WhatsappChat] Atualizando mensagem index:', msgIndex, 'texto:', response.data.updated_text)
         if (msgIndex !== -1) {
@@ -358,13 +501,24 @@ const handleTranscribeAudio = async (msg, onlyPlay = false) => {
             texto: response.data.updated_text
           }
         }
+      } else if (response.data.error) {
+        // Mostra erro amigável se a transcrição falhou
+        const errorMsg = getErrorMessage(response.data.error)
+        alert(errorMsg)
+
+        // Mas ainda carrega o áudio para reprodução
+        if (response.data.audio_url) {
+          audioUrls.value[msg.id] = response.data.audio_url
+          saveAudioToCache(msg.id, response.data.audio_url)
+        }
       }
-    } else {
-      console.error('[WhatsappChat] Transcrição falhou:', response.data)
     }
   } catch (error) {
     console.error('[WhatsappChat] Erro ao transcrever áudio:', error)
-    alert('Erro ao processar áudio. Tente novamente.')
+    const errorMsg = error.code === 'ECONNABORTED'
+      ? getErrorMessage('timeout')
+      : getErrorMessage(error.response?.data?.error || 'unknown')
+    alert(errorMsg)
   } finally {
     transcribingId.value = null
   }
