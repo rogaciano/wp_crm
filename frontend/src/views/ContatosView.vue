@@ -67,21 +67,21 @@
           <table class="table table-fixed w-full">
             <thead class="bg-gray-50">
               <tr>
-                <th class="table-header w-40">Nome</th>
+                <th class="table-header w-36">Nome</th>
                 <th class="table-header w-44">Email</th>
                 <th class="table-header w-28">Telefone</th>
-                <th class="table-header w-28">Cargo</th>
-                <th class="table-header w-32">Tipo</th>
+                <th class="table-header w-32">Cargo</th>
+                <th class="table-header w-28">Tipo</th>
                 <th class="table-header w-28">Canal</th>
-                <th class="table-header w-36">Empresa</th>
-                <th class="table-header text-right w-28">Ações</th>
+                <th class="table-header w-40">Empresa</th>
+                <th class="table-header text-right w-24">Ações</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="contato in contatos" :key="contato.id" class="hover:bg-gray-50">
                 <td class="table-cell">
                   <div class="font-medium text-gray-900 break-words">{{ contato.nome }}</div>
-                  <div v-if="contato.criado_por_nome" class="text-xs text-gray-500 mt-0.5">
+                  <div v-if="contato.criado_por_nome" class="text-xs text-gray-500 mt-1">
                     {{ contato.criado_por_nome }} • {{ formatShortDate(contato.data_criacao) }}
                   </div>
                 </td>
@@ -142,7 +142,7 @@
               <div class="flex items-center justify-between">
                 <div class="flex-1">
                   <h3 class="font-bold text-gray-900">{{ contato.nome }}</h3>
-                  <p v-if="contato.criado_por_nome" class="text-xs text-gray-500 mt-0.5">
+                  <p v-if="contato.criado_por_nome" class="text-xs text-gray-500 mt-1">
                     {{ contato.criado_por_nome }} • {{ formatShortDate(contato.data_criacao) }}
                   </p>
                 </div>
