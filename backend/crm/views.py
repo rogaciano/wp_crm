@@ -553,7 +553,7 @@ class ContatoViewSet(viewsets.ModelViewSet):
             # Se o nome é None/vazio, é um contato sem tipo
             if not tipo_nome:
                 tipo_nome = 'Sem Tipo'
-                tipo_id = None  # Força None para contatos sem tipo
+                tipo_id = 'null'  # Usa string 'null' para diferenciar de undefined no frontend
 
             tipos.append({
                 'id': tipo_id,

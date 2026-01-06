@@ -327,10 +327,10 @@ async function loadContatos(page = 1) {
 
     // Adiciona filtro por tipo se selecionado
     // Se selectedTipo for undefined, não filtra (mostra todos)
-    // Se for null, filtra por contatos sem tipo
+    // Se for 'null' (string), filtra por contatos sem tipo
     // Se for um número, filtra por aquele tipo específico
     if (selectedTipo.value !== undefined) {
-      params.tipo_contato = selectedTipo.value === null ? '' : selectedTipo.value
+      params.tipo_contato = selectedTipo.value === 'null' ? '' : selectedTipo.value
     }
 
     const response = await api.get('/contatos/', { params })
