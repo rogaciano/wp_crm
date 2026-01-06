@@ -4,7 +4,7 @@ from django.db.models import Sum, Avg, Count, Q
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from datetime import timedelta
-from .models import Lead, Conta, Oportunidade, Atividade, DiagnosticoResultado, EstagioFunil
+from .models import Lead, Conta, Contato, TipoContato, Canal, Oportunidade, Atividade, DiagnosticoResultado, EstagioFunil
 from .permissions import HierarchyPermission
 
 class DashboardViewSet(viewsets.ViewSet):
@@ -209,6 +209,17 @@ class DashboardViewSet(viewsets.ViewSet):
             'id', 'titulo', 'tipo', 'data_vencimento'
         )
 
+        # 7. Contatos por Tipo de Contato
+        contatos_base = Contato.objects.filter(base_hierarquia) if base_hierarquia else Contato.objects.all()
+        contatos_por_tipo = TipoContato.objects.annotate(
+            total=Count('contatos', filter=Q(contatos__in=contatos_base))
+        ).filter(total__gt=0).order_by('-total').values('id', 'nome', 'emoji', 'total')
+        
+        # 8. Contatos por Canal
+        contatos_por_canal = Canal.objects.annotate(
+            total=Count('contatos', filter=Q(contatos__in=contatos_base))
+        ).filter(total__gt=0).order_by('-total').values('id', 'nome', 'total')
+
         resultado = {
             'kpis': {
                 'receita_ganha': float(receita),
@@ -222,7 +233,9 @@ class DashboardViewSet(viewsets.ViewSet):
             'tendencia': tendencia,
             'origens': list(origens),
             'maturidade_media': maturidade_resumo,
-            'atividades_atrasadas_lista': list(atrasadas_lista)
+            'atividades_atrasadas_lista': list(atrasadas_lista),
+            'contatos_por_tipo': list(contatos_por_tipo),
+            'contatos_por_canal': list(contatos_por_canal)
         }
         
         print(f"Resultado final - KPIs: {resultado['kpis']}")
