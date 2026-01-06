@@ -74,11 +74,9 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Telefone
           </label>
-          <input
+          <PhoneInput
             v-model="form.telefone"
-            type="text"
-            class="input"
-            placeholder="(00) 0000-0000"
+            input-class="input"
           />
         </div>
 
@@ -86,11 +84,9 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Celular
           </label>
-          <input
+          <PhoneInput
             v-model="form.celular"
-            type="text"
-            class="input"
-            placeholder="(00) 90000-0000"
+            input-class="input"
           />
         </div>
 
@@ -153,6 +149,7 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import BaseModal from './BaseModal.vue'
+import PhoneInput from './PhoneInput.vue'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 

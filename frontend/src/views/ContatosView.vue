@@ -6,11 +6,11 @@
     </div>
 
     <!-- Cards de Estatísticas/Filtros -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
       <!-- Card Total -->
       <div
-        @click="filterByTipo(null)"
-        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2', selectedTipo === null ? 'border-primary-500 bg-primary-50' : 'border-transparent hover:border-gray-300']"
+        @click="filterByTipo(undefined)"
+        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2', selectedTipo === undefined ? 'border-primary-500 bg-primary-50' : 'border-transparent hover:border-gray-300']"
       >
         <div class="flex items-center justify-between">
           <div>
@@ -81,7 +81,7 @@
               <tr v-for="contato in contatos" :key="contato.id" class="hover:bg-gray-50">
                 <td class="table-cell font-medium text-gray-900">{{ contato.nome }}</td>
                 <td class="table-cell text-gray-500">{{ contato.email }}</td>
-                <td class="table-cell text-gray-500">{{ contato.telefone }}</td>
+                <td class="table-cell text-gray-500">{{ contato.telefone_formatado || contato.telefone }}</td>
                 <td class="table-cell text-gray-500">{{ contato.cargo }}</td>
                 <td class="table-cell text-gray-500 font-medium">{{ contato.conta_nome }}</td>
                 <td class="table-cell text-right">
@@ -109,9 +109,13 @@
                 <svg class="w-3.5 h-3.5 mr-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                 {{ contato.email }}
               </div>
-              <div v-if="contato.telefone" class="flex items-center text-xs text-gray-500">
+              <div v-if="contato.telefone || contato.telefone_formatado" class="flex items-center text-xs text-gray-500">
                 <svg class="w-3.5 h-3.5 mr-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                {{ contato.telefone }}
+                {{ contato.telefone_formatado || contato.telefone }}
+              </div>
+              <div v-if="contato.celular || contato.celular_formatado" class="flex items-center text-xs text-gray-500">
+                <svg class="w-3.5 h-3.5 mr-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                {{ contato.celular_formatado || contato.celular }}
               </div>
             </div>
 
@@ -132,19 +136,110 @@
           Nenhum contato encontrado.
         </div>
       </div>
+
+      <!-- Paginação -->
+      <div v-if="pagination.count > 0" class="border-t border-gray-200 px-4 py-3 sm:px-6">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <!-- Informações da página -->
+          <div class="text-sm text-gray-700">
+            Mostrando <span class="font-medium">{{ (pagination.currentPage - 1) * pagination.pageSize + 1 }}</span>
+            a <span class="font-medium">{{ Math.min(pagination.currentPage * pagination.pageSize, pagination.count) }}</span>
+            de <span class="font-medium">{{ pagination.count }}</span> contatos
+          </div>
+
+          <!-- Controles de navegação -->
+          <div class="flex items-center space-x-2">
+            <!-- Botão Primeira Página -->
+            <button
+              @click="goToPage(1)"
+              :disabled="pagination.currentPage === 1"
+              :class="['px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                       pagination.currentPage === 1
+                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                         : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300']"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+            </button>
+
+            <!-- Botão Página Anterior -->
+            <button
+              @click="goToPage(pagination.currentPage - 1)"
+              :disabled="!pagination.previous"
+              :class="['px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                       !pagination.previous
+                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                         : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300']"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            <!-- Números das páginas -->
+            <div class="hidden sm:flex space-x-1">
+              <button
+                v-for="page in visiblePages"
+                :key="page"
+                @click="goToPage(page)"
+                :class="['px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                         page === pagination.currentPage
+                           ? 'bg-primary-600 text-white'
+                           : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300']"
+              >
+                {{ page }}
+              </button>
+            </div>
+
+            <!-- Indicador de página atual (mobile) -->
+            <div class="sm:hidden px-3 py-2 text-sm font-medium text-gray-700">
+              {{ pagination.currentPage }} / {{ pagination.totalPages }}
+            </div>
+
+            <!-- Botão Próxima Página -->
+            <button
+              @click="goToPage(pagination.currentPage + 1)"
+              :disabled="!pagination.next"
+              :class="['px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                       !pagination.next
+                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                         : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300']"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
+            <!-- Botão Última Página -->
+            <button
+              @click="goToPage(pagination.totalPages)"
+              :disabled="pagination.currentPage === pagination.totalPages"
+              :class="['px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                       pagination.currentPage === pagination.totalPages
+                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                         : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300']"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <ContatoModal
       :show="showModal"
       :contato="selectedContato"
       @close="showModal = false"
-      @saved="loadContatos"
+      @saved="handleContatoSaved"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import api from '@/services/api'
 import ContatoModal from '@/components/ContatoModal.vue'
 
@@ -154,7 +249,17 @@ const showModal = ref(false)
 const selectedContato = ref(null)
 const loading = ref(false)
 const stats = ref({ total: 0, por_tipo: [] })
-const selectedTipo = ref(null)
+const selectedTipo = ref(undefined) // undefined = sem filtro, null = sem tipo, número = tipo específico
+
+// Estado de paginação
+const pagination = ref({
+  count: 0,
+  next: null,
+  previous: null,
+  currentPage: 1,
+  pageSize: 10,
+  totalPages: 0
+})
 
 // Cores para os cards de tipos (gradientes bonitos)
 const tipoColors = [
@@ -167,6 +272,35 @@ const tipoColors = [
   'bg-gradient-to-br from-teal-500 to-teal-600',
   'bg-gradient-to-br from-yellow-500 to-yellow-600',
 ]
+
+// Computed para páginas visíveis (mostra até 5 páginas por vez)
+const visiblePages = computed(() => {
+  const total = pagination.value.totalPages
+  const current = pagination.value.currentPage
+  const pages = []
+
+  if (total <= 5) {
+    // Se tem 5 ou menos páginas, mostra todas
+    for (let i = 1; i <= total; i++) {
+      pages.push(i)
+    }
+  } else {
+    // Mostra 5 páginas centradas na atual
+    let start = Math.max(1, current - 2)
+    let end = Math.min(total, start + 4)
+
+    // Ajusta se chegou no final
+    if (end === total) {
+      start = Math.max(1, end - 4)
+    }
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i)
+    }
+  }
+
+  return pages
+})
 
 onMounted(() => {
   loadEstatisticas()
@@ -182,22 +316,52 @@ async function loadEstatisticas() {
   }
 }
 
-async function loadContatos() {
+async function loadContatos(page = 1) {
   loading.value = true
   try {
-    const params = { search: searchQuery.value }
+    const params = {
+      search: searchQuery.value,
+      page: page,
+      page_size: pagination.value.pageSize
+    }
 
     // Adiciona filtro por tipo se selecionado
-    if (selectedTipo.value !== null) {
-      params.tipo_contato = selectedTipo.value
+    // Se selectedTipo for undefined, não filtra (mostra todos)
+    // Se for null, filtra por contatos sem tipo
+    // Se for um número, filtra por aquele tipo específico
+    if (selectedTipo.value !== undefined) {
+      params.tipo_contato = selectedTipo.value === null ? '' : selectedTipo.value
     }
 
     const response = await api.get('/contatos/', { params })
-    contatos.value = response.data.results || response.data
+
+    // Se a resposta tem paginação (results, count, next, previous)
+    if (response.data.results) {
+      contatos.value = response.data.results
+      pagination.value.count = response.data.count
+      pagination.value.next = response.data.next
+      pagination.value.previous = response.data.previous
+      pagination.value.currentPage = page
+      pagination.value.totalPages = Math.ceil(response.data.count / pagination.value.pageSize)
+    } else {
+      // Fallback se não houver paginação
+      contatos.value = response.data
+      pagination.value.count = response.data.length
+      pagination.value.totalPages = 1
+      pagination.value.currentPage = 1
+    }
   } catch (error) {
     console.error('Erro ao carregar contatos:', error)
   } finally {
     loading.value = false
+  }
+}
+
+function goToPage(page) {
+  if (page >= 1 && page <= pagination.value.totalPages) {
+    loadContatos(page)
+    // Scroll suave para o topo da lista
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
 
@@ -207,7 +371,8 @@ function getTipoColor(index) {
 
 function filterByTipo(tipoId) {
   selectedTipo.value = tipoId
-  loadContatos()
+  pagination.value.currentPage = 1 // Resetar para página 1 ao filtrar
+  loadContatos(1)
 }
 
 function openModal(contato = null) {
@@ -215,12 +380,25 @@ function openModal(contato = null) {
   showModal.value = true
 }
 
+function handleContatoSaved() {
+  // Recarrega a página atual e as estatísticas
+  loadContatos(pagination.value.currentPage)
+  loadEstatisticas()
+}
+
 async function deleteContato(id) {
   if (!confirm('Tem certeza que deseja excluir este contato?')) return
 
   try {
     await api.delete(`/contatos/${id}/`)
-    loadContatos()
+
+    // Se era o último item da página e não é a primeira página, volta uma página
+    if (contatos.value.length === 1 && pagination.value.currentPage > 1) {
+      loadContatos(pagination.value.currentPage - 1)
+    } else {
+      loadContatos(pagination.value.currentPage)
+    }
+
     loadEstatisticas()
   } catch (error) {
     console.error('Erro ao excluir contato:', error)

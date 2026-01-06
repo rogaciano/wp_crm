@@ -546,9 +546,18 @@ class ContatoViewSet(viewsets.ModelViewSet):
         # Formatar resultado
         tipos = []
         for stat in stats_por_tipo:
+            # Garante que sempre há um nome válido
+            tipo_id = stat['tipo_contato__id']
+            tipo_nome = stat['tipo_contato__nome']
+
+            # Se o nome é None/vazio, é um contato sem tipo
+            if not tipo_nome:
+                tipo_nome = 'Sem Tipo'
+                tipo_id = None  # Força None para contatos sem tipo
+
             tipos.append({
-                'id': stat['tipo_contato__id'],
-                'nome': stat['tipo_contato__nome'] or 'Sem Tipo',
+                'id': tipo_id,
+                'nome': tipo_nome,
                 'total': stat['total']
             })
 
