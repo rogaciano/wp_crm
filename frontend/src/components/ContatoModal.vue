@@ -233,6 +233,7 @@ const isEdit = ref(false)
 const contas = ref([])
 const tiposContato = ref([])
 const canais = ref([])
+const tiposRedeSocial = ref([])
 
 const form = ref({
   nome: '',
@@ -246,7 +247,8 @@ const form = ref({
   tipo_contato: null,
   canal: null,
   tipo: 'PADRAO',
-  notas: ''
+  notas: '',
+  redes_sociais_input: []
 })
 
 watch(() => props.show, async (newVal) => {
@@ -255,6 +257,7 @@ watch(() => props.show, async (newVal) => {
     await loadContas()
     await loadTiposContato()
     await loadCanais()
+    await loadTiposRedeSocial()
     
     if (props.fixedContaId) {
       form.value.conta = props.fixedContaId
@@ -265,7 +268,14 @@ watch(() => props.show, async (newVal) => {
 watch(() => props.contato, (newContato) => {
   if (newContato) {
     isEdit.value = true
-    form.value = { ...newContato }
+    form.value = { 
+      ...newContato,
+      // Converter redes_sociais do formato de leitura para o formato de escrita
+      redes_sociais_input: (newContato.redes_sociais || []).map(r => ({
+        tipo: r.tipo,
+        valor: r.valor
+      }))
+    }
   } else {
     isEdit.value = false
     resetForm()
@@ -299,6 +309,28 @@ async function loadCanais() {
   }
 }
 
+async function loadTiposRedeSocial() {
+  try {
+    const response = await api.get('/tipos-rede-social/')
+    tiposRedeSocial.value = response.data.results || response.data
+  } catch (error) {
+    console.error('Erro ao carregar tipos de redes sociais:', error)
+  }
+}
+
+function getPlaceholder(tipoId) {
+  const tipo = tiposRedeSocial.value.find(t => t.id === tipoId)
+  return tipo?.placeholder || 'Informe o usuário ou URL'
+}
+
+function adicionarRedeSocial() {
+  form.value.redes_sociais_input.push({ tipo: null, valor: '' })
+}
+
+function removerRedeSocial(index) {
+  form.value.redes_sociais_input.splice(index, 1)
+}
+
 function resetForm() {
   form.value = {
     nome: '',
@@ -312,7 +344,8 @@ function resetForm() {
     tipo_contato: null,
     canal: authStore.isAdmin ? null : (authStore.user?.canal || null),
     tipo: 'PADRAO',
-    notas: ''
+    notas: '',
+    redes_sociais_input: []
   }
 }
 
@@ -321,9 +354,14 @@ async function handleSubmit() {
   try {
     const data = { ...form.value }
     
-    // Remover campos vazios opcionais
+    // Filtrar redes sociais vazias
+    data.redes_sociais_input = (data.redes_sociais_input || []).filter(
+      r => r.tipo && r.valor
+    )
+    
+    // Remover campos vazios opcionais (exceto redes_sociais_input que pode ser array vazio)
     Object.keys(data).forEach(key => {
-      if (data[key] === '' || data[key] === null || data[key] === undefined) {
+      if (key !== 'redes_sociais_input' && (data[key] === '' || data[key] === null || data[key] === undefined)) {
         delete data[key]
       }
     })
@@ -336,6 +374,9 @@ async function handleSubmit() {
       delete data.data_criacao
       delete data.data_atualizacao
     }
+    
+    // Remover campo de leitura que vem do backend
+    delete data.redes_sociais
     
     if (isEdit.value) {
       await api.put(`/contatos/${form.value.id}/`, data)
