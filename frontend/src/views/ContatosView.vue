@@ -68,17 +68,23 @@
             <thead class="bg-gray-50">
               <tr>
                 <th class="table-header w-40">Nome</th>
-                <th class="table-header w-48">Email</th>
-                <th class="table-header w-32">Telefone</th>
-                <th class="table-header w-32">Cargo</th>
-                <th class="table-header w-36">Tipo</th>
-                <th class="table-header w-40">Empresa</th>
-                <th class="table-header text-right w-32">Ações</th>
+                <th class="table-header w-44">Email</th>
+                <th class="table-header w-28">Telefone</th>
+                <th class="table-header w-28">Cargo</th>
+                <th class="table-header w-32">Tipo</th>
+                <th class="table-header w-28">Canal</th>
+                <th class="table-header w-36">Empresa</th>
+                <th class="table-header text-right w-28">Ações</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="contato in contatos" :key="contato.id" class="hover:bg-gray-50">
-                <td class="table-cell font-medium text-gray-900 break-words">{{ contato.nome }}</td>
+                <td class="table-cell">
+                  <div class="font-medium text-gray-900 break-words">{{ contato.nome }}</div>
+                  <div v-if="contato.criado_por_nome" class="text-xs text-gray-500 mt-0.5">
+                    {{ contato.criado_por_nome }} • {{ formatShortDate(contato.data_criacao) }}
+                  </div>
+                </td>
                 <td class="table-cell text-gray-500">
                   <a
                     v-if="contato.email"
@@ -101,6 +107,12 @@
                     <span>👤</span>
                     Sem tipo
                   </span>
+                </td>
+                <td class="table-cell text-gray-500 break-words">
+                  <span v-if="contato.canal_nome" class="text-sm">
+                    {{ contato.canal_nome }}
+                  </span>
+                  <span v-else class="text-gray-400 text-xs">Sem canal</span>
                 </td>
                 <td class="table-cell text-gray-500 font-medium break-words">
                   <span v-if="contato.conta_nome">
@@ -128,14 +140,22 @@
           <div v-for="contato in contatos" :key="contato.id" class="p-4 active:bg-gray-50 transition-colors">
             <div class="mb-3">
               <div class="flex items-center justify-between">
-                <h3 class="font-bold text-gray-900">{{ contato.nome }}</h3>
+                <div class="flex-1">
+                  <h3 class="font-bold text-gray-900">{{ contato.nome }}</h3>
+                  <p v-if="contato.criado_por_nome" class="text-xs text-gray-500 mt-0.5">
+                    {{ contato.criado_por_nome }} • {{ formatShortDate(contato.data_criacao) }}
+                  </p>
+                </div>
                 <span v-if="contato.tipo_contato_nome" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
                   <span>{{ contato.tipo_contato_emoji || '👤' }}</span>
                   {{ contato.tipo_contato_nome }}
                 </span>
               </div>
-              <p class="text-sm text-primary-600 font-medium">{{ contato.cargo || 'Contato' }}</p>
-              <p class="text-xs text-gray-500 mt-1">Empresa: {{ contato.conta_nome || 'N/A' }}</p>
+              <p class="text-sm text-primary-600 font-medium mt-1">{{ contato.cargo || 'Contato' }}</p>
+              <div class="flex items-center gap-2 mt-1">
+                <p class="text-xs text-gray-500">Empresa: {{ contato.conta_nome || 'N/A' }}</p>
+                <span v-if="contato.canal_nome" class="text-xs text-gray-400">• Canal: {{ contato.canal_nome }}</span>
+              </div>
             </div>
 
             <div class="space-y-1.5 mb-4">
@@ -407,6 +427,17 @@ function goToPage(page) {
 
 function getTipoColor(index) {
   return tipoColors[index % tipoColors.length]
+}
+
+function formatShortDate(dateString) {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const options = {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }
+  return date.toLocaleDateString('pt-BR', options)
 }
 
 function filterByTipo(tipoId) {
