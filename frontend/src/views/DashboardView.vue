@@ -235,7 +235,9 @@ const dashboardData = ref({
   funil: [],
   tendencia: [],
   origens: [],
-  maturidade_media: {}
+  maturidade_media: {},
+  contatos_por_tipo: [],
+  contatos_por_canal: []
 })
 
 async function fetchDashboard() {
@@ -250,7 +252,9 @@ async function fetchDashboard() {
       funil: response.data.funil || [],
       tendencia: response.data.tendencia || [],
       origens: response.data.origens || [],
-      maturidade_media: response.data.maturidade_media || {}
+      maturidade_media: response.data.maturidade_media || {},
+      contatos_por_tipo: response.data.contatos_por_tipo || [],
+      contatos_por_canal: response.data.contatos_por_canal || []
     }
     
     console.log('📊 Dashboard data processado:', dashboardData.value)
