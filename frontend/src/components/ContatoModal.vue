@@ -9,17 +9,49 @@
   >
     <form @submit.prevent="handleSubmit" class="space-y-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Nome Completo <span class="text-red-500">*</span>
-          </label>
-          <input
-            v-model="form.nome"
-            type="text"
-            required
-            class="input"
-            placeholder="Ex: João da Silva"
-          />
+        
+        <!-- Foto do Contato -->
+        <div class="md:col-span-2 flex items-center gap-4">
+          <div class="relative">
+            <img 
+              v-if="fotoPreview || form.foto_url" 
+              :src="fotoPreview || form.foto_url" 
+              class="w-20 h-20 rounded-full object-cover ring-2 ring-primary-100 shadow-sm"
+            />
+            <div 
+              v-else 
+              class="w-20 h-20 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-white font-bold text-2xl shadow-sm ring-2 ring-gray-200"
+            >
+              {{ form.nome?.charAt(0)?.toUpperCase() || '?' }}
+            </div>
+            <label 
+              class="absolute bottom-0 right-0 p-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-full cursor-pointer shadow-lg transition-colors"
+              title="Alterar foto"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              <input 
+                type="file" 
+                accept="image/*" 
+                class="hidden" 
+                @change="handleFotoChange"
+              />
+            </label>
+          </div>
+          <div class="flex-1">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Nome Completo <span class="text-red-500">*</span>
+            </label>
+            <input
+              v-model="form.nome"
+              type="text"
+              required
+              class="input"
+              placeholder="Ex: João da Silva"
+            />
+          </div>
         </div>
 
         <div>
@@ -235,6 +267,10 @@ const tiposContato = ref([])
 const canais = ref([])
 const tiposRedeSocial = ref([])
 
+// Foto do contato
+const fotoPreview = ref(null)
+const fotoFile = ref(null)
+
 const form = ref({
   nome: '',
   email: '',
@@ -248,6 +284,7 @@ const form = ref({
   canal: null,
   tipo: 'PADRAO',
   notas: '',
+  foto_url: null,
   redes_sociais_input: []
 })
 
@@ -262,6 +299,10 @@ watch(() => props.show, async (newVal) => {
     if (props.fixedContaId) {
       form.value.conta = props.fixedContaId
     }
+  } else {
+    // Limpar preview da foto quando fechar modal
+    fotoPreview.value = null
+    fotoFile.value = null
   }
 })
 
@@ -276,6 +317,8 @@ watch(() => props.contato, (newContato) => {
         valor: r.valor
       }))
     }
+    fotoPreview.value = null
+    fotoFile.value = null
   } else {
     isEdit.value = false
     resetForm()
@@ -331,6 +374,19 @@ function removerRedeSocial(index) {
   form.value.redes_sociais_input.splice(index, 1)
 }
 
+function handleFotoChange(event) {
+  const file = event.target.files[0]
+  if (file) {
+    fotoFile.value = file
+    // Criar preview
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      fotoPreview.value = e.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
 function resetForm() {
   form.value = {
     nome: '',
@@ -345,43 +401,52 @@ function resetForm() {
     canal: authStore.isAdmin ? null : (authStore.user?.canal || null),
     tipo: 'PADRAO',
     notas: '',
+    foto_url: null,
     redes_sociais_input: []
   }
+  fotoPreview.value = null
+  fotoFile.value = null
 }
 
 async function handleSubmit() {
   loading.value = true
   try {
-    const data = { ...form.value }
+    // Usar FormData para suportar upload de arquivo
+    const formData = new FormData()
     
-    // Filtrar redes sociais vazias
-    data.redes_sociais_input = (data.redes_sociais_input || []).filter(
-      r => r.tipo && r.valor
-    )
+    // Adicionar campos do formulário
+    formData.append('nome', form.value.nome)
+    if (form.value.email) formData.append('email', form.value.email)
+    if (form.value.telefone) formData.append('telefone', form.value.telefone)
+    if (form.value.celular) formData.append('celular', form.value.celular)
+    if (form.value.cargo) formData.append('cargo', form.value.cargo)
+    if (form.value.departamento) formData.append('departamento', form.value.departamento)
+    if (form.value.chave_pix) formData.append('chave_pix', form.value.chave_pix)
+    if (form.value.conta) formData.append('conta', form.value.conta)
+    if (form.value.tipo_contato) formData.append('tipo_contato', form.value.tipo_contato)
+    if (form.value.canal) formData.append('canal', form.value.canal)
+    formData.append('tipo', form.value.tipo || 'PADRAO')
+    if (form.value.notas) formData.append('notas', form.value.notas)
     
-    // Remover campos vazios opcionais (exceto redes_sociais_input que pode ser array vazio)
-    Object.keys(data).forEach(key => {
-      if (key !== 'redes_sociais_input' && (data[key] === '' || data[key] === null || data[key] === undefined)) {
-        delete data[key]
-      }
-    })
-    
-    // Remover campos que não devem ser enviados na criação
-    if (!isEdit.value) {
-      delete data.id
-      delete data.proprietario
-      delete data.proprietario_nome
-      delete data.data_criacao
-      delete data.data_atualizacao
+    // Adicionar foto se houver nova
+    if (fotoFile.value) {
+      formData.append('foto', fotoFile.value)
     }
     
-    // Remover campo de leitura que vem do backend
-    delete data.redes_sociais
+    // Adicionar redes sociais como JSON
+    const redesSociais = (form.value.redes_sociais_input || []).filter(r => r.tipo && r.valor)
+    formData.append('redes_sociais_input', JSON.stringify(redesSociais))
+    
+    const config = {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    }
     
     if (isEdit.value) {
-      await api.put(`/contatos/${form.value.id}/`, data)
+      await api.put(`/contatos/${form.value.id}/`, formData, config)
     } else {
-      await api.post('/contatos/', data)
+      await api.post('/contatos/', formData, config)
     }
     emit('saved')
     emit('close')

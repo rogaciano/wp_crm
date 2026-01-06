@@ -399,6 +399,7 @@ class ContatoSerializer(serializers.ModelSerializer):
     canal_nome = serializers.CharField(source='canal.nome', read_only=True)
     telefone_formatado = serializers.SerializerMethodField()
     celular_formatado = serializers.SerializerMethodField()
+    foto_url = serializers.SerializerMethodField()
     redes_sociais = ContatoRedeSocialSerializer(many=True, read_only=True)
     redes_sociais_input = serializers.ListField(
         child=serializers.DictField(),
@@ -411,13 +412,21 @@ class ContatoSerializer(serializers.ModelSerializer):
         model = Contato
         fields = [
             'id', 'nome', 'email', 'telefone', 'telefone_formatado', 'celular', 'celular_formatado', 'cargo',
-            'departamento', 'chave_pix', 'tipo_contato', 'tipo_contato_nome', 'tipo',
+            'departamento', 'chave_pix', 'foto', 'foto_url', 'tipo_contato', 'tipo_contato_nome', 'tipo',
             'conta', 'conta_nome', 'canal', 'canal_nome',
             'proprietario', 'proprietario_nome', 'notas',
             'redes_sociais', 'redes_sociais_input',
             'data_criacao', 'data_atualizacao'
         ]
-        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'telefone_formatado', 'celular_formatado', 'redes_sociais']
+        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'telefone_formatado', 'celular_formatado', 'foto_url', 'redes_sociais']
+    
+    def get_foto_url(self, obj):
+        if obj.foto:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.foto.url)
+            return obj.foto.url
+        return None
     
     def get_telefone_formatado(self, obj):
         return format_phone_display(obj.telefone) if obj.telefone else ''
@@ -454,6 +463,20 @@ class ContatoSerializer(serializers.ModelSerializer):
                     tipo_id=rede['tipo'],
                     valor=rede['valor']
                 )
+    
+    def to_internal_value(self, data):
+        """Processa os dados de entrada, convertendo JSON string para lista se necessário"""
+        import json
+        # Se redes_sociais_input vier como string JSON (do FormData), converter para lista
+        if 'redes_sociais_input' in data and isinstance(data.get('redes_sociais_input'), str):
+            try:
+                # Criar cópia mutável do QueryDict
+                mutable_data = data.copy()
+                mutable_data['redes_sociais_input'] = json.loads(data['redes_sociais_input'])
+                data = mutable_data
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return super().to_internal_value(data)
     
     def create(self, validated_data):
         redes_sociais_data = validated_data.pop('redes_sociais_input', [])

@@ -238,6 +238,12 @@ class Contato(models.Model):
     cargo = models.CharField(max_length=100, null=True, blank=True)
     departamento = models.CharField(max_length=100, null=True, blank=True)
     chave_pix = models.CharField(max_length=255, null=True, blank=True)
+    foto = models.ImageField(
+        upload_to='contatos/',
+        null=True,
+        blank=True,
+        help_text='Foto do contato'
+    )
     
     tipo_contato = models.ForeignKey(
         TipoContato,
