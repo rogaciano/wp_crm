@@ -760,3 +760,80 @@ class WhatsappMessage(models.Model):
     def __str__(self):
         direcao = "->" if self.de_mim else "<-"
         return f"{self.numero_remetente} {direcao} {self.numero_destinatario}: {self.texto[:30]}..."
+
+
+class Log(models.Model):
+    """Sistema de logs de auditoria para rastrear todas as ações no sistema"""
+
+    ACAO_CREATE = 'CREATE'
+    ACAO_UPDATE = 'UPDATE'
+    ACAO_DELETE = 'DELETE'
+    ACAO_VIEW = 'VIEW'
+    ACAO_LOGIN = 'LOGIN'
+    ACAO_LOGOUT = 'LOGOUT'
+    ACAO_EXPORT = 'EXPORT'
+    ACAO_IMPORT = 'IMPORT'
+
+    ACAO_CHOICES = [
+        (ACAO_CREATE, 'Criação'),
+        (ACAO_UPDATE, 'Atualização'),
+        (ACAO_DELETE, 'Exclusão'),
+        (ACAO_VIEW, 'Visualização'),
+        (ACAO_LOGIN, 'Login'),
+        (ACAO_LOGOUT, 'Logout'),
+        (ACAO_EXPORT, 'Exportação'),
+        (ACAO_IMPORT, 'Importação'),
+    ]
+
+    # Usuário que executou a ação
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='logs',
+        help_text='Usuário que executou a ação'
+    )
+
+    # Tipo de ação realizada
+    acao = models.CharField(max_length=20, choices=ACAO_CHOICES)
+
+    # Modelo afetado (nome do modelo Django)
+    modelo = models.CharField(max_length=100, help_text='Nome do modelo afetado (ex: Contato, Lead, Oportunidade)')
+
+    # ID do objeto afetado
+    objeto_id = models.PositiveIntegerField(null=True, blank=True, help_text='ID do objeto afetado')
+
+    # Representação textual do objeto
+    objeto_repr = models.CharField(max_length=255, null=True, blank=True, help_text='Representação em string do objeto')
+
+    # Alterações detalhadas (JSON)
+    alteracoes = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='JSON com as alterações realizadas. Ex: {"campo": {"antes": "valor1", "depois": "valor2"}}'
+    )
+
+    # Metadados da requisição
+    ip_address = models.GenericIPAddressField(null=True, blank=True, help_text='Endereço IP do usuário')
+    user_agent = models.TextField(null=True, blank=True, help_text='User agent do navegador')
+
+    # Informações adicionais (contexto)
+    observacao = models.TextField(null=True, blank=True, help_text='Observações ou contexto adicional')
+
+    # Timestamp
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'Log de Auditoria'
+        verbose_name_plural = 'Logs de Auditoria'
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['usuario', 'timestamp']),
+            models.Index(fields=['modelo', 'objeto_id']),
+            models.Index(fields=['acao', 'timestamp']),
+        ]
+
+    def __str__(self):
+        usuario_nome = self.usuario.get_full_name() if self.usuario else 'Sistema'
+        return f"{usuario_nome} - {self.get_acao_display()} - {self.modelo} #{self.objeto_id} em {self.timestamp.strftime('%d/%m/%Y %H:%M')}"

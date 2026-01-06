@@ -8,8 +8,8 @@ from django.contrib.auth.password_validation import validate_password
 from .models import (
     Canal, User, Lead, Conta, Contato, TipoContato, TipoRedeSocial, ContatoRedeSocial,
     Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
-    DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado, 
-    Plano, PlanoAdicional, OportunidadeAdicional, WhatsappMessage
+    DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
+    Plano, PlanoAdicional, OportunidadeAdicional, WhatsappMessage, Log
 )
 
 
@@ -768,3 +768,28 @@ class WhatsappMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = WhatsappMessage
         fields = '__all__'
+
+
+class LogSerializer(serializers.ModelSerializer):
+    """Serializer para logs de auditoria"""
+    usuario_nome = serializers.CharField(source='usuario.get_full_name', read_only=True)
+    acao_display = serializers.CharField(source='get_acao_display', read_only=True)
+
+    class Meta:
+        model = Log
+        fields = [
+            'id',
+            'usuario',
+            'usuario_nome',
+            'acao',
+            'acao_display',
+            'modelo',
+            'objeto_id',
+            'objeto_repr',
+            'alteracoes',
+            'ip_address',
+            'user_agent',
+            'observacao',
+            'timestamp'
+        ]
+        read_only_fields = ['id', 'timestamp', 'usuario_nome', 'acao_display']

@@ -113,6 +113,12 @@ const router = createRouter({
           name: 'admin-whatsapp',
           component: () => import('@/views/admin/WhatsappView.vue'),
           meta: { requiresAdmin: true }
+        },
+        {
+          path: '/config/logs',
+          name: 'admin-logs',
+          component: () => import('@/views/admin/LogsView.vue'),
+          meta: { requiresAdmin: true }
         }
       ]
     }

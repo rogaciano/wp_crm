@@ -139,59 +139,99 @@
 
     </div>
 
-    <!-- Contatos por Tipo e por Canal -->
-    <div v-if="loaded" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-      
-      <!-- Contatos por Tipo -->
-      <div class="card p-6">
-        <h3 class="font-bold text-gray-800 uppercase text-sm tracking-widest flex items-center mb-4">
-          <svg class="w-4 h-4 mr-2 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <!-- Contatos por Tipo e por Canal - Filtros Combinados -->
+    <div v-if="loaded" class="card p-6 mt-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+        <h3 class="font-bold text-gray-800 uppercase text-sm tracking-widest flex items-center">
+          <svg class="w-4 h-4 mr-2 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
           </svg>
-          Contatos por Tipo
+          Contatos por Tipo e Canal
         </h3>
-        <div v-if="dashboardData.contatos_por_tipo && dashboardData.contatos_por_tipo.length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        
+        <!-- Botão de ação com filtros selecionados -->
+        <div class="flex items-center gap-2">
+          <div v-if="filtroTipoSelecionado || filtroCanalSelecionado" class="flex items-center gap-2 text-sm">
+            <span v-if="filtroTipoSelecionado" class="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded-full">
+              <span>{{ filtroTipoSelecionado.emoji || '👤' }}</span>
+              {{ filtroTipoSelecionado.nome }}
+              <button @click="filtroTipoSelecionado = null" class="ml-1 hover:text-teal-900">&times;</button>
+            </span>
+            <span v-if="filtroCanalSelecionado" class="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded-full">
+              🏢 {{ filtroCanalSelecionado.nome }}
+              <button @click="filtroCanalSelecionado = null" class="ml-1 hover:text-amber-900">&times;</button>
+            </span>
+          </div>
           <router-link 
-            v-for="tipo in dashboardData.contatos_por_tipo" 
-            :key="tipo.id"
-            :to="`/contatos?tipo_contato=${tipo.id}`"
-            class="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl hover:from-teal-50 hover:to-teal-100 hover:shadow-md transition-all group cursor-pointer"
+            :to="urlContatosFiltrados"
+            class="btn-primary text-sm px-4 py-2 flex items-center gap-2"
           >
-            <span class="text-3xl mb-2">{{ tipo.emoji || '👤' }}</span>
-            <span class="text-2xl font-black text-gray-900 group-hover:text-teal-600">{{ tipo.total }}</span>
-            <span class="text-xs font-medium text-gray-500 text-center truncate w-full">{{ tipo.nome }}</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            Ver Contatos
           </router-link>
-        </div>
-        <div v-else class="flex items-center justify-center h-32 text-gray-400">
-          <p class="text-sm">Nenhum contato cadastrado</p>
         </div>
       </div>
 
-      <!-- Contatos por Canal -->
-      <div class="card p-6">
-        <h3 class="font-bold text-gray-800 uppercase text-sm tracking-widest flex items-center mb-4">
-          <svg class="w-4 h-4 mr-2 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-          </svg>
-          Contatos por Canal
-        </h3>
-        <div v-if="dashboardData.contatos_por_canal && dashboardData.contatos_por_canal.length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <router-link 
-            v-for="canal in dashboardData.contatos_por_canal" 
-            :key="canal.id"
-            :to="`/contatos?canal=${canal.id}`"
-            class="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl hover:from-amber-50 hover:to-amber-100 hover:shadow-md transition-all group cursor-pointer"
-          >
-            <span class="text-3xl mb-2">🏢</span>
-            <span class="text-2xl font-black text-gray-900 group-hover:text-amber-600">{{ canal.total }}</span>
-            <span class="text-xs font-medium text-gray-500 text-center truncate w-full">{{ canal.nome }}</span>
-          </router-link>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Contatos por Tipo -->
+        <div>
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-teal-500"></span>
+            Por Tipo de Contato
+          </p>
+          <div v-if="dashboardData.contatos_por_tipo && dashboardData.contatos_por_tipo.length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <button 
+              v-for="tipo in dashboardData.contatos_por_tipo" 
+              :key="tipo.id"
+              @click="toggleFiltroTipo(tipo)"
+              :class="[
+                'flex flex-col items-center justify-center p-3 rounded-xl transition-all cursor-pointer',
+                filtroTipoSelecionado?.id === tipo.id 
+                  ? 'bg-teal-500 text-white shadow-lg ring-2 ring-teal-300' 
+                  : 'bg-gradient-to-br from-gray-50 to-gray-100 hover:from-teal-50 hover:to-teal-100 hover:shadow-md'
+              ]"
+            >
+              <span class="text-2xl mb-1">{{ tipo.emoji || '👤' }}</span>
+              <span class="text-xl font-black">{{ tipo.total }}</span>
+              <span class="text-[10px] font-medium text-center truncate w-full" :class="filtroTipoSelecionado?.id === tipo.id ? 'text-teal-100' : 'text-gray-500'">{{ tipo.nome }}</span>
+            </button>
+          </div>
+          <div v-else class="flex items-center justify-center h-24 text-gray-400">
+            <p class="text-sm">Nenhum contato</p>
+          </div>
         </div>
-        <div v-else class="flex items-center justify-center h-32 text-gray-400">
-          <p class="text-sm">Nenhum contato com canal</p>
+
+        <!-- Contatos por Canal -->
+        <div>
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            Por Canal
+          </p>
+          <div v-if="dashboardData.contatos_por_canal && dashboardData.contatos_por_canal.length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <button 
+              v-for="canal in dashboardData.contatos_por_canal" 
+              :key="canal.id"
+              @click="toggleFiltroCanal(canal)"
+              :class="[
+                'flex flex-col items-center justify-center p-3 rounded-xl transition-all cursor-pointer',
+                filtroCanalSelecionado?.id === canal.id 
+                  ? 'bg-amber-500 text-white shadow-lg ring-2 ring-amber-300' 
+                  : 'bg-gradient-to-br from-gray-50 to-gray-100 hover:from-amber-50 hover:to-amber-100 hover:shadow-md'
+              ]"
+            >
+              <span class="text-2xl mb-1">🏢</span>
+              <span class="text-xl font-black">{{ canal.total }}</span>
+              <span class="text-[10px] font-medium text-center truncate w-full" :class="filtroCanalSelecionado?.id === canal.id ? 'text-amber-100' : 'text-gray-500'">{{ canal.nome }}</span>
+            </button>
+          </div>
+          <div v-else class="flex items-center justify-center h-24 text-gray-400">
+            <p class="text-sm">Nenhum canal</p>
+          </div>
         </div>
       </div>
-
     </div>
   </div>
 </template>
@@ -238,6 +278,38 @@ const dashboardData = ref({
   maturidade_media: {},
   contatos_por_tipo: [],
   contatos_por_canal: []
+})
+
+// Filtros combinados para contatos
+const filtroTipoSelecionado = ref(null)
+const filtroCanalSelecionado = ref(null)
+
+function toggleFiltroTipo(tipo) {
+  if (filtroTipoSelecionado.value?.id === tipo.id) {
+    filtroTipoSelecionado.value = null
+  } else {
+    filtroTipoSelecionado.value = tipo
+  }
+}
+
+function toggleFiltroCanal(canal) {
+  if (filtroCanalSelecionado.value?.id === canal.id) {
+    filtroCanalSelecionado.value = null
+  } else {
+    filtroCanalSelecionado.value = canal
+  }
+}
+
+const urlContatosFiltrados = computed(() => {
+  const params = new URLSearchParams()
+  if (filtroTipoSelecionado.value) {
+    params.append('tipo_contato', filtroTipoSelecionado.value.id)
+  }
+  if (filtroCanalSelecionado.value) {
+    params.append('canal', filtroCanalSelecionado.value.id)
+  }
+  const queryString = params.toString()
+  return queryString ? `/contatos?${queryString}` : '/contatos'
 })
 
 async function fetchDashboard() {

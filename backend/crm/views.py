@@ -17,14 +17,14 @@ logger = logging.getLogger(__name__)
 from .models import (
     Canal, User, Lead, Conta, Contato, TipoContato, TipoRedeSocial, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
-    Plano, PlanoAdicional, WhatsappMessage
+    Plano, PlanoAdicional, WhatsappMessage, Log
 )
 from .serializers import (
     CanalSerializer, UserSerializer, LeadSerializer, ContaSerializer,
     ContatoSerializer, TipoContatoSerializer, TipoRedeSocialSerializer, EstagioFunilSerializer, FunilEstagioSerializer, OportunidadeSerializer,
     OportunidadeKanbanSerializer, AtividadeSerializer, LeadConversaoSerializer,
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
-    PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer
+    PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer, LogSerializer
 )
 from .services.ai_service import gerar_analise_diagnostico
 from .services.evolution_api import EvolutionService
@@ -1878,4 +1878,40 @@ class WhatsappWebhookView(APIView):
                     continue
 
         return Response({'status': 'received'}, status=200)
+
+
+class LogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet somente leitura para logs de auditoria.
+    Permite consultar e filtrar logs do sistema.
+    """
+    serializer_class = LogSerializer
+    permission_classes = [permissions.IsAuthenticated, HierarchyPermission]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['acao', 'modelo', 'usuario', 'objeto_id']
+    search_fields = ['modelo', 'objeto_repr', 'observacao']
+    ordering_fields = ['timestamp', 'acao', 'modelo', 'usuario']
+    ordering = ['-timestamp']
+
+    def get_queryset(self):
+        """
+        Retorna logs filtrados por hierarquia:
+        - ADMIN: vê todos os logs
+        - RESPONSAVEL: vê logs do seu canal
+        - VENDEDOR: vê apenas seus próprios logs
+        """
+        user = self.request.user
+
+        if user.perfil == 'ADMIN':
+            queryset = Log.objects.all()
+        elif user.perfil == 'RESPONSAVEL':
+            # Responsável vê logs de todos os usuários do seu canal
+            canal_users = User.objects.filter(canal=user.canal)
+            queryset = Log.objects.filter(usuario__in=canal_users)
+        else:
+            # Vendedor vê apenas seus próprios logs
+            queryset = Log.objects.filter(usuario=user)
+
+        return queryset.select_related('usuario')
 

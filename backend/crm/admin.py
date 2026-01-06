@@ -6,7 +6,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     Canal, User, Lead, Conta, Contato, TipoContato, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
-    Plano, PlanoAdicional
+    Plano, PlanoAdicional, Log
 )
 
 
@@ -140,3 +140,25 @@ class PlanoAdmin(admin.ModelAdmin):
 class PlanoAdicionalAdmin(admin.ModelAdmin):
     list_display = ['nome', 'preco', 'unidade']
     search_fields = ['nome']
+
+
+@admin.register(Log)
+class LogAdmin(admin.ModelAdmin):
+    list_display = ['timestamp', 'usuario', 'acao', 'modelo', 'objeto_id', 'objeto_repr', 'ip_address']
+    list_filter = ['acao', 'modelo', 'timestamp']
+    search_fields = ['usuario__username', 'usuario__first_name', 'usuario__last_name', 'objeto_repr', 'observacao']
+    readonly_fields = ['timestamp', 'usuario', 'acao', 'modelo', 'objeto_id', 'objeto_repr', 'alteracoes', 'ip_address', 'user_agent', 'observacao']
+    date_hierarchy = 'timestamp'
+    ordering = ['-timestamp']
+
+    def has_add_permission(self, request):
+        # Não permite adicionar logs manualmente
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Não permite editar logs
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        # Permite deletar logs apenas para superusuários
+        return request.user.is_superuser

@@ -41,6 +41,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Middlewares para sistema de logs
+    'crm.middleware.CurrentUserMiddleware',
+    'crm.middleware.ModelAuditMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
