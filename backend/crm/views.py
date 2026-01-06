@@ -522,7 +522,7 @@ class ContatoViewSet(viewsets.ModelViewSet):
     serializer_class = ContatoSerializer
     permission_classes = [HierarchyPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['conta', 'tipo', 'tipo_contato', 'canal']
+    filterset_fields = ['conta', 'tipo', 'canal']
     search_fields = ['nome', 'email', 'conta__nome_empresa']
     ordering_fields = ['nome', 'data_criacao']
 
@@ -530,13 +530,26 @@ class ContatoViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.perfil == 'ADMIN':
-            return Contato.objects.all()
+            queryset = Contato.objects.all()
         elif user.perfil in ['RESPONSAVEL', 'VENDEDOR']:
             # Vê contatos criados por ele/vendedores ou vinculados ao seu canal
-            return Contato.objects.filter(
+            queryset = Contato.objects.filter(
                 Q(proprietario__canal=user.canal) | Q(canal=user.canal)
             ).distinct()
-        return Contato.objects.filter(proprietario=user)
+        else:
+            queryset = Contato.objects.filter(proprietario=user)
+
+        # Filtro customizado para tipo_contato (suporta string vazia = NULL)
+        tipo_contato_param = self.request.query_params.get('tipo_contato', None)
+        if tipo_contato_param is not None:
+            if tipo_contato_param == '':
+                # String vazia = filtrar por contatos sem tipo
+                queryset = queryset.filter(tipo_contato__isnull=True)
+            else:
+                # Filtrar por tipo específico
+                queryset = queryset.filter(tipo_contato=tipo_contato_param)
+
+        return queryset
 
     def perform_create(self, serializer):
         user = self.request.user

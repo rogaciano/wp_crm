@@ -67,13 +67,13 @@
           <table class="table table-fixed w-full">
             <thead class="bg-gray-50">
               <tr>
-                <th class="table-header w-1/6">Nome</th>
-                <th class="table-header w-1/6">Email</th>
+                <th class="table-header w-40">Nome</th>
+                <th class="table-header w-48">Email</th>
                 <th class="table-header w-32">Telefone</th>
                 <th class="table-header w-32">Cargo</th>
-                <th class="table-header w-24">Tipo</th>
-                <th class="table-header w-1/6">Empresa</th>
-                <th class="table-header text-right w-40">Ações</th>
+                <th class="table-header w-36">Tipo</th>
+                <th class="table-header w-40">Empresa</th>
+                <th class="table-header text-right w-32">Ações</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
@@ -92,22 +92,18 @@
                 </td>
                 <td class="table-cell text-gray-500 whitespace-nowrap">{{ contato.telefone_formatado || contato.telefone }}</td>
                 <td class="table-cell text-gray-500 break-words">{{ contato.cargo }}</td>
-                <td class="table-cell text-gray-500 whitespace-nowrap">
-                  <span v-if="contato.tipo_contato_nome" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
-                    <span>{{ contato.tipo_contato_emoji || '👤' }}</span>
-                    {{ contato.tipo_contato_nome }}
+                <td class="table-cell text-gray-500">
+                  <span v-if="contato.tipo_contato_nome" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800 break-words">
+                    <span class="flex-shrink-0">{{ contato.tipo_contato_emoji || '👤' }}</span>
+                    <span class="break-words">{{ contato.tipo_contato_nome }}</span>
                   </span>
                   <span v-else class="text-gray-400 text-xs inline-flex items-center gap-1">
                     <span>👤</span>
                     Sem tipo
                   </span>
                 </td>
-                <td class="table-cell text-gray-500 font-medium">
-                  <span
-                    v-if="contato.conta_nome"
-                    :title="contato.conta_nome"
-                    class="block truncate max-w-full"
-                  >
+                <td class="table-cell text-gray-500 font-medium break-words">
+                  <span v-if="contato.conta_nome">
                     {{ contato.conta_nome }}
                   </span>
                   <span v-else class="text-gray-400 text-xs">Sem empresa</span>
