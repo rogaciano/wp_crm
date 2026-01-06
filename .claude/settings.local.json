@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python -m pip install:*)",
       "Bash(where:*)",
-      "Bash(python manage.py migrate:*)"
+      "Bash(python manage.py migrate:*)",
+      "Bash(python manage.py shell:*)"
     ]
   }
 }

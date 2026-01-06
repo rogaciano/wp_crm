@@ -15,13 +15,13 @@ from django_filters.rest_framework import DjangoFilterBackend
 logger = logging.getLogger(__name__)
 
 from .models import (
-    Canal, User, Lead, Conta, Contato, TipoContato, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
+    Canal, User, Lead, Conta, Contato, TipoContato, TipoRedeSocial, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
     Plano, PlanoAdicional, WhatsappMessage
 )
 from .serializers import (
     CanalSerializer, UserSerializer, LeadSerializer, ContaSerializer,
-    ContatoSerializer, TipoContatoSerializer, EstagioFunilSerializer, FunilEstagioSerializer, OportunidadeSerializer,
+    ContatoSerializer, TipoContatoSerializer, TipoRedeSocialSerializer, EstagioFunilSerializer, FunilEstagioSerializer, OportunidadeSerializer,
     OportunidadeKanbanSerializer, AtividadeSerializer, LeadConversaoSerializer,
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
     PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer
@@ -493,6 +493,19 @@ class TipoContatoViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         return [IsAdminUser()]
 
+
+class TipoRedeSocialViewSet(viewsets.ModelViewSet):
+    """ViewSet para Tipos de Redes Sociais (CRUD apenas Admin, leitura para autenticados)"""
+    queryset = TipoRedeSocial.objects.filter(ativo=True)
+    serializer_class = TipoRedeSocialSerializer
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ['ordem', 'nome']
+    ordering = ['ordem', 'nome']
+    
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
 
 class ContatoViewSet(viewsets.ModelViewSet):
     """ViewSet para Contatos"""

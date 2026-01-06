@@ -55,6 +55,12 @@ class User(AbstractUser):
         related_name='vendedores'
     )
     telefone = models.CharField(max_length=20, null=True, blank=True)
+    avatar = models.ImageField(
+        upload_to='avatars/',
+        null=True,
+        blank=True,
+        help_text='Foto de perfil do usuário'
+    )
     
     class Meta:
         verbose_name = 'Usuário'
@@ -204,6 +210,25 @@ class TipoContato(models.Model):
         return self.nome
 
 
+class TipoRedeSocial(models.Model):
+    """Tipo de rede social (LinkedIn, Instagram, Facebook, etc)"""
+    nome = models.CharField(max_length=50, unique=True)
+    icone = models.CharField(max_length=50, null=True, blank=True, help_text='Nome do ícone ou classe CSS')
+    cor = models.CharField(max_length=7, default='#6B7280', help_text='Cor em hexadecimal')
+    url_base = models.CharField(max_length=255, null=True, blank=True, help_text='URL base para montar o link (ex: https://linkedin.com/in/)')
+    placeholder = models.CharField(max_length=100, null=True, blank=True, help_text='Texto de exemplo no campo')
+    ordem = models.PositiveIntegerField(default=0)
+    ativo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Tipo de Rede Social'
+        verbose_name_plural = 'Tipos de Redes Sociais'
+        ordering = ['ordem', 'nome']
+
+    def __str__(self):
+        return self.nome
+
+
 class Contato(models.Model):
     """Contato - Pessoa física vinculada a uma Conta"""
     nome = models.CharField(max_length=255)
@@ -259,6 +284,36 @@ class Contato(models.Model):
     def __str__(self):
         return f"{self.nome} ({self.conta.nome_empresa})"
 
+
+class ContatoRedeSocial(models.Model):
+    """Vínculo entre Contato e suas redes sociais"""
+    contato = models.ForeignKey(
+        Contato,
+        on_delete=models.CASCADE,
+        related_name='redes_sociais'
+    )
+    tipo = models.ForeignKey(
+        TipoRedeSocial,
+        on_delete=models.CASCADE,
+        related_name='contatos'
+    )
+    valor = models.CharField(max_length=255, help_text='Username ou URL do perfil')
+
+    class Meta:
+        verbose_name = 'Rede Social do Contato'
+        verbose_name_plural = 'Redes Sociais do Contato'
+        unique_together = ['contato', 'tipo']
+        ordering = ['tipo__ordem']
+
+    def __str__(self):
+        return f"{self.contato.nome} - {self.tipo.nome}: {self.valor}"
+    
+    @property
+    def url_completa(self):
+        """Retorna a URL completa do perfil"""
+        if self.tipo.url_base:
+            return f"{self.tipo.url_base}{self.valor}"
+        return self.valor
 
 class Funil(models.Model):
     """Representa um Funil de Vendas (SDR, Vendas, etc)"""

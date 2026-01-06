@@ -28,19 +28,40 @@
       ]"
     >
       <div class="flex flex-col h-full">
-        <!-- Logo -->
-        <div class="p-6 border-b flex items-center justify-between lg:block">
-          <div>
-            <h1 class="text-2xl font-bold text-primary-600">CRM Vendas</h1>
-            <p class="text-xs text-primary-500 font-medium mt-0.5">{{ user?.canal_nome || 'Sem Canal' }}</p>
-            <p class="text-sm text-gray-600 mt-1 leading-tight font-medium">{{ user?.full_name || user?.first_name || user?.username }}</p>
-            <span class="inline-block mt-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-primary-100 text-primary-800">
-              {{ user?.perfil }}
-            </span>
+        <!-- Header com Avatar e Info do Usuário -->
+        <div class="p-5 border-b">
+          <div class="flex items-start gap-3">
+            <!-- Avatar do Usuário -->
+            <div class="flex-shrink-0">
+              <img 
+                v-if="user?.avatar_url" 
+                :src="user.avatar_url" 
+                :alt="user.full_name"
+                class="w-12 h-12 rounded-full object-cover ring-2 ring-primary-100 shadow-sm"
+              />
+              <div 
+                v-else 
+                class="w-12 h-12 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold text-lg shadow-sm ring-2 ring-primary-100"
+              >
+                {{ userInitials }}
+              </div>
+            </div>
+            
+            <!-- Informações do Usuário -->
+            <div class="flex-1 min-w-0">
+              <h1 class="text-lg font-bold text-primary-600 leading-tight">CRM Vendas</h1>
+              <p class="text-xs text-primary-500 font-medium mt-0.5 truncate">{{ user?.canal_nome || 'Sem Canal' }}</p>
+              <p class="text-sm text-gray-700 mt-1 leading-tight font-semibold truncate">{{ user?.full_name || user?.first_name || user?.username }}</p>
+              <span class="inline-block mt-1.5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full bg-primary-100 text-primary-700">
+                {{ user?.perfil }}
+              </span>
+            </div>
+            
+            <!-- Botão fechar (mobile) -->
+            <button @click="closeSidebar" class="lg:hidden p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
           </div>
-          <button @click="closeSidebar" class="lg:hidden p-2 text-gray-400 hover:text-gray-600">
-             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
         </div>
 
         <!-- Navigation -->
@@ -224,6 +245,19 @@ const isSidebarOpen = ref(false)
 
 const user = computed(() => authStore.user)
 const isAdmin = computed(() => authStore.isAdmin)
+
+// Gera as iniciais do usuário para o avatar fallback
+const userInitials = computed(() => {
+  if (!user.value) return '?'
+  
+  const fullName = user.value.full_name || user.value.first_name || user.value.username || ''
+  const parts = fullName.trim().split(' ').filter(p => p.length > 0)
+  
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+  return (fullName[0] || '?').toUpperCase()
+})
 
 const atrasadasCount = ref(0)
 const whatsappUnread = computed(() => whatsappStore.unreadCounts)

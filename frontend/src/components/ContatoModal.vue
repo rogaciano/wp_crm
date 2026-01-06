@@ -130,13 +130,77 @@
           </select>
         </div>
 
-        <div class="md:col-span-1">
+        <!-- Redes Sociais -->
+        <div class="md:col-span-2 pt-3 mt-2 border-t border-gray-100">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <svg class="w-4 h-4 text-primary-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+              </svg>
+              Redes Sociais
+            </p>
+            <button 
+              type="button"
+              @click="adicionarRedeSocial"
+              class="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Adicionar
+            </button>
+          </div>
+          
+          <!-- Lista de redes sociais -->
+          <div class="space-y-3">
+            <div 
+              v-for="(rede, index) in form.redes_sociais_input" 
+              :key="index"
+              class="flex items-center gap-2"
+            >
+              <select 
+                v-model="rede.tipo" 
+                class="input w-40 text-sm"
+              >
+                <option :value="null">Selecione...</option>
+                <option 
+                  v-for="tipo in tiposRedeSocial" 
+                  :key="tipo.id" 
+                  :value="tipo.id"
+                >
+                  {{ tipo.nome }}
+                </option>
+              </select>
+              <input
+                v-model="rede.valor"
+                type="text"
+                class="input flex-1 text-sm"
+                :placeholder="getPlaceholder(rede.tipo)"
+              />
+              <button 
+                type="button"
+                @click="removerRedeSocial(index)"
+                class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            
+            <p v-if="form.redes_sociais_input.length === 0" class="text-sm text-gray-400 italic">
+              Nenhuma rede social adicionada
+            </p>
+          </div>
+        </div>
+
+        <div class="md:col-span-2">
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Notas
           </label>
           <textarea
             v-model="form.notas"
-            rows="1"
+            rows="2"
             class="input"
             placeholder="Observações..."
           ></textarea>

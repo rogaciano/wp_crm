@@ -6,7 +6,8 @@ from rest_framework import serializers
 from django.db import transaction
 from django.contrib.auth.password_validation import validate_password
 from .models import (
-    Canal, User, Lead, Conta, Contato, TipoContato, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
+    Canal, User, Lead, Conta, Contato, TipoContato, TipoRedeSocial, ContatoRedeSocial,
+    Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado, 
     Plano, PlanoAdicional, OportunidadeAdicional, WhatsappMessage
 )
@@ -149,12 +150,21 @@ class CanalSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     canal_nome = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
     
     def get_canal_nome(self, obj):
         return obj.canal.nome if obj.canal else "N/A"
     
     def get_full_name(self, obj):
         return obj.get_full_name() or obj.username
+    
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
         
     password = serializers.CharField(write_only=True, required=False, validators=[validate_password])
     
@@ -162,7 +172,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
-            'perfil', 'canal', 'canal_nome', 'telefone',
+            'perfil', 'canal', 'canal_nome', 'telefone', 'avatar', 'avatar_url',
             'password', 'is_active', 'date_joined'
         ]
         read_only_fields = ['date_joined']
@@ -261,9 +271,31 @@ class LeadSerializer(serializers.ModelSerializer):
             'diagnosticos', 'whatsapp_nao_lidas', 'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos', 'whatsapp_nao_lidas', 'telefone_formatado']
-    
+
     def get_whatsapp_nao_lidas(self, obj):
-        return obj.mensagens_whatsapp.filter(lida=False, de_mim=False).count()
+        """
+        Conta mensagens não lidas respeitando o canal do usuário.
+        Se o lead tem canal definido, conta apenas mensagens desse canal.
+        Se o usuário não é admin, conta apenas mensagens do seu canal.
+        """
+        mensagens_query = obj.mensagens_whatsapp.filter(lida=False, de_mim=False)
+
+        # Se o usuário estiver disponível no contexto, filtrar por canal
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            user = request.user
+
+            # Se não é admin, precisa filtrar por canal
+            if user.perfil != 'ADMIN':
+                # Se o lead tem canal, usa o canal do lead
+                # Se não tem, usa o canal do proprietário do lead
+                canal_lead = obj.canal or (obj.proprietario.canal if obj.proprietario else None)
+
+                # Se o canal do lead é diferente do canal do usuário, retorna 0
+                if canal_lead and user.canal and canal_lead.id != user.canal.id:
+                    return 0
+
+        return mensagens_query.count()
     
     def get_proprietario_canal(self, obj):
         return obj.proprietario.canal.id if obj.proprietario and obj.proprietario.canal else None
@@ -342,6 +374,23 @@ class TipoContatoSerializer(serializers.ModelSerializer):
         fields = ['id', 'nome', 'descricao', 'data_criacao']
 
 
+class TipoRedeSocialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoRedeSocial
+        fields = ['id', 'nome', 'icone', 'cor', 'url_base', 'placeholder', 'ordem', 'ativo']
+
+
+class ContatoRedeSocialSerializer(serializers.ModelSerializer):
+    tipo_nome = serializers.CharField(source='tipo.nome', read_only=True)
+    tipo_icone = serializers.CharField(source='tipo.icone', read_only=True)
+    tipo_cor = serializers.CharField(source='tipo.cor', read_only=True)
+    url_completa = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = ContatoRedeSocial
+        fields = ['id', 'tipo', 'tipo_nome', 'tipo_icone', 'tipo_cor', 'valor', 'url_completa']
+
+
 class ContatoSerializer(serializers.ModelSerializer):
     proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
@@ -350,6 +399,13 @@ class ContatoSerializer(serializers.ModelSerializer):
     canal_nome = serializers.CharField(source='canal.nome', read_only=True)
     telefone_formatado = serializers.SerializerMethodField()
     celular_formatado = serializers.SerializerMethodField()
+    redes_sociais = ContatoRedeSocialSerializer(many=True, read_only=True)
+    redes_sociais_input = serializers.ListField(
+        child=serializers.DictField(),
+        write_only=True,
+        required=False,
+        help_text='Lista de redes sociais: [{"tipo": 1, "valor": "usuario"}]'
+    )
     
     class Meta:
         model = Contato
@@ -358,9 +414,10 @@ class ContatoSerializer(serializers.ModelSerializer):
             'departamento', 'chave_pix', 'tipo_contato', 'tipo_contato_nome', 'tipo',
             'conta', 'conta_nome', 'canal', 'canal_nome',
             'proprietario', 'proprietario_nome', 'notas',
+            'redes_sociais', 'redes_sociais_input',
             'data_criacao', 'data_atualizacao'
         ]
-        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'telefone_formatado', 'celular_formatado']
+        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'telefone_formatado', 'celular_formatado', 'redes_sociais']
     
     def get_telefone_formatado(self, obj):
         return format_phone_display(obj.telefone) if obj.telefone else ''
@@ -386,9 +443,31 @@ class ContatoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Celular inválido. Use formato: (DDD) 9 XXXX-XXXX")
         return normalized
     
+    def _salvar_redes_sociais(self, contato, redes_sociais_data):
+        """Salva as redes sociais do contato"""
+        # Remove todas as existentes e recria
+        contato.redes_sociais.all().delete()
+        for rede in redes_sociais_data:
+            if rede.get('tipo') and rede.get('valor'):
+                ContatoRedeSocial.objects.create(
+                    contato=contato,
+                    tipo_id=rede['tipo'],
+                    valor=rede['valor']
+                )
+    
     def create(self, validated_data):
+        redes_sociais_data = validated_data.pop('redes_sociais_input', [])
         validated_data['proprietario'] = self.context['request'].user
-        return super().create(validated_data)
+        contato = super().create(validated_data)
+        self._salvar_redes_sociais(contato, redes_sociais_data)
+        return contato
+    
+    def update(self, instance, validated_data):
+        redes_sociais_data = validated_data.pop('redes_sociais_input', None)
+        contato = super().update(instance, validated_data)
+        if redes_sociais_data is not None:
+            self._salvar_redes_sociais(contato, redes_sociais_data)
+        return contato
 
 
 class EstagioFunilSerializer(serializers.ModelSerializer):
