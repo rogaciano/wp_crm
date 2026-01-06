@@ -79,7 +79,17 @@
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="contato in contatos" :key="contato.id" class="hover:bg-gray-50">
                 <td class="table-cell font-medium text-gray-900 break-words">{{ contato.nome }}</td>
-                <td class="table-cell text-gray-500 break-words">{{ contato.email }}</td>
+                <td class="table-cell text-gray-500">
+                  <a
+                    v-if="contato.email"
+                    :href="`mailto:${contato.email}`"
+                    :title="contato.email"
+                    class="text-primary-600 hover:text-primary-700 hover:underline block truncate max-w-full"
+                  >
+                    {{ contato.email }}
+                  </a>
+                  <span v-else class="text-gray-400 text-xs">Sem email</span>
+                </td>
                 <td class="table-cell text-gray-500 whitespace-nowrap">{{ contato.telefone_formatado || contato.telefone }}</td>
                 <td class="table-cell text-gray-500 break-words">{{ contato.cargo }}</td>
                 <td class="table-cell text-gray-500 whitespace-nowrap">
@@ -92,7 +102,16 @@
                     Sem tipo
                   </span>
                 </td>
-                <td class="table-cell text-gray-500 font-medium break-words">{{ contato.conta_nome }}</td>
+                <td class="table-cell text-gray-500 font-medium">
+                  <span
+                    v-if="contato.conta_nome"
+                    :title="contato.conta_nome"
+                    class="block truncate max-w-full"
+                  >
+                    {{ contato.conta_nome }}
+                  </span>
+                  <span v-else class="text-gray-400 text-xs">Sem empresa</span>
+                </td>
                 <td class="table-cell text-right whitespace-nowrap">
                   <div class="flex justify-end space-x-3">
                     <button @click="openModal(contato)" class="text-primary-600 hover:text-primary-700 font-medium" title="Editar">
@@ -124,9 +143,15 @@
             </div>
 
             <div class="space-y-1.5 mb-4">
-              <div v-if="contato.email" class="flex items-center text-xs text-gray-500">
-                <svg class="w-3.5 h-3.5 mr-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                {{ contato.email }}
+              <div v-if="contato.email" class="flex items-center text-xs">
+                <svg class="w-3.5 h-3.5 mr-1.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                <a
+                  :href="`mailto:${contato.email}`"
+                  :title="contato.email"
+                  class="text-primary-600 hover:text-primary-700 hover:underline truncate"
+                >
+                  {{ contato.email }}
+                </a>
               </div>
               <div v-if="contato.telefone || contato.telefone_formatado" class="flex items-center text-xs text-gray-500">
                 <svg class="w-3.5 h-3.5 mr-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
