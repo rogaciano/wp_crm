@@ -65,32 +65,32 @@
 
       <div v-else>
         <!-- Desktop Table -->
-        <div class="hidden md:block overflow-x-auto">
-          <table class="table">
+        <div class="hidden md:block">
+          <table class="table table-fixed w-full">
             <thead class="bg-gray-50">
               <tr>
-                <th class="table-header">Nome</th>
-                <th class="table-header">Email</th>
-                <th class="table-header">Telefone</th>
-                <th class="table-header">Cargo</th>
-                <th class="table-header">Tipo</th>
-                <th class="table-header">Empresa</th>
-                <th class="table-header text-right">Ações</th>
+                <th class="table-header w-1/6">Nome</th>
+                <th class="table-header w-1/6">Email</th>
+                <th class="table-header w-32">Telefone</th>
+                <th class="table-header w-32">Cargo</th>
+                <th class="table-header w-24">Tipo</th>
+                <th class="table-header w-1/6">Empresa</th>
+                <th class="table-header text-right w-40">Ações</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="contato in contatos" :key="contato.id" class="hover:bg-gray-50">
-                <td class="table-cell font-medium text-gray-900 max-w-xs break-words">{{ contato.nome }}</td>
-                <td class="table-cell text-gray-500">{{ contato.email }}</td>
+                <td class="table-cell font-medium text-gray-900 break-words">{{ contato.nome }}</td>
+                <td class="table-cell text-gray-500 break-words">{{ contato.email }}</td>
                 <td class="table-cell text-gray-500 whitespace-nowrap">{{ contato.telefone_formatado || contato.telefone }}</td>
-                <td class="table-cell text-gray-500">{{ contato.cargo }}</td>
+                <td class="table-cell text-gray-500 break-words">{{ contato.cargo }}</td>
                 <td class="table-cell text-gray-500 whitespace-nowrap">
                   <span v-if="contato.tipo_contato_nome" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
                     {{ contato.tipo_contato_nome }}
                   </span>
                   <span v-else class="text-gray-400 text-xs">Sem tipo</span>
                 </td>
-                <td class="table-cell text-gray-500 font-medium max-w-xs break-words">{{ contato.conta_nome }}</td>
+                <td class="table-cell text-gray-500 font-medium break-words">{{ contato.conta_nome }}</td>
                 <td class="table-cell text-right whitespace-nowrap">
                   <div class="flex justify-end space-x-3">
                     <button @click="openModal(contato)" class="text-primary-600 hover:text-primary-700 font-medium">Editar</button>
