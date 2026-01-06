@@ -371,7 +371,7 @@ class ContaSerializer(serializers.ModelSerializer):
 class TipoContatoSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoContato
-        fields = ['id', 'nome', 'descricao', 'data_criacao']
+        fields = ['id', 'nome', 'emoji', 'descricao', 'data_criacao']
 
 
 class TipoRedeSocialSerializer(serializers.ModelSerializer):

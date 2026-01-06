@@ -198,6 +198,7 @@ class Conta(models.Model):
 class TipoContato(models.Model):
     """Representa uma categoria/tipo de contato (ex: Padrão, Indicador, Decisor)"""
     nome = models.CharField(max_length=100, unique=True)
+    emoji = models.CharField(max_length=10, null=True, blank=True, help_text='Emoji para exibir no dashboard (ex: 👤 📞 💼)')
     descricao = models.TextField(null=True, blank=True)
     data_criacao = models.DateTimeField(auto_now_add=True)
 
@@ -207,7 +208,7 @@ class TipoContato(models.Model):
         ordering = ['nome']
 
     def __str__(self):
-        return self.nome
+        return f"{self.emoji or '👤'} {self.nome}"
 
 
 class TipoRedeSocial(models.Model):
