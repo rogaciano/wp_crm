@@ -6,20 +6,20 @@
     </div>
 
     <!-- Cards de Estatísticas/Filtros por Tipo -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-3">
       <!-- Card Total -->
       <div
         @click="filterByTipo(undefined)"
-        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2', selectedTipo === undefined && selectedCanal === undefined ? 'border-primary-500 bg-primary-50' : 'border-transparent hover:border-gray-300']"
+        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2 py-3', selectedTipo === undefined && selectedCanal === undefined ? 'border-primary-500 bg-primary-50' : 'border-transparent hover:border-gray-300']"
       >
         <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-600">Total de Contatos</p>
-            <p class="text-3xl font-bold text-gray-900 mt-1">{{ stats.total }}</p>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-medium text-gray-500 truncate">Total</p>
+            <p class="text-2xl font-bold text-gray-900 mt-0.5">{{ stats.total }}</p>
           </div>
-          <div class="h-12 w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          <div class="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
         </div>
@@ -30,15 +30,15 @@
         v-for="(tipo, index) in stats.por_tipo"
         :key="tipo.id || 'sem-tipo'"
         @click="filterByTipo(tipo.id)"
-        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2', selectedTipo === tipo.id ? 'border-teal-500 bg-teal-50' : 'border-transparent hover:border-gray-300']"
+        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2 py-3', selectedTipo === tipo.id ? 'border-teal-500 bg-teal-50' : 'border-transparent hover:border-gray-300']"
       >
         <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-600">{{ tipo.nome }}</p>
-            <p class="text-3xl font-bold text-gray-900 mt-1">{{ tipo.total }}</p>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-medium text-gray-500 truncate">{{ tipo.nome }}</p>
+            <p class="text-2xl font-bold text-gray-900 mt-0.5">{{ tipo.total }}</p>
           </div>
           <div
-            :class="['h-12 w-12 rounded-lg flex items-center justify-center text-3xl', getTipoColor(index)]"
+            :class="['h-10 w-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0', getTipoColor(index)]"
           >
             {{ tipo.emoji || '👤' }}
           </div>
@@ -47,19 +47,19 @@
     </div>
 
     <!-- Cards de Estatísticas/Filtros por Canal -->
-    <div v-if="stats.por_canal && stats.por_canal.length > 0" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+    <div v-if="stats.por_canal && stats.por_canal.length > 0" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2">
       <div
         v-for="(canal, index) in stats.por_canal"
         :key="canal.id || 'sem-canal'"
         @click="filterByCanal(canal.id)"
-        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2 py-3', selectedCanal === canal.id ? 'border-amber-500 bg-amber-50' : 'border-transparent hover:border-gray-300']"
+        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2 py-2 px-3', selectedCanal === canal.id ? 'border-amber-500 bg-amber-50' : 'border-transparent hover:border-gray-300']"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-2">
           <div class="flex-1 min-w-0">
-            <p class="text-xs font-medium text-gray-500 truncate">{{ canal.nome }}</p>
-            <p class="text-2xl font-bold text-gray-900 mt-0.5">{{ canal.total }}</p>
+            <p class="text-[10px] font-medium text-gray-500 truncate">{{ canal.nome }}</p>
+            <p class="text-lg font-bold text-gray-900">{{ canal.total }}</p>
           </div>
-          <div :class="['h-10 w-10 rounded-lg flex items-center justify-center text-xl', getCanalColor(index)]">
+          <div :class="['h-8 w-8 rounded-lg flex items-center justify-center text-base flex-shrink-0', getCanalColor(index)]">
             🏢
           </div>
         </div>

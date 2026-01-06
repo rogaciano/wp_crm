@@ -1923,20 +1923,24 @@ class LogViewSet(viewsets.ReadOnlyModelViewSet):
         """
         Retorna logs filtrados por hierarquia:
         - ADMIN: vê todos os logs
-        - RESPONSAVEL: vê logs do seu canal
-        - VENDEDOR: vê apenas seus próprios logs
+        - RESPONSAVEL: vê logs do seu canal (incluindo logs do sistema)
+        - VENDEDOR: vê apenas seus próprios logs (incluindo logs do sistema relacionados)
         """
         user = self.request.user
 
         if user.perfil == 'ADMIN':
             queryset = Log.objects.all()
         elif user.perfil == 'RESPONSAVEL':
-            # Responsável vê logs de todos os usuários do seu canal
+            # Responsável vê logs de todos os usuários do seu canal + logs do sistema
             canal_users = User.objects.filter(canal=user.canal)
-            queryset = Log.objects.filter(usuario__in=canal_users)
+            queryset = Log.objects.filter(
+                models.Q(usuario__in=canal_users) | models.Q(usuario__isnull=True)
+            )
         else:
-            # Vendedor vê apenas seus próprios logs
-            queryset = Log.objects.filter(usuario=user)
+            # Vendedor vê seus próprios logs + logs do sistema
+            queryset = Log.objects.filter(
+                models.Q(usuario=user) | models.Q(usuario__isnull=True)
+            )
 
         return queryset.select_related('usuario')
 
