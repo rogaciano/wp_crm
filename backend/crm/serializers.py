@@ -148,16 +148,20 @@ class CanalSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     canal_nome = serializers.SerializerMethodField()
+    full_name = serializers.SerializerMethodField()
     
     def get_canal_nome(self, obj):
         return obj.canal.nome if obj.canal else "N/A"
+    
+    def get_full_name(self, obj):
+        return obj.get_full_name() or obj.username
         
     password = serializers.CharField(write_only=True, required=False, validators=[validate_password])
     
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
+            'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'perfil', 'canal', 'canal_nome', 'telefone',
             'password', 'is_active', 'date_joined'
         ]

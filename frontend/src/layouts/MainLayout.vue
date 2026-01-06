@@ -32,7 +32,8 @@
         <div class="p-6 border-b flex items-center justify-between lg:block">
           <div>
             <h1 class="text-2xl font-bold text-primary-600">CRM Vendas</h1>
-            <p class="text-sm text-gray-500 mt-1 leading-tight">{{ user?.get_full_name || user?.username }}</p>
+            <p class="text-xs text-primary-500 font-medium mt-0.5">{{ user?.canal_nome || 'Sem Canal' }}</p>
+            <p class="text-sm text-gray-600 mt-1 leading-tight font-medium">{{ user?.full_name || user?.first_name || user?.username }}</p>
             <span class="inline-block mt-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-primary-100 text-primary-800">
               {{ user?.perfil }}
             </span>
