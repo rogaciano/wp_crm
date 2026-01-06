@@ -237,6 +237,30 @@
             placeholder="Observações..."
           ></textarea>
         </div>
+
+        <!-- Informações de Auditoria (apenas em edição) -->
+        <div v-if="isEdit && (form.criado_por_nome || form.atualizado_por_nome)" class="md:col-span-2 pt-3 mt-2 border-t border-gray-100">
+          <p class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Informações de Registro
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div v-if="form.criado_por_nome" class="bg-gray-50 rounded-lg p-3">
+              <p class="font-medium text-gray-600 mb-1">Criado por</p>
+              <p class="text-gray-900 font-semibold">{{ form.criado_por_nome }}</p>
+              <p class="text-gray-500 mt-1">{{ formatDateTime(form.data_criacao) }}</p>
+            </div>
+
+            <div v-if="form.atualizado_por_nome" class="bg-gray-50 rounded-lg p-3">
+              <p class="font-medium text-gray-600 mb-1">Última atualização</p>
+              <p class="text-gray-900 font-semibold">{{ form.atualizado_por_nome }}</p>
+              <p class="text-gray-500 mt-1">{{ formatDateTime(form.data_atualizacao) }}</p>
+            </div>
+          </div>
+        </div>
       </div>
     </form>
   </BaseModal>
@@ -385,6 +409,19 @@ function handleFotoChange(event) {
     }
     reader.readAsDataURL(file)
   }
+}
+
+function formatDateTime(dateString) {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const options = {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }
+  return date.toLocaleString('pt-BR', options)
 }
 
 function resetForm() {

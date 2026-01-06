@@ -271,10 +271,28 @@ class Contato(models.Model):
         related_name='contatos'
     )
     proprietario = models.ForeignKey(User, on_delete=models.PROTECT, related_name='contatos')
-    
+
     notas = models.TextField(null=True, blank=True)
     data_criacao = models.DateTimeField(auto_now_add=True)
     data_atualizacao = models.DateTimeField(auto_now=True)
+
+    # Campos de auditoria
+    criado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='contatos_criados',
+        help_text='Usuário que criou o contato'
+    )
+    atualizado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='contatos_atualizados',
+        help_text='Último usuário que atualizou o contato'
+    )
     
     # Relação polimórfica com Atividades
     atividades = GenericRelation('Atividade')

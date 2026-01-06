@@ -403,6 +403,10 @@ class ContatoSerializer(serializers.ModelSerializer):
     foto_url = serializers.SerializerMethodField()
     redes_sociais = ContatoRedeSocialSerializer(many=True, read_only=True)
 
+    # Campos de auditoria
+    criado_por_nome = serializers.CharField(source='criado_por.get_full_name', read_only=True)
+    atualizado_por_nome = serializers.CharField(source='atualizado_por.get_full_name', read_only=True)
+
     class Meta:
         model = Contato
         fields = [
@@ -411,9 +415,14 @@ class ContatoSerializer(serializers.ModelSerializer):
             'conta', 'conta_nome', 'canal', 'canal_nome',
             'proprietario', 'proprietario_nome', 'notas',
             'redes_sociais',
-            'data_criacao', 'data_atualizacao'
+            'data_criacao', 'data_atualizacao',
+            'criado_por', 'criado_por_nome', 'atualizado_por', 'atualizado_por_nome'
         ]
-        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'telefone_formatado', 'celular_formatado', 'foto_url', 'redes_sociais', 'tipo_contato_emoji']
+        read_only_fields = [
+            'data_criacao', 'data_atualizacao', 'proprietario', 'telefone_formatado', 'celular_formatado',
+            'foto_url', 'redes_sociais', 'tipo_contato_emoji', 'criado_por', 'atualizado_por',
+            'criado_por_nome', 'atualizado_por_nome'
+        ]
     
     def get_foto_url(self, obj):
         if obj.foto:
@@ -480,24 +489,29 @@ class ContatoSerializer(serializers.ModelSerializer):
                 )
     
     def create(self, validated_data):
-        validated_data['proprietario'] = self.context['request'].user
+        user = self.context['request'].user
+        validated_data['proprietario'] = user
+        validated_data['criado_por'] = user
+        validated_data['atualizado_por'] = user
         contato = super().create(validated_data)
-        
+
         # Processar redes sociais do request
         redes_sociais_data = self._get_redes_sociais_data()
         if redes_sociais_data:
             self._salvar_redes_sociais(contato, redes_sociais_data)
-        
+
         return contato
-    
+
     def update(self, instance, validated_data):
+        user = self.context['request'].user
+        validated_data['atualizado_por'] = user
         contato = super().update(instance, validated_data)
-        
+
         # Processar redes sociais do request
         redes_sociais_data = self._get_redes_sociais_data()
         if redes_sociais_data is not None:
             self._salvar_redes_sociais(contato, redes_sociais_data)
-        
+
         return contato
 
 
