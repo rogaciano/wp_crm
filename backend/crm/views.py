@@ -564,7 +564,7 @@ class ContatoViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def estatisticas(self, request):
         """
-        Retorna estatísticas de contatos agrupadas por tipo de contato
+        Retorna estatísticas de contatos agrupadas por tipo de contato e por canal
         GET /api/contatos/estatisticas/
         """
         queryset = self.get_queryset()
@@ -579,7 +579,7 @@ class ContatoViewSet(viewsets.ModelViewSet):
             total=Count('id')
         ).order_by('-total')
 
-        # Formatar resultado
+        # Formatar resultado de tipos
         tipos = []
         for stat in stats_por_tipo:
             # Garante que sempre há um nome válido
@@ -600,9 +600,34 @@ class ContatoViewSet(viewsets.ModelViewSet):
                 'total': stat['total']
             })
 
+        # Contatos agrupados por canal
+        stats_por_canal = queryset.values(
+            'canal__id', 'canal__nome'
+        ).annotate(
+            total=Count('id')
+        ).order_by('-total')
+
+        # Formatar resultado de canais
+        canais = []
+        for stat in stats_por_canal:
+            canal_id = stat['canal__id']
+            canal_nome = stat['canal__nome']
+
+            # Se o nome é None/vazio, é um contato sem canal
+            if not canal_nome:
+                canal_nome = 'Sem Canal'
+                canal_id = 'null'
+
+            canais.append({
+                'id': canal_id,
+                'nome': canal_nome,
+                'total': stat['total']
+            })
+
         return Response({
             'total': total,
-            'por_tipo': tipos
+            'por_tipo': tipos,
+            'por_canal': canais
         })
 
 

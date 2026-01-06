@@ -5,12 +5,12 @@
       <button @click="openModal()" class="btn btn-primary w-full sm:w-auto shadow-sm">+ Novo Contato</button>
     </div>
 
-    <!-- Cards de Estatísticas/Filtros -->
+    <!-- Cards de Estatísticas/Filtros por Tipo -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
       <!-- Card Total -->
       <div
         @click="filterByTipo(undefined)"
-        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2', selectedTipo === undefined ? 'border-primary-500 bg-primary-50' : 'border-transparent hover:border-gray-300']"
+        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2', selectedTipo === undefined && selectedCanal === undefined ? 'border-primary-500 bg-primary-50' : 'border-transparent hover:border-gray-300']"
       >
         <div class="flex items-center justify-between">
           <div>
@@ -30,7 +30,7 @@
         v-for="(tipo, index) in stats.por_tipo"
         :key="tipo.id || 'sem-tipo'"
         @click="filterByTipo(tipo.id)"
-        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2', selectedTipo === tipo.id ? 'border-primary-500 bg-primary-50' : 'border-transparent hover:border-gray-300']"
+        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2', selectedTipo === tipo.id ? 'border-teal-500 bg-teal-50' : 'border-transparent hover:border-gray-300']"
       >
         <div class="flex items-center justify-between">
           <div>
@@ -44,6 +44,46 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Cards de Estatísticas/Filtros por Canal -->
+    <div v-if="stats.por_canal && stats.por_canal.length > 0" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+      <div
+        v-for="(canal, index) in stats.por_canal"
+        :key="canal.id || 'sem-canal'"
+        @click="filterByCanal(canal.id)"
+        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2 py-3', selectedCanal === canal.id ? 'border-amber-500 bg-amber-50' : 'border-transparent hover:border-gray-300']"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-medium text-gray-500 truncate">{{ canal.nome }}</p>
+            <p class="text-2xl font-bold text-gray-900 mt-0.5">{{ canal.total }}</p>
+          </div>
+          <div :class="['h-10 w-10 rounded-lg flex items-center justify-center text-xl', getCanalColor(index)]">
+            🏢
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filtros Ativos -->
+    <div v-if="selectedTipo !== undefined || selectedCanal !== undefined" class="flex items-center gap-2 flex-wrap">
+      <span class="text-sm text-gray-500">Filtros:</span>
+      <span v-if="selectedTipo !== undefined" class="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
+        {{ getSelectedTipoName() }}
+        <button @click="filterByTipo(undefined)" class="ml-1 hover:text-teal-900">&times;</button>
+      </span>
+      <span v-if="selectedCanal !== undefined" class="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-sm">
+        🏢 {{ getSelectedCanalName() }}
+        <button @click="filterByCanal(undefined)" class="ml-1 hover:text-amber-900">&times;</button>
+      </span>
+      <button 
+        v-if="selectedTipo !== undefined || selectedCanal !== undefined"
+        @click="clearFilters()"
+        class="text-xs text-gray-500 hover:text-gray-700 underline"
+      >
+        Limpar filtros
+      </button>
     </div>
 
     <div class="card mb-6">
@@ -308,8 +348,9 @@ const searchQuery = ref('')
 const showModal = ref(false)
 const selectedContato = ref(null)
 const loading = ref(false)
-const stats = ref({ total: 0, por_tipo: [] })
+const stats = ref({ total: 0, por_tipo: [], por_canal: [] })
 const selectedTipo = ref(undefined) // undefined = sem filtro, null = sem tipo, número = tipo específico
+const selectedCanal = ref(undefined) // undefined = sem filtro, null = sem canal, número = canal específico
 
 // Estado de paginação
 const pagination = ref({
@@ -331,6 +372,16 @@ const tipoColors = [
   'bg-gradient-to-br from-red-500 to-red-600',
   'bg-gradient-to-br from-teal-500 to-teal-600',
   'bg-gradient-to-br from-yellow-500 to-yellow-600',
+]
+
+// Cores para os cards de canais (gradientes âmbar)
+const canalColors = [
+  'bg-gradient-to-br from-amber-400 to-amber-500',
+  'bg-gradient-to-br from-orange-400 to-orange-500',
+  'bg-gradient-to-br from-yellow-400 to-yellow-500',
+  'bg-gradient-to-br from-lime-400 to-lime-500',
+  'bg-gradient-to-br from-emerald-400 to-emerald-500',
+  'bg-gradient-to-br from-cyan-400 to-cyan-500',
 ]
 
 // Computed para páginas visíveis (mostra até 5 páginas por vez)
@@ -393,6 +444,11 @@ async function loadContatos(page = 1) {
       params.tipo_contato = selectedTipo.value === 'null' ? '' : selectedTipo.value
     }
 
+    // Adiciona filtro por canal se selecionado
+    if (selectedCanal.value !== undefined) {
+      params.canal = selectedCanal.value === 'null' ? '' : selectedCanal.value
+    }
+
     const response = await api.get('/contatos/', { params })
 
     // Se a resposta tem paginação (results, count, next, previous)
@@ -444,6 +500,37 @@ function filterByTipo(tipoId) {
   selectedTipo.value = tipoId
   pagination.value.currentPage = 1 // Resetar para página 1 ao filtrar
   loadContatos(1)
+}
+
+function filterByCanal(canalId) {
+  selectedCanal.value = canalId
+  pagination.value.currentPage = 1 // Resetar para página 1 ao filtrar
+  loadContatos(1)
+}
+
+function clearFilters() {
+  selectedTipo.value = undefined
+  selectedCanal.value = undefined
+  pagination.value.currentPage = 1
+  loadContatos(1)
+}
+
+function getCanalColor(index) {
+  return canalColors[index % canalColors.length]
+}
+
+function getSelectedTipoName() {
+  if (selectedTipo.value === undefined) return ''
+  if (selectedTipo.value === 'null') return '👤 Sem Tipo'
+  const tipo = stats.value.por_tipo.find(t => t.id === selectedTipo.value)
+  return tipo ? `${tipo.emoji || '👤'} ${tipo.nome}` : ''
+}
+
+function getSelectedCanalName() {
+  if (selectedCanal.value === undefined) return ''
+  if (selectedCanal.value === 'null') return 'Sem Canal'
+  const canal = stats.value.por_canal.find(c => c.id === selectedCanal.value)
+  return canal ? canal.nome : ''
 }
 
 function openModal(contato = null) {
