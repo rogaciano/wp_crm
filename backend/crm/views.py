@@ -161,22 +161,29 @@ class LeadViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Aplica filtros de hierarquia e funis de acesso"""
         user = self.request.user
-        
+
         if user.perfil == 'ADMIN':
             queryset = Lead.objects.all()
         elif user.perfil == 'RESPONSAVEL':
-            # Vê leads do seu canal E de funis que tem acesso
+            # Vê leads do seu canal
             queryset = Lead.objects.filter(
                 Q(canal=user.canal) | Q(proprietario__canal=user.canal)
-            ).filter(funil__in=user.funis_acesso.all()).distinct()
+            ).distinct()
+
+            # Se tem funis específicos configurados, filtra por eles
+            # Se não tem, vê todos os leads do canal
+            funis_permitidos = user.funis_acesso.all()
+            if funis_permitidos.exists():
+                queryset = queryset.filter(funil__in=funis_permitidos)
         else:  # VENDEDOR
-            # Vê seus leads (ou do canal se preferir, mas user disse 'vinculados aos seus Funis/canal')
-            # Vou manter a trava de proprietário para vendedor mas adicionar funil_acesso
-            queryset = Lead.objects.filter(
-                proprietario=user,
-                funil__in=user.funis_acesso.all()
-            )
-            
+            # Vê seus leads
+            queryset = Lead.objects.filter(proprietario=user)
+
+            # Se tem funis específicos configurados, filtra por eles
+            funis_permitidos = user.funis_acesso.all()
+            if funis_permitidos.exists():
+                queryset = queryset.filter(funil__in=funis_permitidos)
+
         return queryset.select_related('funil', 'estagio', 'proprietario', 'canal')
 
     def perform_create(self, serializer):
