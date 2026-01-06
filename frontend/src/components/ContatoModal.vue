@@ -74,7 +74,7 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Telefone
           </label>
-          <PhoneInput
+          <LandlineInput
             v-model="form.telefone"
             input-class="input"
           />
@@ -150,6 +150,7 @@
 import { ref, watch, onMounted } from 'vue'
 import BaseModal from './BaseModal.vue'
 import PhoneInput from './PhoneInput.vue'
+import LandlineInput from './LandlineInput.vue'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 

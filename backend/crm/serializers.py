@@ -14,34 +14,35 @@ from .models import (
 
 def normalize_phone_brazil(phone: str) -> str:
     """
-    Normaliza um telefone brasileiro para o formato 55DDDNNNNNNNNN (13 dígitos).
-    
+    Normaliza um telefone CELULAR brasileiro para o formato 55DDDNNNNNNNNN (13 dígitos).
+    Usado para celulares - SEMPRE adiciona o 9º dígito se não tiver.
+
     Aceita formatos como:
     - (81) 9 9921-6560
     - 81999216560
     - +55 81 999216560
     - 5581999216560
-    
+
     Retorna:
     - 5581999216560 (sempre 13 dígitos com DDI e 9º dígito)
     - String vazia se inválido
     """
     if not phone:
         return ''
-    
+
     # Remove tudo que não é dígito
     digits = re.sub(r'\D', '', str(phone))
-    
+
     if not digits:
         return ''
-    
+
     # Remove DDI 55 se existir para processar
     if digits.startswith('55') and len(digits) >= 12:
         digits = digits[2:]
-    
+
     # Agora digits deve ter DDD + número (10 ou 11 dígitos)
     if len(digits) == 10:
-        # Formato antigo sem 9: adiciona o 9
+        # Formato antigo sem 9: adiciona o 9 (para celular)
         ddd = digits[:2]
         numero = digits[2:]
         digits = ddd + '9' + numero
@@ -54,25 +55,79 @@ def normalize_phone_brazil(phone: str) -> str:
     else:
         # Formato irreconhecível
         return ''
-    
+
     # Adiciona DDI 55
     return '55' + digits
 
 
+def normalize_landline_brazil(phone: str) -> str:
+    """
+    Normaliza um telefone FIXO brasileiro.
+    Aceita 10 dígitos (DDD + 8 dígitos) ou 11 dígitos (com 9).
+    NÃO força o 9º dígito - mantém como está.
+
+    Aceita formatos como:
+    - (81) 3333-4444 (fixo, 8 dígitos)
+    - (81) 9 3333-4444 (pode ter 9 no início)
+    - 8133334444
+    - 81933334444
+
+    Retorna:
+    - 558133334444 (12 dígitos se fixo sem 9)
+    - 5581933334444 (13 dígitos se tiver o 9)
+    - String vazia se inválido
+    """
+    if not phone:
+        return ''
+
+    # Remove tudo que não é dígito
+    digits = re.sub(r'\D', '', str(phone))
+
+    if not digits:
+        return ''
+
+    # Remove DDI 55 se existir para processar
+    if digits.startswith('55'):
+        if len(digits) >= 12:
+            digits = digits[2:]
+
+    # Aceita 10 dígitos (fixo) ou 11 dígitos (com 9)
+    if len(digits) == 10 or len(digits) == 11:
+        # Adiciona DDI 55 e retorna
+        return '55' + digits
+    elif len(digits) == 8:
+        # Só o número sem DDD: não podemos assumir DDD
+        return ''
+    else:
+        # Formato irreconhecível
+        return ''
+
+
 def format_phone_display(phone: str) -> str:
     """
-    Formata um telefone normalizado para exibição: (81) 9 9921-6560
+    Formata um telefone normalizado para exibição.
+    - Celular (13 dígitos): (81) 9 9921-6560
+    - Fixo (12 dígitos): (81) 3333-4444
     """
-    if not phone or len(phone) != 13:
-        return phone or ''
-    
-    # 5581999216560 -> (81) 9 9921-6560
-    ddd = phone[2:4]
-    p1 = phone[4:5]  # 9
-    p2 = phone[5:9]  # 9921
-    p3 = phone[9:13] # 6560
-    
-    return f"({ddd}) {p1} {p2}-{p3}"
+    if not phone:
+        return ''
+
+    if len(phone) == 13:
+        # Celular: 5581999216560 -> (81) 9 9921-6560
+        ddd = phone[2:4]
+        p1 = phone[4:5]   # 9
+        p2 = phone[5:9]   # 9921
+        p3 = phone[9:13]  # 6560
+        return f"({ddd}) {p1} {p2}-{p3}"
+    elif len(phone) == 12:
+        # Fixo: 558133334444 -> (81) 3333-4444
+        ddd = phone[2:4]
+        p1 = phone[4:8]   # 3333
+        p2 = phone[8:12]  # 4444
+        return f"({ddd}) {p1}-{p2}"
+    else:
+        # Formato desconhecido, retorna como está
+        return phone
 
 
 class CanalSerializer(serializers.ModelSerializer):
@@ -310,14 +365,16 @@ class ContatoSerializer(serializers.ModelSerializer):
         return format_phone_display(obj.celular) if obj.celular else ''
     
     def validate_telefone(self, value):
+        """Valida telefone FIXO - aceita com ou sem o 9º dígito"""
         if not value:
             return value
-        normalized = normalize_phone_brazil(value)
+        normalized = normalize_landline_brazil(value)
         if not normalized:
-            raise serializers.ValidationError("Telefone inválido. Use formato: (DDD) 9 XXXX-XXXX")
+            raise serializers.ValidationError("Telefone inválido. Use formato: (DDD) XXXX-XXXX ou (DDD) 9 XXXX-XXXX")
         return normalized
-    
+
     def validate_celular(self, value):
+        """Valida CELULAR - obrigatório ter o 9º dígito"""
         if not value:
             return value
         normalized = normalize_phone_brazil(value)

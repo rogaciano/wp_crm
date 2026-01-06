@@ -73,6 +73,7 @@
                 <th class="table-header">Email</th>
                 <th class="table-header">Telefone</th>
                 <th class="table-header">Cargo</th>
+                <th class="table-header">Tipo</th>
                 <th class="table-header">Empresa</th>
                 <th class="table-header text-right">Ações</th>
               </tr>
@@ -83,6 +84,12 @@
                 <td class="table-cell text-gray-500">{{ contato.email }}</td>
                 <td class="table-cell text-gray-500">{{ contato.telefone_formatado || contato.telefone }}</td>
                 <td class="table-cell text-gray-500">{{ contato.cargo }}</td>
+                <td class="table-cell text-gray-500">
+                  <span v-if="contato.tipo_contato_nome" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                    {{ contato.tipo_contato_nome }}
+                  </span>
+                  <span v-else class="text-gray-400 text-xs">Sem tipo</span>
+                </td>
                 <td class="table-cell text-gray-500 font-medium">{{ contato.conta_nome }}</td>
                 <td class="table-cell text-right">
                   <div class="flex justify-end space-x-3">
@@ -99,7 +106,12 @@
         <div class="md:hidden divide-y divide-gray-100">
           <div v-for="contato in contatos" :key="contato.id" class="p-4 active:bg-gray-50 transition-colors">
             <div class="mb-3">
-              <h3 class="font-bold text-gray-900">{{ contato.nome }}</h3>
+              <div class="flex items-center justify-between">
+                <h3 class="font-bold text-gray-900">{{ contato.nome }}</h3>
+                <span v-if="contato.tipo_contato_nome" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                  {{ contato.tipo_contato_nome }}
+                </span>
+              </div>
               <p class="text-sm text-primary-600 font-medium">{{ contato.cargo || 'Contato' }}</p>
               <p class="text-xs text-gray-500 mt-1">Empresa: {{ contato.conta_nome || 'N/A' }}</p>
             </div>
