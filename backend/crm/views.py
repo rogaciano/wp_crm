@@ -1944,3 +1944,84 @@ class LogViewSet(viewsets.ReadOnlyModelViewSet):
 
         return queryset.select_related('usuario')
 
+
+class OrganogramaViewSet(viewsets.ViewSet):
+    """
+    ViewSet para gerar organograma da estrutura hierárquica.
+    GET /api/organograma/ - Retorna código Mermaid.js do organograma
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        """
+        Gera o código Mermaid.js do organograma hierárquico:
+        Administrador > Canais (com Responsável) > Vendedores
+        """
+        # Busca todos os canais com seus responsáveis
+        canais = Canal.objects.select_related('responsavel').all()
+        
+        # Busca todos os usuários agrupados por canal
+        usuarios_por_canal = {}
+        for user in User.objects.filter(perfil='VENDEDOR', is_active=True).select_related('canal'):
+            if user.canal_id:
+                if user.canal_id not in usuarios_por_canal:
+                    usuarios_por_canal[user.canal_id] = []
+                usuarios_por_canal[user.canal_id].append(user)
+        
+        # Gera o código Mermaid
+        mermaid_lines = [
+            "flowchart TD",
+            "",
+            "    ADMIN[Administrador]",
+            "    style ADMIN fill:#1e40af,stroke:#1e3a8a,color:#fff",
+            ""
+        ]
+        
+        # Adiciona cada canal
+        for i, canal in enumerate(canais):
+            canal_id = f"CANAL_{canal.id}"
+            responsavel_nome = canal.responsavel.get_full_name() if canal.responsavel else "Sem Responsavel"
+            responsavel_nome = responsavel_nome if responsavel_nome.strip() else (canal.responsavel.username if canal.responsavel else "Sem Responsavel")
+            # Remove caracteres especiais que podem quebrar o Mermaid
+            responsavel_nome = responsavel_nome.replace('"', "'").replace('\n', ' ')
+            canal_nome = canal.nome.replace('"', "'").replace('\n', ' ')
+            
+            # Node do canal com nome e responsável
+            mermaid_lines.append(f'    {canal_id}["{canal_nome} - {responsavel_nome}"]')
+            
+            # Estilo do canal
+            cores_canais = ['#059669', '#0891b2', '#7c3aed', '#db2777', '#ea580c', '#65a30d']
+            cor = cores_canais[i % len(cores_canais)]
+            mermaid_lines.append(f'    style {canal_id} fill:{cor},stroke:#333,color:#fff')
+            
+            # Conecta Admin ao Canal
+            mermaid_lines.append(f'    ADMIN --> {canal_id}')
+            mermaid_lines.append('')
+            
+            # Adiciona vendedores deste canal
+            vendedores = usuarios_por_canal.get(canal.id, [])
+            for vend in vendedores:
+                vend_id = f"VEND_{vend.id}"
+                vend_nome = (vend.get_full_name() or vend.username).replace('"', "'").replace('\n', ' ')
+                mermaid_lines.append(f'    {vend_id}["{vend_nome}"]')
+                mermaid_lines.append(f'    style {vend_id} fill:#f3f4f6,stroke:#9ca3af,color:#374151')
+                mermaid_lines.append(f'    {canal_id} --> {vend_id}')
+            
+            if vendedores:
+                mermaid_lines.append('')
+        
+        # Estatísticas
+        total_canais = canais.count()
+        total_vendedores = User.objects.filter(perfil='VENDEDOR', is_active=True).count()
+        total_responsaveis = User.objects.filter(perfil='RESPONSAVEL', is_active=True).count()
+        
+        mermaid_code = '\n'.join(mermaid_lines)
+        
+        return Response({
+            'mermaid': mermaid_code,
+            'estatisticas': {
+                'total_canais': total_canais,
+                'total_responsaveis': total_responsaveis,
+                'total_vendedores': total_vendedores
+            }
+        })

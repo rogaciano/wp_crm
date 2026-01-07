@@ -7,7 +7,7 @@ from .views import (
     CanalViewSet, UserViewSet, LeadViewSet, ContaViewSet,
     ContatoViewSet, EstagioFunilViewSet, OportunidadeViewSet, AtividadeViewSet,
     DiagnosticoViewSet, PlanoViewSet, PlanoAdicionalViewSet, FunilViewSet, TipoContatoViewSet,
-    TipoRedeSocialViewSet, WhatsappViewSet, WhatsappWebhookView, LogViewSet
+    TipoRedeSocialViewSet, WhatsappViewSet, WhatsappWebhookView, LogViewSet, OrganogramaViewSet
 )
 from .views_dashboard import DashboardViewSet
 
@@ -29,6 +29,7 @@ router.register(r'diagnosticos', DiagnosticoViewSet, basename='diagnostico')
 router.register(r'planos', PlanoViewSet, basename='plano')
 router.register(r'adicionais-plano', PlanoAdicionalViewSet, basename='adicional-plano')
 router.register(r'logs', LogViewSet, basename='log')
+router.register(r'organograma', OrganogramaViewSet, basename='organograma')
 
 urlpatterns = [
     path('', include(router.urls)),

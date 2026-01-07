@@ -4,13 +4,13 @@ Signals para capturar ações e criar logs automaticamente
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in, user_logged_out
-from .models import Log, Lead, Conta, Contato, Oportunidade, Atividade
+from .models import Log, Lead, Conta, Contato, Oportunidade, Atividade, TipoRedeSocial, ContatoRedeSocial
 from .middleware import get_current_request, get_current_user
 import json
 
 
 # Lista de modelos que queremos auditar
-MODELOS_AUDITADOS = [Lead, Conta, Contato, Oportunidade, Atividade]
+MODELOS_AUDITADOS = [Lead, Conta, Contato, Oportunidade, Atividade, ContatoRedeSocial]
 
 
 @receiver(pre_save)
