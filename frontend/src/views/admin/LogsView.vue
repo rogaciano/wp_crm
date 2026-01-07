@@ -293,7 +293,7 @@ async function carregarLogs() {
     if (filtros.value.modelo) params.modelo = filtros.value.modelo
     if (filtros.value.search) params.search = filtros.value.search
 
-    const response = await api.get('/api/crm/logs/', { params })
+    const response = await api.get('/logs/', { params })
     logs.value = response.data.results
     total.value = response.data.count
     totalPages.value = Math.ceil(response.data.count / 20)
