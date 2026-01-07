@@ -1,7 +1,7 @@
 """
 Signals para capturar ações e criar logs automaticamente
 """
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from .models import Log, Lead, Conta, Contato, Oportunidade, Atividade
@@ -11,6 +11,39 @@ import json
 
 # Lista de modelos que queremos auditar
 MODELOS_AUDITADOS = [Lead, Conta, Contato, Oportunidade, Atividade]
+
+
+@receiver(pre_save)
+def capture_old_values(sender, instance, **kwargs):
+    """
+    Captura os valores anteriores antes de salvar para comparação posterior.
+    """
+    # Ignora o próprio modelo Log
+    if sender == Log:
+        return
+    
+    # Verifica se o modelo está na lista de auditados
+    if sender not in MODELOS_AUDITADOS:
+        return
+    
+    # Só captura valores para objetos existentes (UPDATE, não CREATE)
+    if instance.pk:
+        try:
+            # Busca o objeto original do banco de dados
+            old_instance = sender.objects.get(pk=instance.pk)
+            
+            # Armazena os valores antigos no objeto
+            instance._old_values = {}
+            for field in instance._meta.fields:
+                field_name = field.name
+                old_value = getattr(old_instance, field_name, None)
+                instance._old_values[field_name] = old_value
+        except sender.DoesNotExist:
+            # Objeto novo, não existe no banco ainda
+            instance._old_values = {}
+    else:
+        # Objeto novo
+        instance._old_values = {}
 
 
 def get_client_ip(request):
