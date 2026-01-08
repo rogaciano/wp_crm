@@ -719,11 +719,9 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def kanban(self, request):
-        """Retorna oportunidades abertas agrupadas por estágio para visão Kanban"""
+        """Retorna oportunidades agrupadas por estágio para visão Kanban"""
         funil_id = request.query_params.get('funil_id')
-        queryset = self.get_queryset().filter(
-            estagio__tipo=EstagioFunil.TIPO_ABERTO
-        )
+        queryset = self.get_queryset()  # Removido filtro de tipo - mostra todos os estágios
         
         if funil_id:
             queryset = queryset.filter(funil_id=funil_id)
@@ -737,13 +735,13 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         queryset = queryset.select_related('conta', 'contato_principal', 'estagio', 'proprietario')
         serializer = OportunidadeKanbanSerializer(queryset, many=True)
         
-        # Agrupa por estágios do funil selecionado via tabela de ligação
+        # Agrupa por estágios do funil selecionado via tabela de ligação (todos os tipos)
         funil_selecionado_id = funil_id or (funil.id if 'funil' in locals() and funil else None)
         if funil_selecionado_id:
-            vinculos = FunilEstagio.objects.filter(funil_id=funil_selecionado_id, estagio__tipo=EstagioFunil.TIPO_ABERTO).select_related('estagio').order_by('ordem')
+            vinculos = FunilEstagio.objects.filter(funil_id=funil_selecionado_id).select_related('estagio').order_by('ordem')
         else:
             # Fallback se não houver funil (não deveria acontecer no Kanban novo)
-            vinculos = FunilEstagio.objects.filter(estagio__tipo=EstagioFunil.TIPO_ABERTO).select_related('estagio').order_by('funil', 'ordem')
+            vinculos = FunilEstagio.objects.all().select_related('estagio').order_by('funil', 'ordem')
         
         kanban_data = []
         for vinculo in vinculos:
