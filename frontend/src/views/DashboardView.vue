@@ -1,21 +1,37 @@
 <template>
   <div class="space-y-6 pb-12">
-    <!-- Header com Filtro de Período -->
+    <!-- Header com Filtros -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
         <h1 class="text-3xl font-bold text-gray-900">Dashboard Executivo</h1>
         <p class="text-gray-500">Inteligência de Vendas e Ciência de Dados</p>
       </div>
-      <div class="flex items-center gap-2 bg-white p-1 rounded-xl shadow-sm border border-gray-100">
-        <button 
-          v-for="p in periodos" 
-          :key="p.valor"
-          @click="periodo = p.valor"
-          :class="['px-4 py-2 text-sm font-semibold rounded-lg transition-all', 
-                   periodo === p.valor ? 'bg-primary-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50']"
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Filtro de Canal (apenas Admin) -->
+        <select 
+          v-if="authStore.isAdmin"
+          v-model="canalFiltro" 
+          @change="loadDashboard"
+          class="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
-          {{ p.label }}
-        </button>
+          <option :value="null">Todos os Canais</option>
+          <option v-for="canal in canais" :key="canal.id" :value="canal.id">
+            {{ canal.nome }}
+          </option>
+        </select>
+        
+        <!-- Filtro de Período -->
+        <div class="flex items-center gap-2 bg-white p-1 rounded-xl shadow-sm border border-gray-100">
+          <button 
+            v-for="p in periodos" 
+            :key="p.valor"
+            @click="periodo = p.valor"
+            :class="['px-4 py-2 text-sm font-semibold rounded-lg transition-all', 
+                     periodo === p.valor ? 'bg-primary-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50']"
+          >
+            {{ p.label }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -334,8 +350,15 @@ const dashboardData = ref({
   origens: [],
   maturidade_media: {},
   contatos_por_tipo: [],
-  contatos_por_canal: []
+  contatos_por_canal: [],
+  vendas_por_plano: []
 })
+
+// Filtro de Canal
+import { useAuthStore } from '@/stores/auth'
+const authStore = useAuthStore()
+const canais = ref([])
+const canalFiltro = ref(null)
 
 // Filtros combinados para contatos
 const filtroTipoSelecionado = ref(null)
@@ -369,10 +392,23 @@ const urlContatosFiltrados = computed(() => {
   return queryString ? `/contatos?${queryString}` : '/contatos'
 })
 
+async function fetchCanais() {
+  try {
+    const response = await api.get('/canais/')
+    canais.value = response.data.results || response.data
+  } catch (err) {
+    console.error('Erro ao carregar canais:', err)
+  }
+}
+
 async function fetchDashboard() {
   loaded.value = false
   try {
-    const response = await api.get('/dashboard/', { params: { periodo: periodo.value } })
+    const params = { periodo: periodo.value }
+    if (canalFiltro.value) {
+      params.canal_id = canalFiltro.value
+    }
+    const response = await api.get('/dashboard/', { params })
     console.log('📊 Dados do dashboard recebidos:', response.data)
     
     // Garantir que os dados tenham a estrutura correta
@@ -383,7 +419,8 @@ async function fetchDashboard() {
       origens: response.data.origens || [],
       maturidade_media: response.data.maturidade_media || {},
       contatos_por_tipo: response.data.contatos_por_tipo || [],
-      contatos_por_canal: response.data.contatos_por_canal || []
+      contatos_por_canal: response.data.contatos_por_canal || [],
+      vendas_por_plano: response.data.vendas_por_plano || []
     }
     
     console.log('📊 Dashboard data processado:', dashboardData.value)
@@ -396,7 +433,16 @@ async function fetchDashboard() {
   }
 }
 
-onMounted(fetchDashboard)
+function loadDashboard() {
+  fetchDashboard()
+}
+
+onMounted(async () => {
+  if (authStore.isAdmin) {
+    await fetchCanais()
+  }
+  await fetchDashboard()
+})
 watch(periodo, fetchDashboard)
 
 const totalPipeline = computed(() => {

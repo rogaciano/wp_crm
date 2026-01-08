@@ -16,10 +16,11 @@ class DashboardViewSet(viewsets.ViewSet):
     def list(self, request):
         user = request.user
         periodo_dias = int(request.query_params.get('periodo', 30))
+        canal_id = request.query_params.get('canal_id')  # Filtro opcional de canal
         data_inicio = timezone.now() - timedelta(days=periodo_dias)
 
         # Debug: Log do usuário e período
-        print(f"Dashboard - Usuário: {user.username}, Perfil: {user.perfil}, Período: {periodo_dias} dias")
+        print(f"Dashboard - Usuário: {user.username}, Perfil: {user.perfil}, Período: {periodo_dias} dias, Canal: {canal_id}")
 
         # Filtros de Hierarquia base
         # 1. Filtro para coisas criadas no período (Leads novos)
@@ -41,17 +42,20 @@ class DashboardViewSet(viewsets.ViewSet):
         # Filtro base: vale para quase tudo (Leads, Contas, Oportunidades, Atividades)
         base_hierarquia = Q()
         if user.perfil == 'ADMIN':
-            # Admin vê tudo - não aplica filtro
+            # Admin vê tudo - não aplica filtro, mas pode filtrar por canal se quiser
             base_hierarquia = Q()
+            if canal_id:
+                base_hierarquia = Q(proprietario__canal_id=canal_id)
         elif user.perfil == 'RESPONSAVEL' and user.canal:
             base_hierarquia &= Q(proprietario__canal=user.canal)
         elif user.perfil == 'VENDEDOR':
             base_hierarquia &= Q(proprietario=user)
             
         # Filtro de canal: vale APENAS para Oportunidade
-        # Admin não deve ter filtro de canal aplicado
         canal_filter = Q()
-        if user.perfil != 'ADMIN' and user.canal:
+        if user.perfil == 'ADMIN' and canal_id:
+            canal_filter = Q(canal_id=canal_id)
+        elif user.perfil != 'ADMIN' and user.canal:
             canal_filter &= Q(canal=user.canal)
         # Filtro completo para Oportunidades
         # Se base_hierarquia está vazio (ADMIN), não aplica filtro de hierarquia
@@ -227,8 +231,8 @@ class DashboardViewSet(viewsets.ViewSet):
         # 9. Vendas por Plano (Oportunidades GANHAS agrupadas por plano)
         from .models import Plano
         vendas_por_plano = Plano.objects.annotate(
-            total_vendas=Count('oportunidades', filter=opp_filter & Q(oportunidades__estagio__tipo='GANHO')),
-            valor_total=Sum('oportunidades__valor_estimado', filter=opp_filter & Q(oportunidades__estagio__tipo='GANHO'))
+            total_vendas=Count('oportunidades', filter=Q(oportunidades__estagio__tipo='GANHO')),
+            valor_total=Sum('oportunidades__valor_estimado', filter=Q(oportunidades__estagio__tipo='GANHO'))
         ).filter(total_vendas__gt=0).order_by('-valor_total').values('id', 'nome', 'total_vendas', 'valor_total')
 
         resultado = {
