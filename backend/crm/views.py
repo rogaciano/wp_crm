@@ -2046,7 +2046,7 @@ class OrganogramaViewSet(viewsets.ViewSet):
             
             if num_vend > 0:
                 # Calcular posições dos vendedores (centralizados abaixo do canal)
-                vend_box_width = 120
+                vend_box_width = 72  # 40% menor que antes
                 vend_total_width = num_vend * vend_box_width + (num_vend - 1) * 15
                 vend_start_x = canal_center_x - vend_total_width / 2
                 
@@ -2061,9 +2061,9 @@ class OrganogramaViewSet(viewsets.ViewSet):
                     # Linha do Canal para o Vendedor
                     svg_parts.append(f'  <line x1="{canal_center_x}" y1="{canais_y + box_height}" x2="{vend_center_x}" y2="{vendedores_y}" stroke="#9ca3af" stroke-width="2" marker-end="url(#arrowhead)"/>')
                     
-                    # Caixa do Vendedor
-                    svg_parts.append(f'  <rect x="{vend_x}" y="{vendedores_y}" width="{vend_box_width}" height="40" rx="6" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#shadow)"/>')
-                    svg_parts.append(f'  <text x="{vend_center_x}" y="{vendedores_y + 24}" fill="#374151" text-anchor="middle" font-family="Arial, sans-serif" font-size="11">{vend_nome}</text>')
+                    # Caixa do Vendedor (menor)
+                    svg_parts.append(f'  <rect x="{vend_x}" y="{vendedores_y}" width="{vend_box_width}" height="30" rx="4" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#shadow)"/>')
+                    svg_parts.append(f'  <text x="{vend_center_x}" y="{vendedores_y + 19}" fill="#374151" text-anchor="middle" font-family="Arial, sans-serif" font-size="10">{vend_nome}</text>')
         
         svg_parts.append('</svg>')
         svg_code = '\n'.join(svg_parts)
