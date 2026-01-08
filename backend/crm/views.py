@@ -2053,7 +2053,10 @@ class OrganogramaViewSet(viewsets.ViewSet):
                 for j, vend in enumerate(vendedores):
                     vend_x = vend_start_x + j * (vend_box_width + 15)
                     vend_center_x = vend_x + vend_box_width / 2
-                    vend_nome = (vend.get_full_name() or vend.username).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                    # Usar apenas o primeiro nome do vendedor
+                    vend_nome_completo = vend.get_full_name() or vend.username
+                    vend_nome = vend_nome_completo.split()[0] if vend_nome_completo else vend.username
+                    vend_nome = vend_nome.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
                     
                     # Linha do Canal para o Vendedor
                     svg_parts.append(f'  <line x1="{canal_center_x}" y1="{canais_y + box_height}" x2="{vend_center_x}" y2="{vendedores_y}" stroke="#9ca3af" stroke-width="2" marker-end="url(#arrowhead)"/>')
