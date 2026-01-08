@@ -670,11 +670,18 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                 Q(canal=user.canal) | Q(proprietario__canal=user.canal)
             ).filter(funil__in=user.funis_acesso.all()).distinct()
         else: # VENDEDOR
-            # Mantemos a trava de proprietário mas adicionamos funis_acesso
-            queryset = Oportunidade.objects.filter(
-                proprietario=user,
-                funil__in=user.funis_acesso.all()
-            )
+            # Vendedor vê todas as oportunidades do seu canal (não apenas as dele)
+            if user.canal:
+                queryset = Oportunidade.objects.filter(
+                    Q(canal=user.canal) | Q(proprietario__canal=user.canal),
+                    funil__in=user.funis_acesso.all()
+                ).distinct()
+            else:
+                # Fallback: se não tem canal, vê só as próprias
+                queryset = Oportunidade.objects.filter(
+                    proprietario=user,
+                    funil__in=user.funis_acesso.all()
+                )
             
         return queryset.select_related('funil', 'estagio', 'conta', 'contato_principal', 'proprietario').prefetch_related('oportunidadeadicional_set')
 
