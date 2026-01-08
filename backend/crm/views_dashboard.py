@@ -225,8 +225,8 @@ class DashboardViewSet(viewsets.ViewSet):
         ).filter(total__gt=0).order_by('-total').values('id', 'nome', 'total')
 
         # 9. Vendas por Plano (Oportunidades GANHAS agrupadas por plano)
-        from .models import PlanoVenda
-        vendas_por_plano = PlanoVenda.objects.annotate(
+        from .models import Plano
+        vendas_por_plano = Plano.objects.annotate(
             total_vendas=Count('oportunidades', filter=opp_filter & Q(oportunidades__estagio__tipo='GANHO')),
             valor_total=Sum('oportunidades__valor_estimado', filter=opp_filter & Q(oportunidades__estagio__tipo='GANHO'))
         ).filter(total_vendas__gt=0).order_by('-valor_total').values('id', 'nome', 'total_vendas', 'valor_total')
