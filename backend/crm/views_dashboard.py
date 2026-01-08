@@ -230,9 +230,12 @@ class DashboardViewSet(viewsets.ViewSet):
 
         # 9. Vendas por Plano (Oportunidades GANHAS agrupadas por plano)
         from .models import Plano
+        vendas_plano_filter = Q(oportunidades__estagio__tipo='GANHO')
+        if canal_id:
+            vendas_plano_filter &= Q(oportunidades__canal_id=canal_id)
         vendas_por_plano = Plano.objects.annotate(
-            total_vendas=Count('oportunidades', filter=Q(oportunidades__estagio__tipo='GANHO')),
-            valor_total=Sum('oportunidades__valor_estimado', filter=Q(oportunidades__estagio__tipo='GANHO'))
+            total_vendas=Count('oportunidades', filter=vendas_plano_filter),
+            valor_total=Sum('oportunidades__valor_estimado', filter=vendas_plano_filter)
         ).filter(total_vendas__gt=0).order_by('-valor_total').values('id', 'nome', 'total_vendas', 'valor_total')
 
         resultado = {
