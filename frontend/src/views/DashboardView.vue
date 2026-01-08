@@ -45,19 +45,51 @@
       </div>
     </div>
 
-    <!-- Alerta de Atividades Atrasadas (Prominente) -->
-    <div v-if="dashboardData.kpis.atividades_atrasadas > 0" class="animate-pulse">
-      <router-link to="/atividades" class="flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-2xl shadow-sm hover:bg-red-100 transition-all group">
+    <!-- Cards de Atividades (Ativas e Atrasadas) -->
+    <div v-if="loaded" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <!-- Card Atividades Ativas -->
+      <router-link 
+        to="/atividades" 
+        class="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-2xl shadow-sm hover:bg-blue-100 transition-all group"
+      >
         <div class="flex items-center">
-          <div class="bg-red-500 p-2 rounded-xl text-white mr-4">
+          <div class="bg-blue-500 p-2 rounded-xl text-white mr-4">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+          </div>
+          <div>
+            <h4 class="text-blue-800 font-black text-sm uppercase tracking-wider leading-none mb-1">Atividades Ativas</h4>
+            <p class="text-blue-700 text-xs font-bold">Você tem {{ dashboardData.kpis?.atividades_ativas || 0 }} atividades pendentes</p>
+          </div>
+        </div>
+        <div class="flex items-center">
+          <span class="text-2xl font-black text-blue-600 mr-2">{{ dashboardData.kpis?.atividades_ativas || 0 }}</span>
+          <svg class="w-5 h-5 text-blue-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+        </div>
+      </router-link>
+
+      <!-- Card Atividades Atrasadas -->
+      <router-link 
+        to="/atividades" 
+        class="flex items-center justify-between p-4 rounded-2xl shadow-sm transition-all group"
+        :class="dashboardData.kpis?.atividades_atrasadas > 0 ? 'bg-red-50 border border-red-100 hover:bg-red-100 animate-pulse' : 'bg-green-50 border border-green-100 hover:bg-green-100'"
+      >
+        <div class="flex items-center">
+          <div :class="dashboardData.kpis?.atividades_atrasadas > 0 ? 'bg-red-500' : 'bg-green-500'" class="p-2 rounded-xl text-white mr-4">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
           <div>
-            <h4 class="text-red-800 font-black text-sm uppercase tracking-wider leading-none mb-1">Atenção Necessária</h4>
-            <p class="text-red-700 text-xs font-bold">Você tem {{ dashboardData.kpis.atividades_atrasadas }} atividades atrasadas que precisam de ação imediata!</p>
+            <h4 :class="dashboardData.kpis?.atividades_atrasadas > 0 ? 'text-red-800' : 'text-green-800'" class="font-black text-sm uppercase tracking-wider leading-none mb-1">
+              {{ dashboardData.kpis?.atividades_atrasadas > 0 ? 'Atividades Atrasadas' : 'Tudo em Dia!' }}
+            </h4>
+            <p :class="dashboardData.kpis?.atividades_atrasadas > 0 ? 'text-red-700' : 'text-green-700'" class="text-xs font-bold">
+              {{ dashboardData.kpis?.atividades_atrasadas > 0 ? `Você tem ${dashboardData.kpis.atividades_atrasadas} atividades atrasadas` : 'Nenhuma atividade atrasada' }}
+            </p>
           </div>
         </div>
-        <svg class="w-5 h-5 text-red-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+        <div class="flex items-center">
+          <span :class="dashboardData.kpis?.atividades_atrasadas > 0 ? 'text-red-600' : 'text-green-600'" class="text-2xl font-black mr-2">{{ dashboardData.kpis?.atividades_atrasadas || 0 }}</span>
+          <svg :class="dashboardData.kpis?.atividades_atrasadas > 0 ? 'text-red-400' : 'text-green-400'" class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+        </div>
       </router-link>
     </div>
 

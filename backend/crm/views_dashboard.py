@@ -200,12 +200,16 @@ class DashboardViewSet(viewsets.ViewSet):
             for pilar, scores in pilares_contagem.items():
                 maturidade_resumo[pilar] = round(sum(scores) / len(scores), 1)
 
-        # 6. Atividades Atrasadas
+        # 6. Atividades Atrasadas e Ativas
         agora = timezone.now()
         atrasadas_q = Q(status='Pendente', data_vencimento__lt=agora)
-        atividades_query = Atividade.objects.filter(base_hierarquia & atrasadas_q) if base_hierarquia else Atividade.objects.filter(atrasadas_q)
-        atrasadas_count = atividades_query.count()
-        atrasadas_lista = atividades_query.order_by('data_vencimento')[:5].values(
+        ativas_q = Q(status='Pendente')  # Todas as pendentes
+        
+        atividades_base = Atividade.objects.filter(base_hierarquia) if base_hierarquia else Atividade.objects.all()
+        atrasadas_count = atividades_base.filter(atrasadas_q).count()
+        ativas_count = atividades_base.filter(ativas_q).count()
+        
+        atrasadas_lista = atividades_base.filter(atrasadas_q).order_by('data_vencimento')[:5].values(
             'id', 'titulo', 'tipo', 'data_vencimento'
         )
 
@@ -227,6 +231,7 @@ class DashboardViewSet(viewsets.ViewSet):
                 'win_rate': round(win_rate, 1),
                 'ticket_medio': round(ticket_medio, 2),
                 'leads_novos': leads_query.count(),
+                'atividades_ativas': ativas_count,
                 'atividades_atrasadas': atrasadas_count
             },
             'funil': funil,
