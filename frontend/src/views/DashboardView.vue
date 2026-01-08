@@ -433,15 +433,6 @@ const kpiCards = computed(() => {
       sub: 'Gerados no período', 
       iconPath: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m4-14a4 4 0 100-8 4 4 0 000 8zm14 14v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75', 
       color: '#64748B' 
-    },
-    { 
-      label: 'Atrasos', 
-      value: (kpis.atividades_atrasadas != null && kpis.atividades_atrasadas !== undefined) 
-        ? String(kpis.atividades_atrasadas) 
-        : '0', 
-      sub: 'Atividades vencidas', 
-      iconPath: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', 
-      color: '#EF4444' 
     }
   ]
 })

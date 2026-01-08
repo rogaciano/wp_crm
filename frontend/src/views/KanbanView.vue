@@ -3,10 +3,10 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
       <div>
         <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
-          {{ !activeFunilId ? 'Todos os Funis' : (selectedFunil?.tipo === 'LEAD' ? 'Funil SDR (Leads)' : 'Pipeline de Vendas') }}
+          {{ selectedFunil?.tipo === 'LEAD' ? 'Funil SDR (Leads)' : 'Pipeline de Vendas' }}
         </h1>
         <p class="text-gray-500 mt-1">
-          {{ !activeFunilId ? 'Visualização geral de todos os funis' : (selectedFunil?.nome || 'Gerencie seu processo') }}
+          {{ selectedFunil?.nome || 'Gerencie seu processo' }}
         </p>
       </div>
       
@@ -17,7 +17,6 @@
           @change="onFunilChange"
           class="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
-          <option :value="null">Todos os Funis</option>
           <option v-for="funil in funis" :key="funil.id" :value="funil.id">
             {{ funil.nome }}
           </option>
