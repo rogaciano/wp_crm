@@ -154,8 +154,12 @@
                   </span>
                   <span v-else class="text-gray-400 text-xs">Sem canal</span>
                 </td>
-                <td class="table-cell text-gray-500 font-medium break-words">
-                  <span v-if="contato.conta_nome">
+                <td class="table-cell text-gray-500 font-medium">
+                  <span 
+                    v-if="contato.conta_nome" 
+                    class="block truncate max-w-[140px]"
+                    :title="contato.conta_nome"
+                  >
                     {{ contato.conta_nome }}
                   </span>
                   <span v-else class="text-gray-400 text-xs">Sem empresa</span>
