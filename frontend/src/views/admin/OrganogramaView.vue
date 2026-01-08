@@ -71,14 +71,14 @@
         </div>
       </div>
       
-      <!-- Container do diagrama -->
+      <!-- Container do diagrama SVG -->
       <div 
-        class="mermaid-container border border-gray-200 rounded-lg bg-gradient-to-br from-gray-50 to-white p-8 min-h-[400px] flex justify-center items-center overflow-auto"
+        class="svg-container border border-gray-200 rounded-lg bg-gradient-to-br from-gray-50 to-white p-8 min-h-[400px] flex justify-center items-center overflow-auto"
         :style="{ transform: `scale(${zoom})`, transformOrigin: 'top center' }"
       >
-        <!-- Div do Mermaid com o código inserido diretamente -->
-        <div class="mermaid" v-html="mermaidCode" v-if="mermaidCode && !loading"></div>
-        <p v-if="!mermaidCode && !loading" class="text-gray-400">Nenhum dado para exibir</p>
+        <!-- SVG gerado pelo backend -->
+        <div v-html="svgCode" v-if="svgCode && !loading" class="w-full"></div>
+        <p v-if="!svgCode && !loading" class="text-gray-400">Nenhum dado para exibir</p>
       </div>
     </div>
 
@@ -104,30 +104,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import api from '@/services/api'
-import mermaid from 'mermaid'
 
 const loading = ref(false)
-const mermaidCode = ref('')
+const svgCode = ref('')
 const zoom = ref(1)
 const estatisticas = ref({
   total_canais: 0,
   total_responsaveis: 0,
   total_vendedores: 0
-})
-
-// Configuração do Mermaid - igual ao seu exemplo
-mermaid.initialize({
-  startOnLoad: false, // Vamos controlar manualmente
-  theme: 'default',
-  flowchart: {
-    useMaxWidth: false,
-    htmlLabels: true,
-    curve: 'basis',
-    padding: 40
-  },
-  securityLevel: 'loose'
 })
 
 onMounted(() => {
@@ -139,24 +125,8 @@ async function carregarOrganograma() {
   try {
     const response = await api.get('/organograma/')
     console.log('Dados recebidos:', response.data)
-    mermaidCode.value = response.data.mermaid
+    svgCode.value = response.data.svg
     estatisticas.value = response.data.estatisticas
-    
-    // Aguarda o Vue atualizar o DOM
-    await nextTick()
-    
-    // Re-inicializa o Mermaid para processar o novo código
-    setTimeout(() => {
-      try {
-        mermaid.run({
-          querySelector: '.mermaid'
-        })
-        console.log('Mermaid renderizado com sucesso')
-      } catch (e) {
-        console.error('Erro no mermaid.run:', e)
-      }
-    }, 100)
-    
   } catch (error) {
     console.error('Erro ao carregar organograma:', error)
   } finally {
@@ -177,33 +147,17 @@ function resetZoom() {
 }
 
 function recarregar() {
-  // Limpa e recarrega
-  mermaidCode.value = ''
-  nextTick(() => {
-    carregarOrganograma()
-  })
+  carregarOrganograma()
 }
 </script>
 
 <style scoped>
-.mermaid-container {
+.svg-container {
   transition: transform 0.2s ease;
 }
 
-.mermaid-container :deep(svg) {
+.svg-container :deep(svg) {
   max-width: 100%;
   height: auto;
-}
-
-.mermaid-container :deep(.node rect),
-.mermaid-container :deep(.node circle),
-.mermaid-container :deep(.node ellipse),
-.mermaid-container :deep(.node polygon),
-.mermaid-container :deep(.node path) {
-  stroke-width: 2px;
-}
-
-.mermaid-container :deep(.edgePath .path) {
-  stroke-width: 2px;
 }
 </style>

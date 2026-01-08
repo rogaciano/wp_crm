@@ -1948,17 +1948,17 @@ class LogViewSet(viewsets.ReadOnlyModelViewSet):
 class OrganogramaViewSet(viewsets.ViewSet):
     """
     ViewSet para gerar organograma da estrutura hierárquica.
-    GET /api/organograma/ - Retorna código Mermaid.js do organograma
+    GET /api/organograma/ - Retorna SVG do organograma
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def list(self, request):
         """
-        Gera o código Mermaid.js do organograma hierárquico:
+        Gera o SVG do organograma hierárquico:
         Administrador > Canais (com Responsável) > Vendedores
         """
         # Busca todos os canais com seus responsáveis
-        canais = Canal.objects.select_related('responsavel').all()
+        canais = list(Canal.objects.select_related('responsavel').all())
         
         # Busca todos os usuários agrupados por canal
         usuarios_por_canal = {}
@@ -1968,57 +1968,110 @@ class OrganogramaViewSet(viewsets.ViewSet):
                     usuarios_por_canal[user.canal_id] = []
                 usuarios_por_canal[user.canal_id].append(user)
         
-        # Gera o código Mermaid
-        mermaid_lines = [
-            "flowchart TD",
-            "",
-            "    ADMIN[Administrador]",
-            "    style ADMIN fill:#1e40af,stroke:#1e3a8a,color:#fff",
-            ""
+        # Configurações do layout
+        box_width = 160
+        box_height = 50
+        box_spacing_x = 30
+        box_spacing_y = 80
+        start_y = 30
+        
+        # Cores para os canais
+        cores_canais = ['#059669', '#0891b2', '#7c3aed', '#db2777', '#ea580c', '#65a30d']
+        
+        # Calcular largura total necessária para os canais
+        total_canais = len(canais)
+        canais_width = total_canais * box_width + (total_canais - 1) * box_spacing_x if total_canais > 0 else box_width
+        
+        # Calcular largura necessária para vendedores (máximo por canal)
+        max_vendedores_por_canal = max([len(usuarios_por_canal.get(c.id, [])) for c in canais] + [0])
+        
+        # Largura do SVG
+        svg_width = max(canais_width + 100, 800)
+        
+        # Posição X inicial dos canais (centralizado)
+        canais_start_x = (svg_width - canais_width) / 2
+        
+        # Posição do Admin (centro superior)
+        admin_x = svg_width / 2 - box_width / 2
+        admin_y = start_y
+        
+        # Posição Y dos canais
+        canais_y = admin_y + box_height + box_spacing_y
+        
+        # Calcular altura do SVG (considerando vendedores)
+        vendedores_y = canais_y + box_height + box_spacing_y
+        svg_height = vendedores_y + box_height + 50 if max_vendedores_por_canal > 0 else canais_y + box_height + 50
+        
+        # Construir o SVG
+        svg_parts = [
+            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {svg_width} {svg_height}" class="organograma-svg">',
+            '  <defs>',
+            '    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">',
+            '      <polygon points="0 0, 10 3.5, 0 7" fill="#9ca3af"/>',
+            '    </marker>',
+            '    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">',
+            '      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>',
+            '    </filter>',
+            '  </defs>',
+            '',
+            '  <!-- Administrador -->',
+            f'  <rect x="{admin_x}" y="{admin_y}" width="{box_width}" height="{box_height}" rx="8" fill="#1e40af" filter="url(#shadow)"/>',
+            f'  <text x="{admin_x + box_width/2}" y="{admin_y + box_height/2 + 5}" fill="white" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Administrador</text>',
         ]
         
-        # Adiciona cada canal
+        # Linhas do Admin para cada Canal e os Canais
         for i, canal in enumerate(canais):
-            canal_id = f"CANAL_{canal.id}"
+            canal_x = canais_start_x + i * (box_width + box_spacing_x)
+            canal_center_x = canal_x + box_width / 2
+            admin_center_x = admin_x + box_width / 2
+            
+            # Linha do Admin para o Canal
+            svg_parts.append(f'  <line x1="{admin_center_x}" y1="{admin_y + box_height}" x2="{canal_center_x}" y2="{canais_y}" stroke="#9ca3af" stroke-width="2" marker-end="url(#arrowhead)"/>')
+            
+            # Caixa do Canal
+            cor = cores_canais[i % len(cores_canais)]
             responsavel_nome = canal.responsavel.get_full_name() if canal.responsavel else "Sem Responsavel"
             responsavel_nome = responsavel_nome if responsavel_nome.strip() else (canal.responsavel.username if canal.responsavel else "Sem Responsavel")
-            # Remove caracteres especiais que podem quebrar o Mermaid
-            responsavel_nome = responsavel_nome.replace('"', "'").replace('\n', ' ')
-            canal_nome = canal.nome.replace('"', "'").replace('\n', ' ')
+            # Escapa caracteres especiais para XML
+            canal_nome = canal.nome.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            responsavel_nome = responsavel_nome.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             
-            # Node do canal com nome e responsável
-            mermaid_lines.append(f'    {canal_id}["{canal_nome} - {responsavel_nome}"]')
+            svg_parts.append(f'  <rect x="{canal_x}" y="{canais_y}" width="{box_width}" height="{box_height}" rx="8" fill="{cor}" filter="url(#shadow)"/>')
+            svg_parts.append(f'  <text x="{canal_center_x}" y="{canais_y + 20}" fill="white" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold">{canal_nome}</text>')
+            svg_parts.append(f'  <text x="{canal_center_x}" y="{canais_y + 36}" fill="white" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" opacity="0.9">{responsavel_nome}</text>')
             
-            # Estilo do canal
-            cores_canais = ['#059669', '#0891b2', '#7c3aed', '#db2777', '#ea580c', '#65a30d']
-            cor = cores_canais[i % len(cores_canais)]
-            mermaid_lines.append(f'    style {canal_id} fill:{cor},stroke:#333,color:#fff')
-            
-            # Conecta Admin ao Canal
-            mermaid_lines.append(f'    ADMIN --> {canal_id}')
-            mermaid_lines.append('')
-            
-            # Adiciona vendedores deste canal
+            # Vendedores deste canal
             vendedores = usuarios_por_canal.get(canal.id, [])
-            for vend in vendedores:
-                vend_id = f"VEND_{vend.id}"
-                vend_nome = (vend.get_full_name() or vend.username).replace('"', "'").replace('\n', ' ')
-                mermaid_lines.append(f'    {vend_id}["{vend_nome}"]')
-                mermaid_lines.append(f'    style {vend_id} fill:#f3f4f6,stroke:#9ca3af,color:#374151')
-                mermaid_lines.append(f'    {canal_id} --> {vend_id}')
+            num_vend = len(vendedores)
             
-            if vendedores:
-                mermaid_lines.append('')
+            if num_vend > 0:
+                # Calcular posições dos vendedores (centralizados abaixo do canal)
+                vend_box_width = 120
+                vend_total_width = num_vend * vend_box_width + (num_vend - 1) * 15
+                vend_start_x = canal_center_x - vend_total_width / 2
+                
+                for j, vend in enumerate(vendedores):
+                    vend_x = vend_start_x + j * (vend_box_width + 15)
+                    vend_center_x = vend_x + vend_box_width / 2
+                    vend_nome = (vend.get_full_name() or vend.username).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                    
+                    # Linha do Canal para o Vendedor
+                    svg_parts.append(f'  <line x1="{canal_center_x}" y1="{canais_y + box_height}" x2="{vend_center_x}" y2="{vendedores_y}" stroke="#9ca3af" stroke-width="2" marker-end="url(#arrowhead)"/>')
+                    
+                    # Caixa do Vendedor
+                    svg_parts.append(f'  <rect x="{vend_x}" y="{vendedores_y}" width="{vend_box_width}" height="40" rx="6" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" filter="url(#shadow)"/>')
+                    svg_parts.append(f'  <text x="{vend_center_x}" y="{vendedores_y + 24}" fill="#374151" text-anchor="middle" font-family="Arial, sans-serif" font-size="11">{vend_nome}</text>')
+        
+        svg_parts.append('</svg>')
+        svg_code = '\n'.join(svg_parts)
         
         # Estatísticas
-        total_canais = canais.count()
+        total_canais = len(canais)
         total_vendedores = User.objects.filter(perfil='VENDEDOR', is_active=True).count()
         total_responsaveis = User.objects.filter(perfil='RESPONSAVEL', is_active=True).count()
         
-        mermaid_code = '\n'.join(mermaid_lines)
-        
         return Response({
-            'mermaid': mermaid_code,
+            'svg': svg_code,
             'estatisticas': {
                 'total_canais': total_canais,
                 'total_responsaveis': total_responsaveis,
