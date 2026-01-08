@@ -238,6 +238,16 @@ class DashboardViewSet(viewsets.ViewSet):
             valor_total=Sum('oportunidades__valor_estimado', filter=vendas_plano_filter)
         ).filter(total_vendas__gt=0).order_by('-valor_total').values('id', 'nome', 'total_vendas', 'valor_total')
 
+        # 10. Vendas por Canal (Oportunidades GANHAS agrupadas por canal - usa filtro de período)
+        vendas_canal_filter = Q(oportunidades__estagio__tipo='GANHO') & Q(
+            Q(oportunidades__data_fechamento_real__gte=data_inicio.date()) |
+            Q(oportunidades__data_fechamento_real__isnull=True, oportunidades__data_criacao__gte=data_inicio)
+        )
+        vendas_por_canal = Canal.objects.annotate(
+            total_vendas=Count('oportunidades', filter=vendas_canal_filter),
+            valor_total=Sum('oportunidades__valor_estimado', filter=vendas_canal_filter)
+        ).filter(total_vendas__gt=0).order_by('-valor_total').values('id', 'nome', 'total_vendas', 'valor_total')
+
         resultado = {
             'kpis': {
                 'receita_ganha': float(receita),
@@ -255,7 +265,8 @@ class DashboardViewSet(viewsets.ViewSet):
             'atividades_atrasadas_lista': list(atrasadas_lista),
             'contatos_por_tipo': list(contatos_por_tipo),
             'contatos_por_canal': list(contatos_por_canal),
-            'vendas_por_plano': list(vendas_por_plano)
+            'vendas_por_plano': list(vendas_por_plano),
+            'vendas_por_canal': list(vendas_por_canal)
         }
         
         print(f"Resultado final - KPIs: {resultado['kpis']}")

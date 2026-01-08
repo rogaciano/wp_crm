@@ -210,6 +210,31 @@
         </div>
       </div>
 
+      <!-- Vendas por Canal -->
+      <div class="card p-6">
+        <h3 class="font-bold text-gray-800 uppercase text-sm tracking-widest flex items-center mb-6">
+           <svg class="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+           Vendas por Canal
+        </h3>
+        <div class="h-64 mb-6">
+          <Doughnut v-if="dashboardData.vendas_por_canal && dashboardData.vendas_por_canal.length > 0" :data="doughnutCanalChartData" :options="doughnutChartOptions" />
+          <div v-else class="flex items-center justify-center h-full text-gray-400">
+            <p class="text-sm">Nenhuma venda registrada</p>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <div v-if="dashboardData.vendas_por_canal && dashboardData.vendas_por_canal.length > 0">
+            <div v-for="(canal, idx) in dashboardData.vendas_por_canal" :key="idx" class="flex justify-between text-sm">
+              <span class="text-gray-600 font-medium">{{ canal?.nome || 'Sem canal' }}</span>
+              <span class="font-bold text-gray-900">{{ canal?.total_vendas || 0 }} vendas • R$ {{ Number(canal?.valor_total || 0).toLocaleString('pt-BR') }}</span>
+            </div>
+          </div>
+          <div v-else class="text-sm text-gray-400 text-center py-4">
+            Nenhum dado disponível
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Contatos por Tipo e por Canal - Filtros Combinados -->
@@ -351,7 +376,8 @@ const dashboardData = ref({
   maturidade_media: {},
   contatos_por_tipo: [],
   contatos_por_canal: [],
-  vendas_por_plano: []
+  vendas_por_plano: [],
+  vendas_por_canal: []
 })
 
 // Filtro de Canal
@@ -420,7 +446,8 @@ async function fetchDashboard() {
       maturidade_media: response.data.maturidade_media || {},
       contatos_por_tipo: response.data.contatos_por_tipo || [],
       contatos_por_canal: response.data.contatos_por_canal || [],
-      vendas_por_plano: response.data.vendas_por_plano || []
+      vendas_por_plano: response.data.vendas_por_plano || [],
+      vendas_por_canal: response.data.vendas_por_canal || []
     }
     
     console.log('📊 Dashboard data processado:', dashboardData.value)
@@ -675,6 +702,21 @@ const doughnutChartOptions = {
     legend: { display: false }
   }
 }
+
+const doughnutCanalChartData = computed(() => {
+  const vendas = dashboardData.value.vendas_por_canal || []
+  return {
+    labels: vendas.length > 0 
+      ? vendas.map(v => v?.nome || 'Sem canal')
+      : ['Sem dados'],
+    datasets: [{
+      data: vendas.length > 0 
+        ? vendas.map(v => Number(v?.valor_total) || 0)
+        : [0],
+      backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316']
+    }]
+  }
+})
 </script>
 
 <style scoped>
