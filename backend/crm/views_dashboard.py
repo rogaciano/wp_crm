@@ -224,6 +224,13 @@ class DashboardViewSet(viewsets.ViewSet):
             total=Count('contatos', filter=Q(contatos__in=contatos_base))
         ).filter(total__gt=0).order_by('-total').values('id', 'nome', 'total')
 
+        # 9. Vendas por Plano (Oportunidades GANHAS agrupadas por plano)
+        from .models import PlanoVenda
+        vendas_por_plano = PlanoVenda.objects.annotate(
+            total_vendas=Count('oportunidades', filter=opp_filter & Q(oportunidades__estagio__tipo='GANHO')),
+            valor_total=Sum('oportunidades__valor_estimado', filter=opp_filter & Q(oportunidades__estagio__tipo='GANHO'))
+        ).filter(total_vendas__gt=0).order_by('-valor_total').values('id', 'nome', 'total_vendas', 'valor_total')
+
         resultado = {
             'kpis': {
                 'receita_ganha': float(receita),
@@ -240,7 +247,8 @@ class DashboardViewSet(viewsets.ViewSet):
             'maturidade_media': maturidade_resumo,
             'atividades_atrasadas_lista': list(atrasadas_lista),
             'contatos_por_tipo': list(contatos_por_tipo),
-            'contatos_por_canal': list(contatos_por_canal)
+            'contatos_por_canal': list(contatos_por_canal),
+            'vendas_por_plano': list(vendas_por_plano)
         }
         
         print(f"Resultado final - KPIs: {resultado['kpis']}")

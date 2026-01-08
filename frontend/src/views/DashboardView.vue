@@ -169,6 +169,31 @@
         </div>
       </div>
 
+      <!-- Vendas por Plano -->
+      <div class="card p-6">
+        <h3 class="font-bold text-gray-800 uppercase text-sm tracking-widest flex items-center mb-6">
+           <svg class="w-4 h-4 mr-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+           Vendas por Plano
+        </h3>
+        <div class="h-64 mb-6">
+          <Doughnut v-if="dashboardData.vendas_por_plano && dashboardData.vendas_por_plano.length > 0" :data="doughnutChartData" :options="doughnutChartOptions" />
+          <div v-else class="flex items-center justify-center h-full text-gray-400">
+            <p class="text-sm">Nenhuma venda registrada</p>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <div v-if="dashboardData.vendas_por_plano && dashboardData.vendas_por_plano.length > 0">
+            <div v-for="(plano, idx) in dashboardData.vendas_por_plano" :key="idx" class="flex justify-between text-sm">
+              <span class="text-gray-600 font-medium">{{ plano?.nome || 'Sem plano' }}</span>
+              <span class="font-bold text-gray-900">{{ plano?.total_vendas || 0 }} vendas • R$ {{ Number(plano?.valor_total || 0).toLocaleString('pt-BR') }}</span>
+            </div>
+          </div>
+          <div v-else class="text-sm text-gray-400 text-center py-4">
+            Nenhum dado disponível
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Contatos por Tipo e por Canal - Filtros Combinados -->
@@ -285,7 +310,7 @@ import {
   ArcElement,
   Filler
 } from 'chart.js'
-import { Bar, Radar, Line, Pie } from 'vue-chartjs'
+import { Bar, Radar, Line, Pie, Doughnut } from 'vue-chartjs'
 
 ChartJS.register(
   Title, Tooltip, Legend, BarElement, CategoryScale, 
@@ -579,6 +604,30 @@ const pieChartOptions = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: { legend: { display: false } }
+}
+
+const doughnutChartData = computed(() => {
+  const vendas = dashboardData.value.vendas_por_plano || []
+  return {
+    labels: vendas.length > 0 
+      ? vendas.map(v => v?.nome || 'Sem plano')
+      : ['Sem dados'],
+    datasets: [{
+      data: vendas.length > 0 
+        ? vendas.map(v => Number(v?.valor_total) || 0)
+        : [0],
+      backgroundColor: ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316']
+    }]
+  }
+})
+
+const doughnutChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  cutout: '60%',
+  plugins: { 
+    legend: { display: false }
+  }
 }
 </script>
 
