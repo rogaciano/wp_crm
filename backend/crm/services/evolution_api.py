@@ -9,15 +9,91 @@ from django.db.models import Q
 logger = logging.getLogger(__name__)
 
 class EvolutionService:
-    def __init__(self):
+    def __init__(self, instance_id=None):
+        """
+        Inicializa o serviço Evolution API.
+        
+        Args:
+            instance_id: ID da instância. Se None, usa o padrão do settings.
+        """
         self.api_key = settings.EVOLUTION_API_KEY.strip()
         self.base_url = settings.EVOLUTION_API_URL.strip().rstrip('/')
-        self.instance = settings.EVOLUTION_INSTANCE_ID.strip()
+        self.instance = instance_id.strip() if instance_id else settings.EVOLUTION_INSTANCE_ID.strip()
         self.headers = {
             'apikey': self.api_key,
             'apiKey': self.api_key,  # Alguns usam Case Sensitive
             'Content-Type': 'application/json'
         }
+
+    def create_instance(self, instance_name, webhook_url=None):
+        """
+        Cria uma nova instância no Evolution API.
+        
+        Args:
+            instance_name: Nome único da instância (ex: 'canal_pernambuco')
+            webhook_url: URL do webhook para receber eventos (opcional)
+        
+        Returns:
+            dict com success, instance_id e dados da resposta
+        """
+        url = f"{self.base_url}/instance/create"
+        
+        payload = {
+            "instanceName": instance_name,
+            "qrcode": True,
+            "integration": "WHATSAPP-BAILEYS"
+        }
+        
+        # Adiciona webhook se fornecido
+        if webhook_url:
+            payload["webhook"] = {
+                "url": webhook_url,
+                "byEvents": True,
+                "base64": True,
+                "events": [
+                    "MESSAGES_UPSERT",
+                    "MESSAGES_UPDATE", 
+                    "CONNECTION_UPDATE",
+                    "QRCODE_UPDATED"
+                ]
+            }
+        
+        try:
+            logger.info(f"[Evolution] Criando instância: {instance_name}")
+            response = requests.post(url, json=payload, headers=self.headers, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            
+            logger.info(f"[Evolution] Instância criada com sucesso: {instance_name}")
+            return {
+                'success': True,
+                'instance_id': instance_name,
+                'data': data
+            }
+        except requests.exceptions.RequestException as e:
+            logger.error(f"[Evolution] Erro ao criar instância: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def delete_instance(self):
+        """Deleta a instância atual"""
+        url = f"{self.base_url}/instance/delete/{self.instance}"
+        
+        try:
+            response = requests.delete(url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            return {
+                'success': True,
+                'message': f'Instância {self.instance} deletada'
+            }
+        except requests.exceptions.RequestException as e:
+            logger.error(f"[Evolution] Erro ao deletar instância: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
 
     def _format_number(self, number):
         """Remove caracteres não numéricos e garante formato DDI(55) + DDD + Numero"""

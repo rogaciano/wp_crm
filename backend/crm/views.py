@@ -69,8 +69,142 @@ class CanalViewSet(viewsets.ModelViewSet):
     search_fields = ['nome']
     ordering_fields = ['nome', 'data_criacao']
 
+    # ==================== ENDPOINTS WHATSAPP ====================
+    
+    @action(detail=True, methods=['post'], url_path='whatsapp/criar-instancia')
+    def criar_instancia_whatsapp(self, request, pk=None):
+        """Cria uma nova instância WhatsApp Evolution para este canal"""
+        canal = self.get_object()
+        
+        # Verifica se já tem instância
+        if canal.whatsapp_instance_id:
+            return Response({
+                'success': False,
+                'error': 'Este canal já possui uma instância WhatsApp configurada'
+            }, status=400)
+        
+        # Gera nome da instância baseado no canal
+        import re
+        instance_name = f"canal_{re.sub(r'[^a-z0-9]', '_', canal.nome.lower())}"
+        
+        # Webhook URL (opcional - para receber eventos)
+        webhook_url = request.build_absolute_uri('/api/webhook/whatsapp/')
+        
+        evolution = EvolutionService()
+        result = evolution.create_instance(instance_name, webhook_url)
+        
+        if result['success']:
+            # Salva o instance_id no canal
+            canal.whatsapp_instance_id = instance_name
+            canal.save()
+            
+            return Response({
+                'success': True,
+                'instance_id': instance_name,
+                'message': 'Instância criada com sucesso. Escaneie o QR Code para conectar.'
+            })
+        else:
+            return Response({
+                'success': False,
+                'error': result.get('error', 'Erro ao criar instância')
+            }, status=500)
 
-    ordering_fields = ['nome', 'data_criacao']
+    @action(detail=True, methods=['get'], url_path='whatsapp/status')
+    def whatsapp_status(self, request, pk=None):
+        """Retorna o status da conexão WhatsApp do canal"""
+        canal = self.get_object()
+        
+        if not canal.whatsapp_instance_id:
+            return Response({
+                'connected': False,
+                'state': 'not_configured',
+                'message': 'Instância WhatsApp não configurada para este canal'
+            })
+        
+        evolution = EvolutionService(canal.whatsapp_instance_id)
+        status = evolution.get_connection_status()
+        
+        # Atualiza o status no banco
+        if status.get('connected') != canal.whatsapp_connected:
+            canal.whatsapp_connected = status.get('connected', False)
+            canal.save()
+        
+        return Response(status)
+
+    @action(detail=True, methods=['get'], url_path='whatsapp/qrcode')
+    def whatsapp_qrcode(self, request, pk=None):
+        """Retorna o QR Code para conectar o WhatsApp do canal"""
+        canal = self.get_object()
+        
+        if not canal.whatsapp_instance_id:
+            return Response({
+                'success': False,
+                'error': 'Instância WhatsApp não configurada para este canal'
+            }, status=400)
+        
+        evolution = EvolutionService(canal.whatsapp_instance_id)
+        result = evolution.get_qr_code()
+        
+        return Response(result)
+
+    @action(detail=True, methods=['post'], url_path='whatsapp/desconectar')
+    def whatsapp_desconectar(self, request, pk=None):
+        """Desconecta o WhatsApp do canal"""
+        canal = self.get_object()
+        
+        if not canal.whatsapp_instance_id:
+            return Response({
+                'success': False,
+                'error': 'Instância WhatsApp não configurada para este canal'
+            }, status=400)
+        
+        evolution = EvolutionService(canal.whatsapp_instance_id)
+        result = evolution.disconnect()
+        
+        if result['success']:
+            canal.whatsapp_connected = False
+            canal.whatsapp_number = None
+            canal.save()
+        
+        return Response(result)
+
+    @action(detail=True, methods=['post'], url_path='whatsapp/reiniciar')
+    def whatsapp_reiniciar(self, request, pk=None):
+        """Reinicia a instância WhatsApp do canal"""
+        canal = self.get_object()
+        
+        if not canal.whatsapp_instance_id:
+            return Response({
+                'success': False,
+                'error': 'Instância WhatsApp não configurada para este canal'
+            }, status=400)
+        
+        evolution = EvolutionService(canal.whatsapp_instance_id)
+        result = evolution.restart_instance()
+        
+        return Response(result)
+
+    @action(detail=True, methods=['delete'], url_path='whatsapp/deletar-instancia')
+    def whatsapp_deletar_instancia(self, request, pk=None):
+        """Deleta a instância WhatsApp do canal"""
+        canal = self.get_object()
+        
+        if not canal.whatsapp_instance_id:
+            return Response({
+                'success': False,
+                'error': 'Instância WhatsApp não configurada para este canal'
+            }, status=400)
+        
+        evolution = EvolutionService(canal.whatsapp_instance_id)
+        result = evolution.delete_instance()
+        
+        if result['success']:
+            canal.whatsapp_instance_id = None
+            canal.whatsapp_connected = False
+            canal.whatsapp_number = None
+            canal.save()
+        
+        return Response(result)
 
 
 class UserViewSet(viewsets.ModelViewSet):

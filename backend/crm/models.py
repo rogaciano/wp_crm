@@ -20,6 +20,24 @@ class Canal(models.Model):
     )
     data_criacao = models.DateTimeField(auto_now_add=True)
     data_atualizacao = models.DateTimeField(auto_now=True)
+    
+    # Campos para integração WhatsApp Evolution API
+    whatsapp_instance_id = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True,
+        help_text="ID da instância Evolution API para este canal"
+    )
+    whatsapp_connected = models.BooleanField(
+        default=False,
+        help_text="Status da conexão WhatsApp"
+    )
+    whatsapp_number = models.CharField(
+        max_length=20, 
+        blank=True, 
+        null=True,
+        help_text="Número conectado ao WhatsApp"
+    )
 
     class Meta:
         verbose_name = 'Canal'

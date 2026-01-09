@@ -140,8 +140,12 @@ class CanalSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Canal
-        fields = ['id', 'nome', 'responsavel', 'responsavel_nome', 'total_vendedores', 'data_criacao']
-        read_only_fields = ['data_criacao']
+        fields = [
+            'id', 'nome', 'responsavel', 'responsavel_nome', 'total_vendedores',
+            'whatsapp_instance_id', 'whatsapp_connected', 'whatsapp_number',
+            'data_criacao'
+        ]
+        read_only_fields = ['data_criacao', 'whatsapp_connected', 'whatsapp_number']
     
     def get_total_vendedores(self, obj):
         return obj.vendedores.count()
