@@ -80,8 +80,11 @@ class EvolutionService:
         
         try:
             logger.info(f"[Evolution] Criando instância: {instance_name}")
+            logger.info(f"[Evolution] URL: {url}")
+            logger.info(f"[Evolution] API Key (primeiros 8 chars): {self.global_api_key[:8]}...")
             # Usa Global API Key para criar
             response = requests.post(url, json=payload, headers=self._get_global_headers(), timeout=30)
+            logger.info(f"[Evolution] Response status: {response.status_code}")
             response.raise_for_status()
             data = response.json()
             
