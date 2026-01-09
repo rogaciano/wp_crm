@@ -44,7 +44,13 @@ class CanalViewSet(viewsets.ModelViewSet):
     serializer_class = CanalSerializer
     
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
+        # Ações de leitura e WhatsApp permitidas para usuários autenticados
+        # (get_queryset já filtra para mostrar apenas o canal do usuário)
+        whatsapp_actions = [
+            'conectar_whatsapp', 'whatsapp_status', 'whatsapp_qrcode',
+            'whatsapp_desconectar', 'whatsapp_reiniciar', 'whatsapp_deletar_instancia'
+        ]
+        if self.action in ['list', 'retrieve'] + whatsapp_actions:
             return [permissions.IsAuthenticated()]
         return [IsAdminUser()]
 

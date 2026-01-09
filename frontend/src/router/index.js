@@ -73,6 +73,12 @@ const router = createRouter({
           component: () => import('@/views/AtividadesView.vue')
         },
         {
+          path: '/meu-canal/whatsapp',
+          name: 'meu-canal-whatsapp',
+          component: () => import('@/views/MeuCanalWhatsappView.vue'),
+          meta: { requiresGestor: true }
+        },
+        {
           path: '/config/funis',
           name: 'admin-funis',
           component: () => import('@/views/admin/FunisView.vue'),
