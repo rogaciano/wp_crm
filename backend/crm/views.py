@@ -1290,6 +1290,44 @@ class WhatsappViewSet(viewsets.ModelViewSet):
     filterset_fields = ['lead', 'oportunidade', 'numero_remetente', 'numero_destinatario']
     ordering_fields = ['timestamp']
 
+    def _get_evolution_service_for_entity(self, lead_id=None, opp_id=None):
+        """
+        Retorna um EvolutionService configurado para o canal do Lead ou Oportunidade.
+        Se não encontrar canal configurado, usa a instância global.
+        
+        Returns:
+            tuple: (EvolutionService, Canal ou None, nome_instancia)
+        """
+        canal = None
+        
+        # Tenta obter o canal do Lead
+        if lead_id:
+            try:
+                lead = Lead.objects.select_related('canal').get(id=lead_id)
+                canal = lead.canal
+            except Lead.DoesNotExist:
+                pass
+        
+        # Tenta obter o canal da Oportunidade
+        if not canal and opp_id:
+            try:
+                opp = Oportunidade.objects.select_related('canal').get(id=opp_id)
+                canal = opp.canal
+            except Oportunidade.DoesNotExist:
+                pass
+        
+        # Se encontrou canal com Evolution configurado, usa ele
+        if canal and canal.evolution_instance_name:
+            service = EvolutionService(
+                instance_name=canal.evolution_instance_name,
+                instance_token=canal.evolution_token
+            )
+            return service, canal, canal.evolution_instance_name
+        
+        # Fallback: usa instância global
+        service = EvolutionService()
+        return service, None, settings.EVOLUTION_INSTANCE_ID
+
     def get_queryset(self):
         import sys
         from django.conf import settings
@@ -1431,9 +1469,12 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         if not number or not text:
             return Response({'error': 'Número e texto são obrigatórios'}, status=400)
 
-        service = EvolutionService()
+        # Obtém o serviço Evolution do canal correto
+        service, canal, instance_name = self._get_evolution_service_for_entity(lead_id, opp_id)
+        print(f"[SEND] Usando instância: {instance_name} (canal: {canal.nome if canal else 'global'})", file=sys.stderr)
+        
         try:
-            print(f"Tentando enviar para {number} via {service.base_url}", file=sys.stderr)
+            print(f"Tentando enviar para {number} via {service.base_url}/{instance_name}", file=sys.stderr)
             result = service.send_text(number, text)
             print(f"Sucesso na API: {result}", file=sys.stderr)
 
@@ -1466,12 +1507,12 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             # Formata o número para armazenamento consistente
             formatted_number = service._format_number(number)
             
-            # Salva localmente
+            # Salva localmente usando a instância correta
             msg = WhatsappMessage.objects.create(
                 id_mensagem=msg_id,
-                instancia=settings.EVOLUTION_INSTANCE_ID,
+                instancia=instance_name,
                 de_mim=True,
-                numero_remetente=settings.EVOLUTION_INSTANCE_ID,
+                numero_remetente=instance_name,
                 numero_destinatario=formatted_number,
                 texto=text,
                 timestamp=timezone.now(),
@@ -1502,7 +1543,9 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         if not number:
             return Response({'error': 'Número é obrigatório'}, status=400)
         
-        service = EvolutionService()
+        # Obtém o serviço Evolution do canal correto
+        service, canal, instance_name = self._get_evolution_service_for_entity(lead_id, opp_id)
+        print(f"[SYNC] Usando instância: {instance_name} (canal: {canal.nome if canal else 'global'})", file=sys.stderr)
         
         try:
             print(f"[SYNC] Buscando mensagens para {number}...", file=sys.stderr)
@@ -1561,20 +1604,20 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                 else:
                     dt = timezone.now()
                 
-                # Determina remetente/destinatário
+                # Determina remetente/destinatário usando a instância correta
                 remote_number = remote_jid.split('@')[0] if remote_jid else ''
                 
                 if from_me:
-                    numero_remetente = settings.EVOLUTION_INSTANCE_ID
+                    numero_remetente = instance_name
                     numero_destinatario = remote_number
                 else:
                     numero_remetente = remote_number
-                    numero_destinatario = settings.EVOLUTION_INSTANCE_ID
+                    numero_destinatario = instance_name
                 
                 # Cria a mensagem
                 msg_obj = WhatsappMessage.objects.create(
                     id_mensagem=id_msg,
-                    instancia=settings.EVOLUTION_INSTANCE_ID,
+                    instancia=instance_name,
                     de_mim=from_me,
                     numero_remetente=numero_remetente,
                     numero_destinatario=numero_destinatario,
@@ -1737,17 +1780,18 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             from .services.evolution_api import EvolutionService
             from .services.audio_transcription import transcribe_from_base64
             
-            evolution = EvolutionService()
-            
             for msg in pending_audio[:5]:  # Limita para não demorar muito
                 try:
+                    # Obtém a instância Evolution do canal da mensagem
+                    service, canal, instance_name = self._get_evolution_service_for_entity(msg.lead_id, msg.oportunidade_id)
+                    
                     key = {
                         'id': msg.id_mensagem,
                         'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
                         'fromMe': msg.de_mim
                     }
                     
-                    media_result = evolution.get_media_base64(key)
+                    media_result = service.get_media_base64(key)
                     
                     if media_result and media_result.get('base64'):
                         transcription = transcribe_from_base64(
@@ -1767,17 +1811,19 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         # Processa imagens
         if pending_images.exists():
             from .services.evolution_api import EvolutionService
-            evolution = EvolutionService()
             
             for msg in pending_images[:10]:  # Limita
                 try:
+                    # Obtém a instância Evolution do canal da mensagem
+                    service, canal, instance_name = self._get_evolution_service_for_entity(msg.lead_id, msg.oportunidade_id)
+                    
                     key = {
                         'id': msg.id_mensagem,
                         'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
                         'fromMe': msg.de_mim
                     }
                     
-                    media_result = evolution.get_media_base64(key)
+                    media_result = service.get_media_base64(key)
                     
                     if media_result and media_result.get('base64'):
                         mimetype = media_result.get('mimetype', 'image/jpeg')
@@ -1817,17 +1863,18 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         if msg.tipo_mensagem != 'audio':
             return Response({'error': 'message is not audio'}, status=400)
 
-        # Baixa o áudio da Evolution API
+        # Baixa o áudio da Evolution API usando a instância correta
         from .services.evolution_api import EvolutionService
 
-        evolution = EvolutionService()
+        # Obtém a instância Evolution do canal associado
+        service, canal, instance_name = self._get_evolution_service_for_entity(msg.lead_id, msg.oportunidade_id)
         key = {
             'id': msg.id_mensagem,
             'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
             'fromMe': msg.de_mim
         }
 
-        media_result = evolution.get_media_base64(key)
+        media_result = service.get_media_base64(key)
 
         if not media_result or not media_result.get('base64'):
             return Response({'error': 'could_not_download_audio'}, status=500)
@@ -1867,20 +1914,21 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         if msg.tipo_mensagem != 'audio':
             return Response({'error': 'message is not audio'}, status=400)
 
-        # Baixa o áudio da Evolution API
+        # Baixa o áudio da Evolution API usando a instância correta
         from .services.evolution_api import EvolutionService
         from .services.audio_transcription import transcribe_from_base64
 
         print(f"[TRANSCRIBE] Baixando áudio...", file=sys.stderr, flush=True)
 
-        evolution = EvolutionService()
+        # Obtém a instância Evolution do canal associado
+        service, canal, instance_name = self._get_evolution_service_for_entity(msg.lead_id, msg.oportunidade_id)
         key = {
             'id': msg.id_mensagem,
             'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
             'fromMe': msg.de_mim
         }
 
-        media_result = evolution.get_media_base64(key)
+        media_result = service.get_media_base64(key)
 
         if not media_result or not media_result.get('base64'):
             return Response({'error': 'could_not_download_audio'}, status=500)
