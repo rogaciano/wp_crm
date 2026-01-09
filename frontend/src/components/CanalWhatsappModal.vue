@@ -315,9 +315,20 @@ function stopPolling() {
 
 watch(() => props.show, (newVal) => {
   if (newVal && props.canal) {
-    // Preenche o form com dados existentes
-    configForm.value.instance_id = props.canal.whatsapp_instance_id || ''
-    configForm.value.api_key = '' // Não mostramos a API Key existente
+    // Preenche o form com dados existentes ou sugere o nome do canal
+    if (props.canal.whatsapp_instance_id) {
+      configForm.value.instance_id = props.canal.whatsapp_instance_id
+    } else {
+      // Sugere Instance ID baseado no nome do canal (sem espaços e caracteres especiais)
+      configForm.value.instance_id = props.canal.nome
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+        .replace(/[^a-z0-9]/g, '_') // Substitui caracteres especiais por _
+        .replace(/_+/g, '_') // Remove underscores duplicados
+        .replace(/^_|_$/g, '') // Remove underscores no início/fim
+    }
+    configForm.value.api_key = '' // API Key sempre em branco por segurança
     error.value = ''
     success.value = ''
     showQR.value = false
