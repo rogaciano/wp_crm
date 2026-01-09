@@ -22,23 +22,29 @@ class Canal(models.Model):
     data_atualizacao = models.DateTimeField(auto_now=True)
     
     # Campos para integração WhatsApp Evolution API
-    whatsapp_instance_id = models.CharField(
+    evolution_instance_name = models.CharField(
         max_length=100, 
         blank=True, 
         null=True,
-        help_text="ID da instância Evolution API para este canal"
+        help_text="Nome da instância na Evolution API (ex: canal_brasilia)"
     )
-    whatsapp_api_key = models.CharField(
+    evolution_token = models.CharField(
         max_length=255, 
         blank=True, 
         null=True,
-        help_text="API Key da instância Evolution para este canal"
+        help_text="Token/API Key da instância retornado pela Evolution"
     )
-    whatsapp_connected = models.BooleanField(
+    evolution_is_connected = models.BooleanField(
         default=False,
         help_text="Status da conexão WhatsApp"
     )
-    whatsapp_number = models.CharField(
+    evolution_last_status = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True,
+        help_text="Último status retornado (open, close, connecting, etc)"
+    )
+    evolution_phone_number = models.CharField(
         max_length=20, 
         blank=True, 
         null=True,

@@ -43,46 +43,8 @@
           </div>
         </div>
 
-        <!-- Formulário de Configuração (quando não tem instância ou quer editar) -->
-        <div v-if="showConfig" class="mb-6 space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Instance ID</label>
-            <input 
-              v-model="configForm.instance_id"
-              type="text"
-              placeholder="Nome da instância no Evolution"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            />
-            <p class="text-xs text-gray-500 mt-1">Ex: pernambuco, wp_vendas</p>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
-            <input 
-              v-model="configForm.api_key"
-              type="password"
-              placeholder="API Key da instância"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            />
-            <p class="text-xs text-gray-500 mt-1">Encontre no painel do Evolution</p>
-          </div>
-          <div class="flex gap-2">
-            <button 
-              @click="salvarConfiguracao"
-              :disabled="loading || !configForm.instance_id || !configForm.api_key"
-              class="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">
-              {{ loading ? 'Salvando...' : 'Salvar e Testar' }}
-            </button>
-            <button 
-              v-if="canal?.whatsapp_instance_id"
-              @click="showConfig = false"
-              class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-              Cancelar
-            </button>
-          </div>
-        </div>
-
         <!-- Instância não configurada -->
-        <div v-else-if="!canal?.whatsapp_instance_id" class="text-center py-6">
+        <div v-if="!status.has_instance" class="text-center py-6">
           <div class="mb-4">
             <svg class="w-16 h-16 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -90,14 +52,17 @@
           </div>
           <p class="text-gray-600 mb-4">Nenhuma instância WhatsApp configurada</p>
           <button 
-            @click="showConfig = true"
-            class="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
-            Configurar Instância
+            @click="conectarWhatsApp"
+            :disabled="loading"
+            class="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+            <span v-if="loading">Criando instância...</span>
+            <span v-else>Conectar WhatsApp</span>
           </button>
+          <p class="text-xs text-gray-400 mt-2">Será criada uma instância automática para este canal</p>
         </div>
 
         <!-- QR Code -->
-        <div v-else-if="!status.connected && showQR" class="text-center mb-6">
+        <div v-else-if="!status.connected" class="text-center mb-6">
           <p class="text-gray-600 mb-4">Escaneie o QR Code com seu WhatsApp</p>
           
           <div v-if="qrLoading" class="flex justify-center py-8">
@@ -108,29 +73,34 @@
             <img :src="qrBase64" alt="QR Code" class="w-48 h-48" />
           </div>
           
-          <div v-else class="py-8 text-gray-400">
-            <p>Clique em "Gerar QR Code" para conectar</p>
+          <div v-else class="py-4">
+            <button 
+              @click="gerarQRCode"
+              :disabled="qrLoading"
+              class="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+              Gerar QR Code
+            </button>
           </div>
           
-          <div class="mt-4 flex items-center justify-center gap-2 text-emerald-600">
+          <div v-if="qrBase64" class="mt-4 flex items-center justify-center gap-2 text-emerald-600">
             <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
             <span class="text-xs">Aguardando conexão...</span>
           </div>
         </div>
 
-        <!-- Ações -->
-        <div class="flex flex-wrap gap-3" v-if="canal?.whatsapp_instance_id && !showConfig">
-          <button 
-            v-if="!status.connected"
-            @click="gerarQRCode"
-            :disabled="qrLoading"
-            class="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+        <!-- Conectado -->
+        <div v-else class="text-center py-4">
+          <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 mb-4">
+            <svg class="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
             </svg>
-            <span>{{ qrLoading ? 'Gerando...' : 'Gerar QR Code' }}</span>
-          </button>
+          </div>
+          <h4 class="font-semibold text-gray-900">WhatsApp Conectado!</h4>
+          <p class="text-sm text-gray-500 mt-1">{{ status.instance_name }}</p>
+        </div>
 
+        <!-- Ações -->
+        <div class="flex flex-wrap gap-3" v-if="status.has_instance">
           <button 
             v-if="status.connected"
             @click="desconectar"
@@ -143,22 +113,22 @@
           </button>
 
           <button 
-            @click="showConfig = true"
-            class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-            title="Editar configuração">
+            @click="reiniciar"
+            :disabled="loading"
+            class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            title="Reiniciar instância">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
 
           <button 
-            @click="reiniciar"
+            @click="deletarInstancia"
             :disabled="loading"
-            class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-            title="Reiniciar instância">
+            class="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+            title="Deletar instância">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
         </div>
@@ -192,16 +162,12 @@ const loading = ref(false)
 const qrLoading = ref(false)
 const error = ref('')
 const success = ref('')
-const showQR = ref(false)
-const showConfig = ref(false)
 const qrBase64 = ref(null)
-const status = ref({ connected: false, state: 'unknown' })
-const configForm = ref({ instance_id: '', api_key: '' })
+const status = ref({ connected: false, state: 'unknown', has_instance: false })
 let pollingInterval = null
 
 function close() {
   stopPolling()
-  showConfig.value = false
   emit('close')
 }
 
@@ -213,7 +179,6 @@ async function checkStatus() {
     status.value = response.data
     
     if (response.data.connected) {
-      showQR.value = false
       qrBase64.value = null
       stopPolling()
       emit('updated')
@@ -223,27 +188,32 @@ async function checkStatus() {
   }
 }
 
-async function salvarConfiguracao() {
+async function conectarWhatsApp() {
   loading.value = true
   error.value = ''
   success.value = ''
   
   try {
-    const response = await api.post(`/canais/${props.canal.id}/whatsapp/configurar/`, {
-      instance_id: configForm.value.instance_id,
-      api_key: configForm.value.api_key
-    })
+    const response = await api.post(`/canais/${props.canal.id}/conectar-whatsapp/`)
     
     if (response.data.success) {
-      success.value = response.data.message || 'Configuração salva!'
-      showConfig.value = false
+      success.value = response.data.message || 'Instância criada!'
+      
+      // Se retornou QR Code, mostra
+      if (response.data.qr_base64) {
+        qrBase64.value = response.data.qr_base64.startsWith('data:') 
+          ? response.data.qr_base64 
+          : `data:image/png;base64,${response.data.qr_base64}`
+        startPolling()
+      }
+      
       emit('updated')
       await checkStatus()
     } else {
-      error.value = response.data.error || 'Erro ao salvar configuração'
+      error.value = response.data.error || 'Erro ao criar instância'
     }
   } catch (err) {
-    error.value = err.response?.data?.error || 'Erro ao salvar configuração'
+    error.value = err.response?.data?.error || 'Erro ao criar instância'
   } finally {
     loading.value = false
   }
@@ -252,7 +222,6 @@ async function salvarConfiguracao() {
 async function gerarQRCode() {
   qrLoading.value = true
   error.value = ''
-  showQR.value = true
   
   try {
     const response = await api.get(`/canais/${props.canal.id}/whatsapp/qrcode/`)
@@ -277,6 +246,7 @@ async function desconectar() {
   
   try {
     await api.post(`/canais/${props.canal.id}/whatsapp/desconectar/`)
+    success.value = 'Desconectado com sucesso!'
     await checkStatus()
     emit('updated')
   } catch (err) {
@@ -301,6 +271,26 @@ async function reiniciar() {
   }
 }
 
+async function deletarInstancia() {
+  if (!confirm('Tem certeza que deseja deletar esta instância? Esta ação não pode ser desfeita.')) {
+    return
+  }
+  
+  loading.value = true
+  error.value = ''
+  
+  try {
+    await api.delete(`/canais/${props.canal.id}/whatsapp/deletar-instancia/`)
+    success.value = 'Instância deletada!'
+    status.value = { connected: false, state: 'not_configured', has_instance: false }
+    emit('updated')
+  } catch (err) {
+    error.value = err.response?.data?.error || 'Erro ao deletar instância'
+  } finally {
+    loading.value = false
+  }
+}
+
 function startPolling() {
   if (pollingInterval) return
   pollingInterval = setInterval(checkStatus, 3000)
@@ -315,24 +305,9 @@ function stopPolling() {
 
 watch(() => props.show, (newVal) => {
   if (newVal && props.canal) {
-    // Preenche o form com dados existentes ou sugere o nome do canal
-    if (props.canal.whatsapp_instance_id) {
-      configForm.value.instance_id = props.canal.whatsapp_instance_id
-    } else {
-      // Sugere Instance ID baseado no nome do canal (sem espaços e caracteres especiais)
-      configForm.value.instance_id = props.canal.nome
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-        .replace(/[^a-z0-9]/g, '_') // Substitui caracteres especiais por _
-        .replace(/_+/g, '_') // Remove underscores duplicados
-        .replace(/^_|_$/g, '') // Remove underscores no início/fim
-    }
-    configForm.value.api_key = '' // API Key sempre em branco por segurança
     error.value = ''
     success.value = ''
-    showQR.value = false
-    showConfig.value = !props.canal.whatsapp_instance_id
+    qrBase64.value = null
     checkStatus()
   } else {
     stopPolling()

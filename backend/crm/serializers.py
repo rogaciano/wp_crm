@@ -142,13 +142,13 @@ class CanalSerializer(serializers.ModelSerializer):
         model = Canal
         fields = [
             'id', 'nome', 'responsavel', 'responsavel_nome', 'total_vendedores',
-            'whatsapp_instance_id', 'whatsapp_api_key', 'whatsapp_connected', 'whatsapp_number',
-            'data_criacao'
+            'evolution_instance_name', 'evolution_is_connected', 'evolution_last_status',
+            'evolution_phone_number', 'data_criacao'
         ]
-        read_only_fields = ['data_criacao', 'whatsapp_connected', 'whatsapp_number']
-        extra_kwargs = {
-            'whatsapp_api_key': {'write_only': True}  # Não expor API Key nas respostas
-        }
+        read_only_fields = [
+            'data_criacao', 'evolution_is_connected', 'evolution_last_status',
+            'evolution_phone_number'
+        ]
     
     def get_total_vendedores(self, obj):
         return obj.vendedores.count()

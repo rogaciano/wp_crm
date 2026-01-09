@@ -9,33 +9,52 @@ from django.db.models import Q
 logger = logging.getLogger(__name__)
 
 class EvolutionService:
-    def __init__(self, instance_id=None, api_key=None):
+    """
+    Serviço para interagir com a Evolution API.
+    
+    Existem dois modos de uso:
+    1. Global API Key (AUTHENTICATION_API_KEY): Para criar/deletar instâncias
+    2. Instance Token: Para operações em uma instância específica (status, qrcode, etc)
+    """
+    
+    def __init__(self, instance_name=None, instance_token=None):
         """
         Inicializa o serviço Evolution API.
         
         Args:
-            instance_id: ID da instância. Se None, usa o padrão do settings.
-            api_key: API Key da instância. Se None, usa o padrão do settings.
+            instance_name: Nome da instância para operações específicas
+            instance_token: Token da instância. Se None, usa a Global API Key
         """
-        self.api_key = api_key.strip() if api_key else settings.EVOLUTION_API_KEY.strip()
+        self.global_api_key = settings.EVOLUTION_API_KEY.strip()
         self.base_url = settings.EVOLUTION_API_URL.strip().rstrip('/')
-        self.instance = instance_id.strip() if instance_id else settings.EVOLUTION_INSTANCE_ID.strip()
+        self.instance = instance_name.strip() if instance_name else settings.EVOLUTION_INSTANCE_ID.strip()
+        
+        # Se tiver instance_token, usa ele; senão usa a global key
+        self.api_key = instance_token.strip() if instance_token else self.global_api_key
         self.headers = {
             'apikey': self.api_key,
-            'apiKey': self.api_key,  # Alguns usam Case Sensitive
+            'apiKey': self.api_key,
+            'Content-Type': 'application/json'
+        }
+    
+    def _get_global_headers(self):
+        """Retorna headers com a Global API Key (para criar/deletar instâncias)"""
+        return {
+            'apikey': self.global_api_key,
+            'apiKey': self.global_api_key,
             'Content-Type': 'application/json'
         }
 
     def create_instance(self, instance_name, webhook_url=None):
         """
-        Cria uma nova instância no Evolution API.
+        Cria uma nova instância no Evolution API usando a Global API Key.
         
         Args:
-            instance_name: Nome único da instância (ex: 'canal_pernambuco')
+            instance_name: Nome único da instância (ex: 'canal_brasilia')
             webhook_url: URL do webhook para receber eventos (opcional)
         
         Returns:
-            dict com success, instance_id e dados da resposta
+            dict com success, instance_name, token (apikey da instância), qrcode e dados
         """
         url = f"{self.base_url}/instance/create"
         
@@ -49,8 +68,8 @@ class EvolutionService:
         if webhook_url:
             payload["webhook"] = {
                 "url": webhook_url,
-                "byEvents": True,
-                "base64": True,
+                "webhookByEvents": True,
+                "webhookBase64": True,
                 "events": [
                     "MESSAGES_UPSERT",
                     "MESSAGES_UPDATE", 
@@ -61,29 +80,58 @@ class EvolutionService:
         
         try:
             logger.info(f"[Evolution] Criando instância: {instance_name}")
-            response = requests.post(url, json=payload, headers=self.headers, timeout=30)
+            # Usa Global API Key para criar
+            response = requests.post(url, json=payload, headers=self._get_global_headers(), timeout=30)
             response.raise_for_status()
             data = response.json()
             
-            logger.info(f"[Evolution] Instância criada com sucesso: {instance_name}")
+            # Extrai o token/apikey retornado (pode estar em diferentes lugares)
+            instance_token = None
+            qr_code = None
+            qr_base64 = None
+            
+            # A resposta pode variar, vamos tentar diferentes formatos
+            if isinstance(data, dict):
+                # Formato 1: {"instance": {...}, "hash": "...", "qrcode": {...}}
+                instance_data = data.get('instance', data)
+                instance_token = data.get('hash') or instance_data.get('token') or instance_data.get('apikey')
+                
+                qr_data = data.get('qrcode', {})
+                if isinstance(qr_data, dict):
+                    qr_code = qr_data.get('code')
+                    qr_base64 = qr_data.get('base64')
+                elif isinstance(qr_data, str):
+                    qr_base64 = qr_data
+            
+            logger.info(f"[Evolution] Instância criada: {instance_name}, token: {'sim' if instance_token else 'não'}")
+            
             return {
                 'success': True,
-                'instance_id': instance_name,
-                'data': data
+                'instance_name': instance_name,
+                'token': instance_token,
+                'qr_code': qr_code,
+                'qr_base64': qr_base64,
+                'raw_data': data
             }
         except requests.exceptions.RequestException as e:
-            logger.error(f"[Evolution] Erro ao criar instância: {str(e)}")
+            error_msg = str(e)
+            try:
+                error_data = e.response.json() if e.response else {}
+                error_msg = error_data.get('message', str(e))
+            except:
+                pass
+            logger.error(f"[Evolution] Erro ao criar instância: {error_msg}")
             return {
                 'success': False,
-                'error': str(e)
+                'error': error_msg
             }
 
     def delete_instance(self):
-        """Deleta a instância atual"""
+        """Deleta a instância atual usando Global API Key"""
         url = f"{self.base_url}/instance/delete/{self.instance}"
         
         try:
-            response = requests.delete(url, headers=self.headers, timeout=10)
+            response = requests.delete(url, headers=self._get_global_headers(), timeout=10)
             response.raise_for_status()
             return {
                 'success': True,
