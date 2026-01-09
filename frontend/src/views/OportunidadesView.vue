@@ -66,51 +66,51 @@
       <div v-else>
         <!-- Desktop Table -->
         <div class="hidden md:block overflow-x-auto">
-          <table class="table">
+          <table class="table min-w-full">
             <thead class="bg-gray-50">
               <tr>
                 <th class="table-header">Nome</th>
                 <th class="table-header">Conta</th>
-                <th class="table-header">Valor</th>
-                <th class="table-header">Estágio</th>
-                <th class="table-header">Indicador</th>
-                <th class="table-header">Previsão</th>
-                <th class="table-header">Probabilidade</th>
-                <th class="table-header text-right">Ações</th>
+                <th class="table-header text-right">Valor</th>
+                <th class="table-header text-center">Estágio</th>
+                <th class="table-header text-center">Previsão</th>
+                <th class="table-header text-center">Prob.</th>
+                <th class="table-header text-center sticky right-0 bg-gray-50">Ações</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="oportunidade in oportunidades" :key="oportunidade.id" class="hover:bg-gray-50">
-                <td class="table-cell font-medium text-gray-900">{{ oportunidade.nome }}</td>
-                <td class="table-cell text-gray-500">{{ oportunidade.conta_nome }}</td>
-                <td class="table-cell font-semibold text-green-600">
+                <td class="table-cell font-medium text-gray-900 max-w-[200px] truncate" :title="oportunidade.nome">
+                  {{ oportunidade.nome }}
+                </td>
+                <td class="table-cell text-gray-500 max-w-[180px] truncate" :title="oportunidade.conta_nome">
+                  {{ oportunidade.conta_nome }}
+                </td>
+                <td class="table-cell text-right font-semibold text-green-600 whitespace-nowrap">
                   R$ {{ Number(oportunidade.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
                 </td>
-                <td class="table-cell">
-                  <span class="px-2 py-1 text-xs rounded-full font-medium" :style="{ backgroundColor: oportunidade.estagio_cor + '20', color: oportunidade.estagio_cor }">
+                <td class="table-cell text-center">
+                  <span class="px-2 py-1 text-xs rounded-full font-medium whitespace-nowrap" :style="{ backgroundColor: oportunidade.estagio_cor + '20', color: oportunidade.estagio_cor }">
                     {{ oportunidade.estagio_nome }}
                   </span>
                 </td>
-                <td class="table-cell text-xs text-gray-500">
-                  {{ oportunidade.indicador_nome || 'Direto' }}
-                </td>
-                <td class="table-cell text-gray-500">{{ formatDate(oportunidade.data_fechamento_esperada) }}</td>
-                <td class="table-cell text-gray-500">{{ oportunidade.probabilidade }}%</td>
-                <td class="table-cell text-right">
-                  <div class="flex justify-end space-x-3">
-                    <button @click="openWhatsapp(oportunidade)" class="text-emerald-500 hover:text-emerald-600 font-medium" title="WhatsApp">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
+                <td class="table-cell text-center text-gray-500 whitespace-nowrap">{{ formatDate(oportunidade.data_fechamento_esperada) }}</td>
+                <td class="table-cell text-center text-gray-500">{{ oportunidade.probabilidade }}%</td>
+                <td class="table-cell sticky right-0 bg-white">
+                  <div class="flex justify-center items-center gap-1">
+                    <button @click="openWhatsapp(oportunidade)" class="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg" title="WhatsApp">
+                       <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
                     </button>
-                    <button @click="openFaturamentoModal(oportunidade)" class="text-emerald-600 hover:text-emerald-700 font-medium" title="Configurar Faturamento">
+                    <button @click="openFaturamentoModal(oportunidade)" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Faturamento">
                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </button>
-                    <button @click="copyBillingInfo(oportunidade.id)" class="text-indigo-600 hover:text-indigo-700 font-medium" title="Copiar Texto de Faturamento">
+                    <button @click="copyBillingInfo(oportunidade.id)" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Copiar">
                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
                     </button>
-                    <button @click="openEditModal(oportunidade)" class="text-primary-600 hover:text-primary-700 font-medium" title="Editar">
+                    <button @click="openEditModal(oportunidade)" class="p-1.5 text-primary-600 hover:bg-primary-50 rounded-lg" title="Editar">
                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </button>
-                    <button @click="deleteOportunidade(oportunidade.id)" class="text-red-600 hover:text-red-700 font-medium" title="Excluir">
+                    <button @click="deleteOportunidade(oportunidade.id)" class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg" title="Excluir">
                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>
