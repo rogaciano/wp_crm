@@ -43,8 +43,46 @@
           </div>
         </div>
 
+        <!-- Formulário de Configuração (quando não tem instância ou quer editar) -->
+        <div v-if="showConfig" class="mb-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Instance ID</label>
+            <input 
+              v-model="configForm.instance_id"
+              type="text"
+              placeholder="Nome da instância no Evolution"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+            <p class="text-xs text-gray-500 mt-1">Ex: pernambuco, wp_vendas</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+            <input 
+              v-model="configForm.api_key"
+              type="password"
+              placeholder="API Key da instância"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+            <p class="text-xs text-gray-500 mt-1">Encontre no painel do Evolution</p>
+          </div>
+          <div class="flex gap-2">
+            <button 
+              @click="salvarConfiguracao"
+              :disabled="loading || !configForm.instance_id || !configForm.api_key"
+              class="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+              {{ loading ? 'Salvando...' : 'Salvar e Testar' }}
+            </button>
+            <button 
+              v-if="canal?.whatsapp_instance_id"
+              @click="showConfig = false"
+              class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+              Cancelar
+            </button>
+          </div>
+        </div>
+
         <!-- Instância não configurada -->
-        <div v-if="!canal?.whatsapp_instance_id" class="text-center py-6">
+        <div v-else-if="!canal?.whatsapp_instance_id" class="text-center py-6">
           <div class="mb-4">
             <svg class="w-16 h-16 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -52,11 +90,9 @@
           </div>
           <p class="text-gray-600 mb-4">Nenhuma instância WhatsApp configurada</p>
           <button 
-            @click="criarInstancia"
-            :disabled="loading"
-            class="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">
-            <span v-if="loading">Criando...</span>
-            <span v-else>Criar Instância WhatsApp</span>
+            @click="showConfig = true"
+            class="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
+            Configurar Instância
           </button>
         </div>
 
@@ -83,7 +119,7 @@
         </div>
 
         <!-- Ações -->
-        <div class="flex flex-wrap gap-3" v-if="canal?.whatsapp_instance_id">
+        <div class="flex flex-wrap gap-3" v-if="canal?.whatsapp_instance_id && !showConfig">
           <button 
             v-if="!status.connected"
             @click="gerarQRCode"
@@ -107,9 +143,20 @@
           </button>
 
           <button 
+            @click="showConfig = true"
+            class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            title="Editar configuração">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+
+          <button 
             @click="reiniciar"
             :disabled="loading"
-            class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+            class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            title="Reiniciar instância">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
@@ -119,6 +166,11 @@
         <!-- Erro -->
         <div v-if="error" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {{ error }}
+        </div>
+
+        <!-- Sucesso -->
+        <div v-if="success" class="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 text-sm">
+          {{ success }}
         </div>
       </div>
     </div>
@@ -139,13 +191,17 @@ const emit = defineEmits(['close', 'updated'])
 const loading = ref(false)
 const qrLoading = ref(false)
 const error = ref('')
+const success = ref('')
 const showQR = ref(false)
+const showConfig = ref(false)
 const qrBase64 = ref(null)
 const status = ref({ connected: false, state: 'unknown' })
+const configForm = ref({ instance_id: '', api_key: '' })
 let pollingInterval = null
 
 function close() {
   stopPolling()
+  showConfig.value = false
   emit('close')
 }
 
@@ -167,20 +223,27 @@ async function checkStatus() {
   }
 }
 
-async function criarInstancia() {
+async function salvarConfiguracao() {
   loading.value = true
   error.value = ''
+  success.value = ''
   
   try {
-    const response = await api.post(`/canais/${props.canal.id}/whatsapp/criar-instancia/`)
+    const response = await api.post(`/canais/${props.canal.id}/whatsapp/configurar/`, {
+      instance_id: configForm.value.instance_id,
+      api_key: configForm.value.api_key
+    })
+    
     if (response.data.success) {
+      success.value = response.data.message || 'Configuração salva!'
+      showConfig.value = false
       emit('updated')
       await checkStatus()
     } else {
-      error.value = response.data.error || 'Erro ao criar instância'
+      error.value = response.data.error || 'Erro ao salvar configuração'
     }
   } catch (err) {
-    error.value = err.response?.data?.error || 'Erro ao criar instância'
+    error.value = err.response?.data?.error || 'Erro ao salvar configuração'
   } finally {
     loading.value = false
   }
@@ -229,6 +292,7 @@ async function reiniciar() {
   
   try {
     await api.post(`/canais/${props.canal.id}/whatsapp/reiniciar/`)
+    success.value = 'Instância reiniciada!'
     await checkStatus()
   } catch (err) {
     error.value = err.response?.data?.error || 'Erro ao reiniciar'
@@ -251,6 +315,13 @@ function stopPolling() {
 
 watch(() => props.show, (newVal) => {
   if (newVal && props.canal) {
+    // Preenche o form com dados existentes
+    configForm.value.instance_id = props.canal.whatsapp_instance_id || ''
+    configForm.value.api_key = '' // Não mostramos a API Key existente
+    error.value = ''
+    success.value = ''
+    showQR.value = false
+    showConfig.value = !props.canal.whatsapp_instance_id
     checkStatus()
   } else {
     stopPolling()

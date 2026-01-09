@@ -9,14 +9,15 @@ from django.db.models import Q
 logger = logging.getLogger(__name__)
 
 class EvolutionService:
-    def __init__(self, instance_id=None):
+    def __init__(self, instance_id=None, api_key=None):
         """
         Inicializa o serviço Evolution API.
         
         Args:
             instance_id: ID da instância. Se None, usa o padrão do settings.
+            api_key: API Key da instância. Se None, usa o padrão do settings.
         """
-        self.api_key = settings.EVOLUTION_API_KEY.strip()
+        self.api_key = api_key.strip() if api_key else settings.EVOLUTION_API_KEY.strip()
         self.base_url = settings.EVOLUTION_API_URL.strip().rstrip('/')
         self.instance = instance_id.strip() if instance_id else settings.EVOLUTION_INSTANCE_ID.strip()
         self.headers = {

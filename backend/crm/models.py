@@ -28,6 +28,12 @@ class Canal(models.Model):
         null=True,
         help_text="ID da instância Evolution API para este canal"
     )
+    whatsapp_api_key = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True,
+        help_text="API Key da instância Evolution para este canal"
+    )
     whatsapp_connected = models.BooleanField(
         default=False,
         help_text="Status da conexão WhatsApp"

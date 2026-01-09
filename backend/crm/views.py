@@ -71,57 +71,63 @@ class CanalViewSet(viewsets.ModelViewSet):
 
     # ==================== ENDPOINTS WHATSAPP ====================
     
-    @action(detail=True, methods=['post'], url_path='whatsapp/criar-instancia')
-    def criar_instancia_whatsapp(self, request, pk=None):
-        """Cria uma nova instância WhatsApp Evolution para este canal"""
+    @action(detail=True, methods=['post'], url_path='whatsapp/configurar')
+    def configurar_whatsapp(self, request, pk=None):
+        """Configura a instância WhatsApp Evolution para este canal"""
         canal = self.get_object()
         
-        # Verifica se já tem instância
-        if canal.whatsapp_instance_id:
+        instance_id = request.data.get('instance_id', '').strip()
+        api_key = request.data.get('api_key', '').strip()
+        
+        if not instance_id:
             return Response({
                 'success': False,
-                'error': 'Este canal já possui uma instância WhatsApp configurada'
+                'error': 'Instance ID é obrigatório'
             }, status=400)
         
-        # Gera nome da instância baseado no canal
-        import re
-        instance_name = f"canal_{re.sub(r'[^a-z0-9]', '_', canal.nome.lower())}"
-        
-        # Webhook URL (opcional - para receber eventos)
-        webhook_url = request.build_absolute_uri('/api/webhook/whatsapp/')
-        
-        evolution = EvolutionService()
-        result = evolution.create_instance(instance_name, webhook_url)
-        
-        if result['success']:
-            # Salva o instance_id no canal
-            canal.whatsapp_instance_id = instance_name
-            canal.save()
-            
-            return Response({
-                'success': True,
-                'instance_id': instance_name,
-                'message': 'Instância criada com sucesso. Escaneie o QR Code para conectar.'
-            })
-        else:
+        if not api_key:
             return Response({
                 'success': False,
-                'error': result.get('error', 'Erro ao criar instância')
-            }, status=500)
+                'error': 'API Key é obrigatória'
+            }, status=400)
+        
+        # Testa a conexão antes de salvar
+        evolution = EvolutionService(instance_id, api_key)
+        status = evolution.get_connection_status()
+        
+        if status.get('state') == 'error':
+            return Response({
+                'success': False,
+                'error': f"Erro ao conectar: {status.get('error', 'Verifique Instance ID e API Key')}"
+            }, status=400)
+        
+        # Salva as configurações
+        canal.whatsapp_instance_id = instance_id
+        canal.whatsapp_api_key = api_key
+        canal.whatsapp_connected = status.get('connected', False)
+        canal.save()
+        
+        return Response({
+            'success': True,
+            'connected': status.get('connected', False),
+            'state': status.get('state'),
+            'message': 'Configuração salva com sucesso!'
+        })
 
     @action(detail=True, methods=['get'], url_path='whatsapp/status')
     def whatsapp_status(self, request, pk=None):
         """Retorna o status da conexão WhatsApp do canal"""
         canal = self.get_object()
         
-        if not canal.whatsapp_instance_id:
+        if not canal.whatsapp_instance_id or not canal.whatsapp_api_key:
             return Response({
                 'connected': False,
                 'state': 'not_configured',
+                'has_config': bool(canal.whatsapp_instance_id),
                 'message': 'Instância WhatsApp não configurada para este canal'
             })
         
-        evolution = EvolutionService(canal.whatsapp_instance_id)
+        evolution = EvolutionService(canal.whatsapp_instance_id, canal.whatsapp_api_key)
         status = evolution.get_connection_status()
         
         # Atualiza o status no banco
@@ -136,13 +142,13 @@ class CanalViewSet(viewsets.ModelViewSet):
         """Retorna o QR Code para conectar o WhatsApp do canal"""
         canal = self.get_object()
         
-        if not canal.whatsapp_instance_id:
+        if not canal.whatsapp_instance_id or not canal.whatsapp_api_key:
             return Response({
                 'success': False,
                 'error': 'Instância WhatsApp não configurada para este canal'
             }, status=400)
         
-        evolution = EvolutionService(canal.whatsapp_instance_id)
+        evolution = EvolutionService(canal.whatsapp_instance_id, canal.whatsapp_api_key)
         result = evolution.get_qr_code()
         
         return Response(result)
@@ -152,13 +158,13 @@ class CanalViewSet(viewsets.ModelViewSet):
         """Desconecta o WhatsApp do canal"""
         canal = self.get_object()
         
-        if not canal.whatsapp_instance_id:
+        if not canal.whatsapp_instance_id or not canal.whatsapp_api_key:
             return Response({
                 'success': False,
                 'error': 'Instância WhatsApp não configurada para este canal'
             }, status=400)
         
-        evolution = EvolutionService(canal.whatsapp_instance_id)
+        evolution = EvolutionService(canal.whatsapp_instance_id, canal.whatsapp_api_key)
         result = evolution.disconnect()
         
         if result['success']:
@@ -173,13 +179,13 @@ class CanalViewSet(viewsets.ModelViewSet):
         """Reinicia a instância WhatsApp do canal"""
         canal = self.get_object()
         
-        if not canal.whatsapp_instance_id:
+        if not canal.whatsapp_instance_id or not canal.whatsapp_api_key:
             return Response({
                 'success': False,
                 'error': 'Instância WhatsApp não configurada para este canal'
             }, status=400)
         
-        evolution = EvolutionService(canal.whatsapp_instance_id)
+        evolution = EvolutionService(canal.whatsapp_instance_id, canal.whatsapp_api_key)
         result = evolution.restart_instance()
         
         return Response(result)
