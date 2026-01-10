@@ -363,30 +363,40 @@ class LeadViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Aplica filtros de hierarquia e funis de acesso"""
+        import sys
         user = self.request.user
+        
+        print(f"[LeadViewSet] Usuario: {user.username}, Perfil: {user.perfil}, Canal: {user.canal}", file=sys.stderr)
 
         if user.perfil == 'ADMIN':
             queryset = Lead.objects.all()
+            print(f"[LeadViewSet] Admin - retornando todos os leads", file=sys.stderr)
         elif user.perfil == 'RESPONSAVEL':
             # Vê leads do seu canal
             queryset = Lead.objects.filter(
                 Q(canal=user.canal) | Q(proprietario__canal=user.canal)
             ).distinct()
+            
+            print(f"[LeadViewSet] RESPONSAVEL - leads do canal: {queryset.count()}", file=sys.stderr)
 
-            # Se tem funis específicos configurados, filtra por eles
-            # Se não tem, vê todos os leads do canal
-            funis_permitidos = user.funis_acesso.all()
-            if funis_permitidos.exists():
-                queryset = queryset.filter(funil__in=funis_permitidos)
+            # Apenas filtra por funis se o usuário tiver funis de LEAD configurados
+            funis_lead_permitidos = user.funis_acesso.filter(tipo='LEAD')
+            if funis_lead_permitidos.exists():
+                queryset = queryset.filter(funil__in=funis_lead_permitidos)
+                print(f"[LeadViewSet] Filtrado por funis LEAD: {list(funis_lead_permitidos.values_list('id', flat=True))}", file=sys.stderr)
+            else:
+                print(f"[LeadViewSet] Sem filtro de funis (usuário não tem funis LEAD específicos)", file=sys.stderr)
+                
         else:  # VENDEDOR
             # Vê seus leads
             queryset = Lead.objects.filter(proprietario=user)
 
-            # Se tem funis específicos configurados, filtra por eles
-            funis_permitidos = user.funis_acesso.all()
-            if funis_permitidos.exists():
-                queryset = queryset.filter(funil__in=funis_permitidos)
-
+            # Apenas filtra por funis se o usuário tiver funis de LEAD configurados
+            funis_lead_permitidos = user.funis_acesso.filter(tipo='LEAD')
+            if funis_lead_permitidos.exists():
+                queryset = queryset.filter(funil__in=funis_lead_permitidos)
+        
+        print(f"[LeadViewSet] Total de leads retornados: {queryset.count()}", file=sys.stderr)
         return queryset.select_related('funil', 'estagio', 'proprietario', 'canal')
 
     def perform_create(self, serializer):
