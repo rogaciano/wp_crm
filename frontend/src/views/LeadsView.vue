@@ -92,6 +92,7 @@
                 <th class="table-header">Empresa</th>
                 <th class="table-header">Status</th>
                 <th class="table-header">Fonte</th>
+                <th class="table-header">Convertido Para</th>
                 <th class="table-header text-center sticky right-0 bg-gray-50">Ações</th>
               </tr>
             </thead>
@@ -110,6 +111,12 @@
                   </span>
                 </td>
                 <td class="table-cell text-gray-500 italic">{{ lead.fonte }}</td>
+                <td class="table-cell">
+                  <span v-if="lead.oportunidade_convertida" class="text-xs text-green-600 font-medium" :title="lead.oportunidade_convertida_nome">
+                    {{ lead.oportunidade_convertida_canal || 'Sem Canal' }}
+                  </span>
+                  <span v-else class="text-gray-400 text-xs">-</span>
+                </td>
                 <td class="table-cell sticky right-0 bg-white">
                   <div class="flex justify-center items-center gap-1">
                     <button

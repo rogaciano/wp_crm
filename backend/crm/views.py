@@ -569,13 +569,17 @@ class LeadViewSet(viewsets.ModelViewSet):
                         valor_estimado=serializer.validated_data.get('valor_estimado'),
                         conta=conta,
                         contato_principal=contato,
+                        funil=funil_venda,
                         estagio=primeiro_estagio,
                         proprietario=lead.proprietario,
-                        canal=canal_obj
+                        canal=canal_obj,
+                        fonte=lead.fonte  # Copia a fonte do lead
                     )
                 
-                # Marca o lead como convertido
+                # Marca o lead como convertido e salva referência da oportunidade
                 lead.status = Lead.STATUS_CONVERTIDO
+                if oportunidade:
+                    lead.oportunidade_convertida = oportunidade
                 lead.save()
                 
                 # Vincula histórico de diagnósticos à nova Conta

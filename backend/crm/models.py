@@ -165,6 +165,16 @@ class Lead(models.Model):
     
     # Relação polimórfica com Atividades
     atividades = GenericRelation('Atividade')
+    
+    # Rastreabilidade de conversão
+    oportunidade_convertida = models.ForeignKey(
+        'Oportunidade',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lead_origem',
+        help_text='Oportunidade gerada a partir deste lead'
+    )
 
     class Meta:
         verbose_name = 'Lead'

@@ -265,6 +265,10 @@ class LeadSerializer(serializers.ModelSerializer):
     estagio_cor = serializers.CharField(source='estagio.cor', read_only=True)
     canal_nome = serializers.CharField(source='canal.nome', read_only=True)
     
+    # Rastreabilidade de conversão
+    oportunidade_convertida_nome = serializers.CharField(source='oportunidade_convertida.nome', read_only=True)
+    oportunidade_convertida_canal = serializers.CharField(source='oportunidade_convertida.canal.nome', read_only=True)
+    
     whatsapp_nao_lidas = serializers.SerializerMethodField()
     telefone_formatado = serializers.SerializerMethodField()
 
@@ -275,9 +279,11 @@ class LeadSerializer(serializers.ModelSerializer):
             'fonte', 'status', 'funil', 'funil_nome', 'estagio', 'estagio_nome', 'estagio_cor',
             'canal', 'canal_nome',
             'notas', 'proprietario', 'proprietario_nome', 'proprietario_canal',
-            'diagnosticos', 'whatsapp_nao_lidas', 'data_criacao', 'data_atualizacao'
+            'diagnosticos', 'whatsapp_nao_lidas', 
+            'oportunidade_convertida', 'oportunidade_convertida_nome', 'oportunidade_convertida_canal',
+            'data_criacao', 'data_atualizacao'
         ]
-        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos', 'whatsapp_nao_lidas', 'telefone_formatado']
+        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos', 'whatsapp_nao_lidas', 'telefone_formatado', 'oportunidade_convertida', 'oportunidade_convertida_nome', 'oportunidade_convertida_canal']
 
     def get_whatsapp_nao_lidas(self, obj):
         """
