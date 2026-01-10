@@ -92,15 +92,15 @@
                 <th class="table-header">Empresa</th>
                 <th class="table-header">Status</th>
                 <th class="table-header">Fonte</th>
-                <th class="table-header text-right">Ações</th>
+                <th class="table-header text-center sticky right-0 bg-gray-50">Ações</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="lead in leads" :key="lead.id" class="hover:bg-gray-50">
-                <td class="table-cell font-medium text-gray-900">{{ lead.nome }}</td>
-                <td class="table-cell text-gray-500">{{ lead.email }}</td>
+                <td class="table-cell font-medium text-gray-900 max-w-[180px] truncate" :title="lead.nome">{{ lead.nome }}</td>
+                <td class="table-cell text-gray-500 max-w-[180px] truncate" :title="lead.email">{{ lead.email }}</td>
                 <td class="table-cell text-gray-500">{{ lead.telefone }}</td>
-                <td class="table-cell text-gray-500">{{ lead.empresa }}</td>
+                <td class="table-cell text-gray-500 max-w-[150px] truncate" :title="lead.empresa">{{ lead.empresa }}</td>
                 <td class="table-cell">
                   <span 
                     class="px-2 py-1 text-[10px] font-black rounded-full uppercase tracking-wider"
@@ -110,23 +110,22 @@
                   </span>
                 </td>
                 <td class="table-cell text-gray-500 italic">{{ lead.fonte }}</td>
-                <td class="table-cell text-right">
-                  <div class="flex justify-end space-x-3">
+                <td class="table-cell sticky right-0 bg-white">
+                  <div class="flex justify-center items-center gap-1">
                     <button
                       @click="openWhatsapp(lead)"
-                      class="text-emerald-600 hover:text-emerald-700 transition-colors relative"
+                      class="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg relative"
                       title="WhatsApp"
                     >
-                      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
-                      <!-- Badge Notificação -->
-                      <span v-if="lead.whatsapp_nao_lidas > 0" class="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white ring-2 ring-white">
+                      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                      <span v-if="lead.whatsapp_nao_lidas > 0" class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white ring-2 ring-white">
                         {{ lead.whatsapp_nao_lidas }}
                       </span>
                     </button>
                     <button
                       v-if="lead.status !== 'Convertido'"
                       @click="converterLead(lead)"
-                      class="text-green-600 hover:text-green-700 transition-colors"
+                      class="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
                       title="Converter Lead"
                     >
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +134,7 @@
                     </button>
                     <button
                       @click="openEditModal(lead)"
-                      class="text-primary-600 hover:text-primary-700 transition-colors"
+                      class="p-1.5 text-primary-600 hover:bg-primary-50 rounded-lg"
                       title="Editar"
                     >
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -144,7 +143,7 @@
                     </button>
                     <button
                       @click="deleteLead(lead)"
-                      class="text-red-600 hover:text-red-700 transition-colors"
+                      class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
                       title="Excluir"
                     >
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
