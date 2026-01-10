@@ -7,20 +7,6 @@
     @confirm="handleSubmit"
     :loading="loading"
   >
-    <div v-if="isEdit" class="mb-6 p-4 bg-primary-50 rounded-xl border border-primary-100 flex items-center justify-between">
-      <div class="flex items-center text-primary-700 font-bold text-sm">
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        <span>Ações Rápidas</span>
-      </div>
-      <button 
-        type="button"
-        @click="copyBillingText"
-        class="px-4 py-2 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-all shadow-sm flex items-center"
-      >
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
-        Copiar Faturamento
-      </button>
-    </div>
 
     <form @submit.prevent="handleSubmit" class="space-y-6">
       <!-- Informações Básicas -->
