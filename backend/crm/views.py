@@ -273,19 +273,33 @@ class FunilViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
+        tipo = self.request.query_params.get('tipo')
+        
         # Admin vê todos para gestão
         if user.perfil == 'ADMIN':
-            return Funil.objects.all()
-        
-        # Para outros perfis, vê funis que tem acesso explícito
-        # Mas para garantir que Responsável e Vendedor vejam os funis básicos:
-        funis_acesso = user.funis_acesso.filter(is_active=True)
-        if not funis_acesso.exists() and user.perfil in ['RESPONSAVEL', 'VENDEDOR']:
-            # Fallback para responsáveis e vendedores se não houver acesso explícito: 
-            # vê funis ativos do sistema
-            return Funil.objects.filter(is_active=True)
+            qs = Funil.objects.all()
+        else:
+            # Para outros perfis, primeiro tenta funis com acesso explícito
+            funis_acesso = user.funis_acesso.filter(is_active=True)
             
-        return funis_acesso
+            if funis_acesso.exists():
+                qs = funis_acesso
+            elif user.canal:
+                # Se não tem acesso explícito, busca funis que pertencem a usuários do mesmo canal
+                from django.db.models import Q
+                qs = Funil.objects.filter(
+                    Q(usuarios__canal=user.canal) | Q(usuarios__isnull=True),
+                    is_active=True
+                ).distinct()
+            else:
+                # Fallback: funis sem restrição de usuário
+                qs = Funil.objects.filter(usuarios__isnull=True, is_active=True)
+        
+        # Filtra por tipo se especificado
+        if tipo:
+            qs = qs.filter(tipo=tipo)
+            
+        return qs
 
     @action(detail=True, methods=['get'])
     def estagios(self, request, pk=None):
