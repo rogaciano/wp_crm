@@ -272,33 +272,50 @@ class FunilViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
     
     def get_queryset(self):
+        import sys
         user = self.request.user
         tipo = self.request.query_params.get('tipo')
+        
+        print(f"[FunilViewSet] Usuario: {user.username}, Perfil: {user.perfil}, Canal: {user.canal}", file=sys.stderr)
         
         # Admin vê todos para gestão
         if user.perfil == 'ADMIN':
             qs = Funil.objects.all()
+            print(f"[FunilViewSet] Admin - retornando todos os funis", file=sys.stderr)
         else:
-            # Para outros perfis, primeiro tenta funis com acesso explícito
-            funis_acesso = user.funis_acesso.filter(is_active=True)
+            # Para outros perfis, busca funis vinculados ao usuário OU ao canal do usuário
+            from django.db.models import Q
             
-            if funis_acesso.exists():
-                qs = funis_acesso
-            elif user.canal:
-                # Se não tem acesso explícito, busca funis que pertencem a usuários do mesmo canal
-                from django.db.models import Q
-                qs = Funil.objects.filter(
-                    Q(usuarios__canal=user.canal) | Q(usuarios__isnull=True),
+            # Funis que o usuário tem acesso direto
+            funis_acesso_ids = list(user.funis_acesso.filter(is_active=True).values_list('id', flat=True))
+            print(f"[FunilViewSet] Funis acesso direto: {funis_acesso_ids}", file=sys.stderr)
+            
+            # Funis vinculados a usuários do mesmo canal
+            if user.canal:
+                funis_canal_ids = list(Funil.objects.filter(
+                    usuarios__canal=user.canal,
                     is_active=True
-                ).distinct()
+                ).values_list('id', flat=True))
+                print(f"[FunilViewSet] Funis do canal {user.canal}: {funis_canal_ids}", file=sys.stderr)
             else:
-                # Fallback: funis sem restrição de usuário
-                qs = Funil.objects.filter(usuarios__isnull=True, is_active=True)
+                funis_canal_ids = []
+            
+            # Combina os dois conjuntos
+            all_funil_ids = list(set(funis_acesso_ids + funis_canal_ids))
+            print(f"[FunilViewSet] Total IDs combinados: {all_funil_ids}", file=sys.stderr)
+            
+            if all_funil_ids:
+                qs = Funil.objects.filter(id__in=all_funil_ids, is_active=True)
+            else:
+                # Fallback: funis sem restrição de usuário (globais)
+                qs = Funil.objects.filter(is_active=True)
+                print(f"[FunilViewSet] Fallback - todos os funis ativos", file=sys.stderr)
         
         # Filtra por tipo se especificado
         if tipo:
             qs = qs.filter(tipo=tipo)
             
+        print(f"[FunilViewSet] Retornando {qs.count()} funis (tipo={tipo})", file=sys.stderr)
         return qs
 
     @action(detail=True, methods=['get'])

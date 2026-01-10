@@ -251,8 +251,10 @@ onMounted(async () => {
 
 async function loadFunis() {
   try {
-    const response = await api.get('/funis/')
-    funis.value = (response.data.results || response.data).filter(f => f.tipo === 'LEAD')
+    // Passa tipo=LEAD como parâmetro para o backend filtrar corretamente
+    const response = await api.get('/funis/', { params: { tipo: 'LEAD' } })
+    funis.value = response.data.results || response.data
+    console.log('[LeadModal] Funis carregados:', funis.value)
   } catch (error) {
     console.error('Erro ao carregar funis:', error)
   }
