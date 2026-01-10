@@ -545,8 +545,10 @@ class Oportunidade(models.Model):
         blank=True
     )
     
+    
     cortesia = models.TextField(null=True, blank=True)
     cupom_desconto = models.CharField(max_length=100, null=True, blank=True)
+    fonte = models.CharField(max_length=100, null=True, blank=True, help_text='Origem da oportunidade (Site, Evento, Indicação, etc)')
     
     FORMA_PAGAMENTO_CHOICES = [
         ('CARTAO_RECORRENTE', 'Cartão de crédito recorrente'),

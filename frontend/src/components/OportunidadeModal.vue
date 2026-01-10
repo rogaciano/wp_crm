@@ -128,6 +128,19 @@
               </option>
             </select>
           </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Fonte</label>
+            <select v-model="form.fonte" class="input">
+              <option value="">Selecione...</option>
+              <option value="Site">Site</option>
+              <option value="Evento">Evento</option>
+              <option value="Indicação">Indicação</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="Cold Call">Cold Call</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
         </div>
       </section>
 
@@ -175,7 +188,8 @@ const form = ref({
   probabilidade: 0,
   descricao: '',
   canal: null,
-  indicador_comissao: null
+  indicador_comissao: null,
+  fonte: ''
 })
 
 const loading = ref(false)
@@ -329,7 +343,8 @@ function resetForm() {
     probabilidade: 0,
     descricao: '',
     canal: authStore.isAdmin ? null : (authStore.user?.canal || null),
-    indicador_comissao: null
+    indicador_comissao: null,
+    fonte: ''
   }
   adicionais_itens.value = []
 }

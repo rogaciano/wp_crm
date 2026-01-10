@@ -604,7 +604,8 @@ class OportunidadeSerializer(serializers.ModelSerializer):
             'data_fechamento_real', 'plano', 'plano_nome', 'periodo_pagamento',
             'adicionais_detalhes', 'cortesia', 
             'cupom_desconto', 'forma_pagamento', 'indicador_comissao', 'indicador_nome', 
-            'canal', 'canal_nome', 'contato_telefone', 'whatsapp_nao_lidas', 'data_criacao', 'data_atualizacao'
+            'canal', 'canal_nome', 'contato_telefone', 'whatsapp_nao_lidas', 'fonte',
+            'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'whatsapp_nao_lidas']
     
