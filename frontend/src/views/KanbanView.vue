@@ -110,7 +110,17 @@
               @click="editItem(item)"
               class="bg-white border border-gray-100 rounded-xl p-4 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-primary-100 transition-all duration-200 group relative"
             >
-              <h4 class="font-bold text-gray-900 mb-2 leading-tight group-hover:text-primary-600">{{ item.nome }}</h4>
+              <!-- Badge de tipo -->
+              <span 
+                class="absolute top-2 left-2 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded"
+                :class="selectedFunil?.tipo === 'LEAD' 
+                  ? 'bg-blue-100 text-blue-600' 
+                  : 'bg-emerald-100 text-emerald-600'"
+              >
+                {{ selectedFunil?.tipo === 'LEAD' ? 'LEAD' : 'OPORT.' }}
+              </span>
+              
+              <h4 class="font-bold text-gray-900 mb-2 leading-tight group-hover:text-primary-600 mt-4">{{ item.nome }}</h4>
               
               <div class="text-[11px] text-gray-500 space-y-2">
                 <p class="flex items-center font-medium">
