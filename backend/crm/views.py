@@ -1618,7 +1618,13 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             
             formatted_number = service._format_number(number)
             
-            # Salva localmente
+            # Determina o mimetype baseado no nome do arquivo
+            import mimetypes
+            mime_type, _ = mimetypes.guess_type(file_name)
+            if not mime_type:
+                mime_type = 'image/jpeg'
+            
+            # Salva localmente com base64 completo
             msg = WhatsappMessage.objects.create(
                 id_mensagem=msg_id,
                 instancia=instance_name,
@@ -1627,7 +1633,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                 numero_destinatario=formatted_number,
                 texto=caption or f"📷 [Imagem: {file_name}]",
                 tipo_mensagem=media_type,
-                media_base64=f"data:image/jpeg;base64,{media[:100]}..." if media_type == 'image' else None,
+                media_base64=f"data:{mime_type};base64,{media}" if media_type == 'image' else None,
                 timestamp=timezone.now(),
                 lead_id=lead_id,
                 oportunidade_id=opp_id
