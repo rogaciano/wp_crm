@@ -2242,6 +2242,85 @@ class WhatsappWebhookView(APIView):
                     # Tenta linkar com Lead/Oportunidade
                     EvolutionService.identify_and_link_message(msg_obj)
                     
+                    # Processamento assíncrono de mídia (imagens e áudios)
+                    if needs_async_processing and mtype in ['image', 'audio']:
+                        import threading
+                        import time
+                        
+                        def process_media_async(msg_id, msg_key, instance_name, media_type):
+                            """Processa mídia em background após delay para API estar pronta"""
+                            try:
+                                time.sleep(3)  # Aguarda API processar
+                                
+                                from django.db import connection
+                                connection.close()  # Força nova conexão
+                                
+                                from .models import WhatsappMessage
+                                from .services.evolution_api import EvolutionService
+                                
+                                msg = WhatsappMessage.objects.get(id=msg_id)
+                                
+                                # Obtém serviço do canal correto
+                                service = EvolutionService(
+                                    instance_name=instance_name,
+                                    instance_token=None
+                                )
+                                
+                                # Tenta pegar de configuração do canal
+                                if msg.lead and msg.lead.canal:
+                                    service = EvolutionService(
+                                        instance_name=msg.lead.canal.evolution_instance_name or instance_name,
+                                        instance_token=msg.lead.canal.evolution_api_key
+                                    )
+                                elif msg.oportunidade and msg.oportunidade.canal:
+                                    service = EvolutionService(
+                                        instance_name=msg.oportunidade.canal.evolution_instance_name or instance_name,
+                                        instance_token=msg.oportunidade.canal.evolution_api_key
+                                    )
+                                
+                                media_result = service.get_media_base64(msg_key)
+                                
+                                if media_result and media_result.get('base64'):
+                                    if media_type == 'image':
+                                        # Salva imagem
+                                        mimetype = media_result.get('mimetype', 'image/jpeg')
+                                        base64_data = media_result['base64']
+                                        if not base64_data.startswith('data:'):
+                                            base64_data = f"data:{mimetype};base64,{base64_data}"
+                                        msg.media_base64 = base64_data
+                                        msg.save(update_fields=['media_base64'])
+                                        print(f"[ASYNC] Imagem {msg_id} processada com sucesso", file=sys.stderr)
+                                        
+                                    elif media_type == 'audio':
+                                        # Transcreve áudio
+                                        from .services.audio_transcription import transcribe_from_base64
+                                        transcription = transcribe_from_base64(
+                                            media_result['base64'],
+                                            media_result.get('mimetype', '')
+                                        )
+                                        if transcription and transcription.get('text'):
+                                            duration = transcription.get('duration', 0)
+                                            msg.texto = f"🎤 [Áudio {int(duration)}s]: {transcription['text']}"
+                                            msg.save(update_fields=['texto'])
+                                            print(f"[ASYNC] Áudio {msg_id} transcrito com sucesso", file=sys.stderr)
+                                            
+                            except Exception as e:
+                                print(f"[ASYNC] Erro ao processar mídia {msg_id}: {e}", file=sys.stderr)
+                        
+                        # Dispara thread
+                        msg_key_for_thread = {
+                            'id': id_msg,
+                            'remoteJid': remote_jid,
+                            'fromMe': from_me
+                        }
+                        thread = threading.Thread(
+                            target=process_media_async,
+                            args=(msg_obj.id, msg_key_for_thread, instance, mtype)
+                        )
+                        thread.daemon = True
+                        thread.start()
+                        print(f"[WEBHOOK] Thread de processamento iniciada para {mtype} {id_msg}", file=sys.stderr)
+                    
                 except Exception as e:
                     print(f"[WEBHOOK] Erro ao processar mensagem: {str(e)}", file=sys.stderr)
                     continue
