@@ -72,6 +72,20 @@
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
+              Valor Estimado (R$)
+            </label>
+            <input
+              v-model.number="form.valor_estimado"
+              type="number"
+              step="0.01"
+              min="0"
+              class="input"
+              placeholder="0,00"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
               Probabilidade (%)
             </label>
             <input
