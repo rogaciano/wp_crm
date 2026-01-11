@@ -145,13 +145,45 @@
 
       <!-- Input Area -->
       <div class="p-4 bg-gray-50 border-t border-gray-200">
+        <!-- Preview da imagem selecionada -->
+        <div v-if="selectedImage" class="mb-3 relative inline-block">
+          <img :src="selectedImagePreview" class="h-20 w-20 object-cover rounded-lg border-2 border-emerald-500" />
+          <button 
+            @click="clearImage" 
+            class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+            title="Remover imagem"
+          >
+            ✕
+          </button>
+        </div>
+        
         <form @submit.prevent="send" class="flex items-end space-x-2" aria-label="Formulário de envio de mensagem">
+          <!-- Botão de Anexo -->
+          <button
+            type="button"
+            @click="triggerFileInput"
+            :disabled="sending"
+            title="Enviar imagem"
+            class="p-3 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-all"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </button>
+          <input 
+            type="file" 
+            ref="fileInput" 
+            @change="handleFileSelect" 
+            accept="image/*" 
+            class="hidden" 
+          />
+          
           <div class="flex-1 relative">
             <textarea
               v-model="newMessage"
               rows="1"
               @keydown.enter.exact.prevent="send"
-              placeholder="Digite uma mensagem..."
+              :placeholder="selectedImage ? 'Legenda da imagem (opcional)...' : 'Digite uma mensagem...'"
               aria-label="Campo de texto para digitar mensagem"
               class="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none outline-none max-h-32 shadow-sm"
               ref="inputRef"
@@ -159,7 +191,7 @@
           </div>
           <button
             type="submit"
-            :disabled="!newMessage.trim() || sending"
+            :disabled="(!newMessage.trim() && !selectedImage) || sending"
             :aria-label="sending ? 'Enviando mensagem' : 'Enviar mensagem'"
             title="Enviar mensagem"
             class="p-3 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 transition-all shadow-md disabled:bg-gray-300 disabled:shadow-none translate-y-[-2px]"
@@ -201,6 +233,11 @@ const isAtBottom = ref(true)
 const transcribingId = ref(null)
 const loadingAudioId = ref(null)
 const audioUrls = ref({})
+
+// Controle de imagens
+const fileInput = ref(null)
+const selectedImage = ref(null)
+const selectedImagePreview = ref('')
 
 // Cache de áudios no localStorage
 const AUDIO_CACHE_PREFIX = 'whatsapp_audio_'
@@ -363,17 +400,79 @@ const loadMessages = async (silent = false) => {
   }
 }
 
+// Funções de upload de imagem
+const triggerFileInput = () => {
+  fileInput.value?.click()
+}
+
+const handleFileSelect = (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  // Verifica se é imagem
+  if (!file.type.startsWith('image/')) {
+    alert('Por favor, selecione apenas imagens.')
+    return
+  }
+  
+  // Limita tamanho a 5MB
+  if (file.size > 5 * 1024 * 1024) {
+    alert('A imagem deve ter no máximo 5MB.')
+    return
+  }
+  
+  selectedImage.value = file
+  
+  // Cria preview
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    selectedImagePreview.value = e.target.result
+  }
+  reader.readAsDataURL(file)
+}
+
+const clearImage = () => {
+  selectedImage.value = null
+  selectedImagePreview.value = ''
+  if (fileInput.value) fileInput.value.value = ''
+}
+
 const send = async () => {
-  if (!newMessage.value.trim() || sending.value) return
+  // Verifica se tem algo para enviar
+  if ((!newMessage.value.trim() && !selectedImage.value) || sending.value) return
   
   sending.value = true
   try {
-    const response = await whatsappService.sendMessage({
-      number: props.number,
-      text: newMessage.value,
-      lead: props.lead,
-      oportunidade: props.oportunidade
-    })
+    let response
+    
+    if (selectedImage.value) {
+      // Envia imagem
+      const reader = new FileReader()
+      const base64 = await new Promise((resolve) => {
+        reader.onload = () => resolve(reader.result)
+        reader.readAsDataURL(selectedImage.value)
+      })
+      
+      response = await whatsappService.sendMedia({
+        number: props.number,
+        media: base64,
+        mediaType: 'image',
+        fileName: selectedImage.value.name,
+        caption: newMessage.value,
+        lead: props.lead,
+        oportunidade: props.oportunidade
+      })
+      
+      clearImage()
+    } else {
+      // Envia texto
+      response = await whatsappService.sendMessage({
+        number: props.number,
+        text: newMessage.value,
+        lead: props.lead,
+        oportunidade: props.oportunidade
+      })
+    }
     
     // Adiciona localmente para feedback instantâneo
     messages.value.push(response.data)
@@ -383,6 +482,7 @@ const send = async () => {
     // Foca novamente no input
     nextTick(() => inputRef.value?.focus())
   } catch (error) {
+    console.error('[WhatsappChat] Erro ao enviar:', error)
     alert('Erro ao enviar mensagem. Verifique a conexão com o WhatsApp.')
   } finally {
     sending.value = false

@@ -1573,6 +1573,74 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=500)
 
     @action(detail=False, methods=['post'])
+    def send_media(self, request):
+        """Action para enviar mídia (imagem) através do CRM"""
+        import uuid
+        import sys
+        
+        number = request.data.get('number')
+        media = request.data.get('media')  # Base64
+        media_type = request.data.get('mediaType', 'image')
+        file_name = request.data.get('fileName', 'image.jpg')
+        caption = request.data.get('caption', '')
+        lead_id = request.data.get('lead')
+        opp_id = request.data.get('oportunidade')
+        
+        print(f"[SEND_MEDIA] number={number}, type={media_type}, caption={caption[:20] if caption else 'none'}...", file=sys.stderr)
+
+        if not number or not media:
+            return Response({'error': 'Número e mídia são obrigatórios'}, status=400)
+
+        # Obtém o serviço Evolution do canal correto
+        service, canal, instance_name = self._get_evolution_service_for_entity(lead_id, opp_id)
+        print(f"[SEND_MEDIA] Usando instância: {instance_name}", file=sys.stderr)
+        
+        try:
+            # Remove prefixo data:image/xxx;base64, se existir
+            if ';base64,' in media:
+                media = media.split(';base64,')[1]
+            
+            result = service.send_media(number, media, media_type, file_name, caption)
+            print(f"[SEND_MEDIA] Sucesso: {result}", file=sys.stderr)
+
+            # Extrai ID da mensagem
+            msg_id = None
+            if isinstance(result, dict):
+                if 'key' in result and isinstance(result['key'], dict):
+                    msg_id = result['key'].get('id')
+                elif 'data' in result and isinstance(result['data'], dict):
+                    data_obj = result['data']
+                    if 'key' in data_obj and isinstance(data_obj['key'], dict):
+                        msg_id = data_obj['key'].get('id')
+
+            if not msg_id:
+                msg_id = f"local_{uuid.uuid4().hex[:20]}"
+            
+            formatted_number = service._format_number(number)
+            
+            # Salva localmente
+            msg = WhatsappMessage.objects.create(
+                id_mensagem=msg_id,
+                instancia=instance_name,
+                de_mim=True,
+                numero_remetente=instance_name,
+                numero_destinatario=formatted_number,
+                texto=caption or f"📷 [Imagem: {file_name}]",
+                tipo_mensagem=media_type,
+                media_base64=f"data:image/jpeg;base64,{media[:100]}..." if media_type == 'image' else None,
+                timestamp=timezone.now(),
+                lead_id=lead_id,
+                oportunidade_id=opp_id
+            )
+            
+            return Response(WhatsappMessageSerializer(msg).data)
+        except Exception as e:
+            import traceback
+            print(f"[SEND_MEDIA] ERRO: {str(e)}", file=sys.stderr)
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
+
+    @action(detail=False, methods=['post'])
     def sync(self, request):
         """
         Sincroniza mensagens da Evolution API para um número específico.

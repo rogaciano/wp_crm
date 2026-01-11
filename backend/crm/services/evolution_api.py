@@ -323,6 +323,42 @@ class EvolutionService:
             logger.error(f"Erro ao enviar mensagem para {number}: {str(e)}")
             raise e
 
+    def send_media(self, number, media_base64, media_type='image', filename='image.jpg', caption=''):
+        """
+        Envia mídia (imagem, documento, etc) via Evolution API.
+        
+        Args:
+            number: Número do destinatário
+            media_base64: Arquivo em formato Base64
+            media_type: Tipo de mídia ('image', 'document', 'video', 'audio')
+            filename: Nome do arquivo
+            caption: Legenda/texto opcional
+            
+        Returns:
+            dict com resposta da API
+        """
+        formatted_number = self._format_number(number)
+        url = f"{self.base_url}/message/sendMedia/{self.instance}"
+        
+        payload = {
+            "number": formatted_number,
+            "mediatype": media_type,
+            "media": media_base64,
+            "fileName": filename,
+            "caption": caption,
+            "delay": 1200
+        }
+
+        try:
+            response = requests.post(url, json=payload, headers=self.headers)
+            response.raise_for_status()
+            data = response.json()
+            
+            return data
+        except Exception as e:
+            logger.error(f"Erro ao enviar mídia para {number}: {str(e)}")
+            raise e
+
     def find_messages(self, number, limit=50):
         """Busca histórico de mensagens de um número"""
         formatted_number = self._format_number(number)

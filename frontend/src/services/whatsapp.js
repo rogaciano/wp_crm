@@ -12,6 +12,11 @@ export const whatsappService = {
         return api.post('/whatsapp/send/', data)
     },
 
+    sendMedia(data) {
+        // data: { number, media (base64), mediaType, fileName, caption, lead, oportunidade }
+        return api.post('/whatsapp/send_media/', data)
+    },
+
     // Sincroniza mensagens da Evolution API para o banco local
     syncMessages(data) {
         // data: { number, lead, oportunidade, limit }
