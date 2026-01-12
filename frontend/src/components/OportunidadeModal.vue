@@ -156,6 +156,36 @@
         ></textarea>
       </section>
 
+      <!-- Histórico de Estágios -->
+      <section v-if="isEdit && historico.length > 0" class="mt-6 pt-4 border-t border-gray-100">
+        <h4 class="text-sm font-bold text-gray-700 mb-3 flex items-center">
+          <svg class="w-4 h-4 mr-2 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Histórico de Estágios
+        </h4>
+        
+        <div class="space-y-2 max-h-48 overflow-y-auto pr-2">
+          <div 
+            v-for="item in historico" 
+            :key="item.id" 
+            class="flex items-start text-xs bg-gray-50 rounded-lg p-2 border-l-4 border-primary-300"
+          >
+            <div class="flex-1">
+              <div class="font-medium text-gray-800">
+                <span v-if="item.nome_estagio_anterior" class="text-gray-500">{{ item.nome_estagio_anterior }}</span>
+                <span v-else class="text-green-600 italic">Criação</span>
+                <span class="mx-1 text-gray-400">→</span>
+                <span class="text-primary-600 font-semibold">{{ item.nome_estagio_novo }}</span>
+              </div>
+              <div class="text-gray-500 mt-0.5">
+                {{ item.data_mudanca_formatada }} por <span class="font-medium">{{ item.usuario_nome }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </form>
   </BaseModal>
 </template>
@@ -200,6 +230,7 @@ const estagios = ref([])
 const canais = ref([])
 const funis = ref([])
 const adicionais_itens = ref([])
+const historico = ref([])
 
 
 const indicadores = computed(() => {
@@ -282,8 +313,18 @@ watch(() => props.oportunidade, async (newOportunidade) => {
       adicional: d.adicional,
       quantidade: d.quantidade
     })) || []
+    
+    // Carrega histórico de estágios
+    try {
+      const response = await api.get(`/oportunidades/${newOportunidade.id}/historico_estagios/`)
+      historico.value = response.data || []
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error)
+      historico.value = []
+    }
   } else {
     isEdit.value = false
+    historico.value = []
     resetForm()
   }
 }, { immediate: true })
