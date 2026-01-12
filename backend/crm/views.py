@@ -425,23 +425,28 @@ class LeadViewSet(viewsets.ModelViewSet):
         )
         
         # Registra histórico de criação (primeiro estágio)
-        from .models import HistoricoEstagio
+        from .models import HistoricoEstagio, FunilEstagio as FE
         lead = serializer.instance
         if lead.estagio:
+            fe_novo = FE.objects.filter(
+                funil=lead.funil,
+                estagio=lead.estagio
+            ).first()
+            
             HistoricoEstagio.objects.create(
                 tipo_objeto=HistoricoEstagio.TIPO_LEAD,
                 lead=lead,
                 estagio_anterior=None,
-                estagio_novo=lead.estagio,
+                estagio_novo=fe_novo,
                 nome_estagio_anterior=None,
-                nome_estagio_novo=lead.estagio.estagio.nome if lead.estagio else None,
+                nome_estagio_novo=lead.estagio.nome,
                 usuario=self.request.user,
                 observacao='Criação do lead'
             )
 
     def perform_update(self, serializer):
         """Registra histórico quando o estágio é alterado"""
-        from .models import HistoricoEstagio
+        from .models import HistoricoEstagio, FunilEstagio
         
         instance = self.get_object()
         estagio_anterior = instance.estagio
@@ -452,13 +457,23 @@ class LeadViewSet(viewsets.ModelViewSet):
         # Verifica se o estágio mudou
         estagio_novo = serializer.instance.estagio
         if estagio_anterior != estagio_novo:
+            fe_anterior = FunilEstagio.objects.filter(
+                funil=instance.funil,
+                estagio=estagio_anterior
+            ).first() if estagio_anterior else None
+            
+            fe_novo = FunilEstagio.objects.filter(
+                funil=serializer.instance.funil,
+                estagio=estagio_novo
+            ).first() if estagio_novo else None
+            
             HistoricoEstagio.objects.create(
                 tipo_objeto=HistoricoEstagio.TIPO_LEAD,
                 lead=serializer.instance,
-                estagio_anterior=estagio_anterior,
-                estagio_novo=estagio_novo,
-                nome_estagio_anterior=estagio_anterior.estagio.nome if estagio_anterior else None,
-                nome_estagio_novo=estagio_novo.estagio.nome if estagio_novo else None,
+                estagio_anterior=fe_anterior,
+                estagio_novo=fe_novo,
+                nome_estagio_anterior=estagio_anterior.nome if estagio_anterior else None,
+                nome_estagio_novo=estagio_novo.nome if estagio_novo else None,
                 usuario=self.request.user
             )
 
@@ -998,23 +1013,28 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         )
         
         # Registra histórico de criação (primeiro estágio)
-        from .models import HistoricoEstagio
+        from .models import HistoricoEstagio, FunilEstagio as FE
         oportunidade = serializer.instance
         if oportunidade.estagio:
+            fe_novo = FE.objects.filter(
+                funil=oportunidade.funil,
+                estagio=oportunidade.estagio
+            ).first()
+            
             HistoricoEstagio.objects.create(
                 tipo_objeto=HistoricoEstagio.TIPO_OPORTUNIDADE,
                 oportunidade=oportunidade,
                 estagio_anterior=None,
-                estagio_novo=oportunidade.estagio,
+                estagio_novo=fe_novo,
                 nome_estagio_anterior=None,
-                nome_estagio_novo=oportunidade.estagio.estagio.nome if oportunidade.estagio else None,
+                nome_estagio_novo=oportunidade.estagio.nome,
                 usuario=self.request.user,
                 observacao='Criação da oportunidade'
             )
     
     def perform_update(self, serializer):
         """Registra histórico quando o estágio é alterado"""
-        from .models import HistoricoEstagio
+        from .models import HistoricoEstagio, FunilEstagio
         
         instance = self.get_object()
         estagio_anterior = instance.estagio
@@ -1025,13 +1045,24 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         # Verifica se o estágio mudou
         estagio_novo = serializer.instance.estagio
         if estagio_anterior != estagio_novo:
+            # Busca o FunilEstagio correspondente para usar no histórico
+            fe_anterior = FunilEstagio.objects.filter(
+                funil=instance.funil,
+                estagio=estagio_anterior
+            ).first() if estagio_anterior else None
+            
+            fe_novo = FunilEstagio.objects.filter(
+                funil=serializer.instance.funil,
+                estagio=estagio_novo
+            ).first() if estagio_novo else None
+            
             HistoricoEstagio.objects.create(
                 tipo_objeto=HistoricoEstagio.TIPO_OPORTUNIDADE,
                 oportunidade=serializer.instance,
-                estagio_anterior=estagio_anterior,
-                estagio_novo=estagio_novo,
-                nome_estagio_anterior=estagio_anterior.estagio.nome if estagio_anterior else None,
-                nome_estagio_novo=estagio_novo.estagio.nome if estagio_novo else None,
+                estagio_anterior=fe_anterior,
+                estagio_novo=fe_novo,
+                nome_estagio_anterior=estagio_anterior.nome if estagio_anterior else None,
+                nome_estagio_novo=estagio_novo.nome if estagio_novo else None,
                 usuario=self.request.user
             )
     
