@@ -26,12 +26,31 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">
             CNPJ
           </label>
-          <input
-            v-model="form.cnpj"
-            type="text"
-            class="input"
-            placeholder="00.000.000/0000-00"
-          />
+          <div class="flex gap-2">
+            <input
+              v-model="form.cnpj"
+              type="text"
+              class="input flex-1"
+              placeholder="00.000.000/0000-00"
+              @blur="onCnpjBlur"
+            />
+            <button
+              type="button"
+              @click="buscarCNPJ"
+              :disabled="buscandoCNPJ || !form.cnpj"
+              class="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all flex items-center text-sm font-medium"
+              title="Buscar dados do CNPJ"
+            >
+              <svg v-if="!buscandoCNPJ" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+            </button>
+          </div>
+          <p v-if="cnpjStatus" class="text-xs mt-1" :class="cnpjStatusClass">{{ cnpjStatus }}</p>
         </div>
 
         <div>
@@ -272,6 +291,72 @@ const loading = ref(false)
 const isEdit = ref(false)
 const selectedDiagnosticos = ref([])
 const canais = ref([])
+
+// CNPJ lookup
+const buscandoCNPJ = ref(false)
+const cnpjStatus = ref('')
+const cnpjStatusClass = ref('text-gray-500')
+
+async function buscarCNPJ() {
+  if (!form.value.cnpj || buscandoCNPJ.value) return
+  
+  // Remove formatação do CNPJ
+  const cnpjLimpo = form.value.cnpj.replace(/\D/g, '')
+  
+  if (cnpjLimpo.length !== 14) {
+    cnpjStatus.value = 'CNPJ deve ter 14 dígitos'
+    cnpjStatusClass.value = 'text-red-500'
+    return
+  }
+  
+  buscandoCNPJ.value = true
+  cnpjStatus.value = 'Buscando dados...'
+  cnpjStatusClass.value = 'text-blue-500'
+  
+  try {
+    const response = await fetch(`https://www.receitaws.com.br/v1/cnpj/${cnpjLimpo}`)
+    const data = await response.json()
+    
+    if (data.status === 'ERROR') {
+      cnpjStatus.value = data.message || 'CNPJ não encontrado'
+      cnpjStatusClass.value = 'text-red-500'
+      return
+    }
+    
+    // Preenche o formulário com os dados
+    form.value.nome_empresa = data.nome || data.fantasia || form.value.nome_empresa
+    form.value.telefone_principal = data.telefone || form.value.telefone_principal
+    form.value.email = data.email || form.value.email
+    form.value.endereco = [data.logradouro, data.numero, data.complemento, data.bairro]
+      .filter(Boolean)
+      .join(', ') || form.value.endereco
+    form.value.cidade = data.municipio || form.value.cidade
+    form.value.estado = data.uf || form.value.estado
+    form.value.cep = data.cep || form.value.cep
+    form.value.setor = data.atividade_principal?.[0]?.text?.substring(0, 100) || form.value.setor
+    
+    // Formata o CNPJ
+    form.value.cnpj = cnpjLimpo.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+    
+    cnpjStatus.value = `✓ ${data.situacao || 'Dados carregados'}`
+    cnpjStatusClass.value = data.situacao === 'ATIVA' ? 'text-green-500' : 'text-amber-500'
+    
+  } catch (error) {
+    console.error('Erro ao buscar CNPJ:', error)
+    cnpjStatus.value = 'Erro ao consultar CNPJ. Tente novamente.'
+    cnpjStatusClass.value = 'text-red-500'
+  } finally {
+    buscandoCNPJ.value = false
+  }
+}
+
+function onCnpjBlur() {
+  // Busca automática quando sair do campo (se tiver 14 dígitos)
+  const cnpjLimpo = form.value.cnpj?.replace(/\D/g, '') || ''
+  if (cnpjLimpo.length === 14 && !form.value.nome_empresa) {
+    buscarCNPJ()
+  }
+}
 
 function handleCompare() {
   if (selectedDiagnosticos.value.length !== 2) return
