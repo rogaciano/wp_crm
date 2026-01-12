@@ -314,8 +314,8 @@ async function buscarCNPJ() {
   cnpjStatusClass.value = 'text-blue-500'
   
   try {
-    const response = await fetch(`https://www.receitaws.com.br/v1/cnpj/${cnpjLimpo}`)
-    const data = await response.json()
+    const response = await api.get(`/contas/buscar_cnpj/?cnpj=${cnpjLimpo}`)
+    const data = response.data
     
     if (data.status === 'ERROR') {
       cnpjStatus.value = data.message || 'CNPJ não encontrado'

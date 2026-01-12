@@ -706,6 +706,31 @@ class ContaViewSet(viewsets.ModelViewSet):
         serializer = OportunidadeSerializer(oportunidades, many=True, context={'request': request})
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'])
+    def buscar_cnpj(self, request):
+        """Busca dados de empresa por CNPJ via ReceitaWS (proxy para evitar CORS)"""
+        import requests
+        import re
+        
+        cnpj = request.query_params.get('cnpj', '')
+        cnpj_limpo = re.sub(r'\D', '', cnpj)
+        
+        if len(cnpj_limpo) != 14:
+            return Response({'status': 'ERROR', 'message': 'CNPJ deve ter 14 dígitos'}, status=400)
+        
+        try:
+            response = requests.get(
+                f'https://www.receitaws.com.br/v1/cnpj/{cnpj_limpo}',
+                timeout=30
+            )
+            data = response.json()
+            return Response(data)
+        except requests.Timeout:
+            return Response({'status': 'ERROR', 'message': 'Tempo limite excedido. Tente novamente.'}, status=504)
+        except Exception as e:
+            logger.error(f"Erro ao consultar CNPJ {cnpj_limpo}: {str(e)}")
+            return Response({'status': 'ERROR', 'message': 'Erro ao consultar CNPJ'}, status=500)
+
 
 class TipoContatoViewSet(viewsets.ModelViewSet):
     """ViewSet para Tipos de Contato (CRUD apenas Admin, leitura para autenticados)"""
