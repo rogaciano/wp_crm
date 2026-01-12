@@ -1082,7 +1082,10 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'])
     def mudar_estagio(self, request, pk=None):
         """Muda o estágio de uma oportunidade (usado no drag-and-drop do Kanban)"""
+        from .models import HistoricoEstagio
+        
         oportunidade = self.get_object()
+        estagio_anterior = oportunidade.estagio
         novo_estagio_id = request.data.get('estagio_id')
         
         if not novo_estagio_id:
@@ -1101,6 +1104,30 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                     oportunidade.data_fechamento_real = timezone.now().date()
                 
                 oportunidade.save()
+                
+                # Registra histórico de mudança de estágio
+                if estagio_anterior != novo_estagio:
+                    # Busca o FunilEstagio correspondente para obter o nome
+                    from .models import FunilEstagio
+                    fe_anterior = FunilEstagio.objects.filter(
+                        funil=oportunidade.funil,
+                        estagio=estagio_anterior
+                    ).select_related('estagio').first() if estagio_anterior else None
+                    
+                    fe_novo = FunilEstagio.objects.filter(
+                        funil=oportunidade.funil,
+                        estagio=novo_estagio
+                    ).select_related('estagio').first()
+                    
+                    HistoricoEstagio.objects.create(
+                        tipo_objeto=HistoricoEstagio.TIPO_OPORTUNIDADE,
+                        oportunidade=oportunidade,
+                        estagio_anterior=fe_anterior,
+                        estagio_novo=fe_novo,
+                        nome_estagio_anterior=fe_anterior.estagio.nome if fe_anterior else None,
+                        nome_estagio_novo=fe_novo.estagio.nome if fe_novo else novo_estagio.nome,
+                        usuario=request.user
+                    )
             
             # Usamos o KanbanSerializer para a resposta, pois é mais leve e o que o Kanban espera
             serializer = OportunidadeKanbanSerializer(oportunidade)
