@@ -1282,6 +1282,125 @@ Investimento:
         serializer = HistoricoEstagioSerializer(historico, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['get'])
+    def gerar_proposta(self, request, pk=None):
+        """Gera proposta comercial em HTML para a oportunidade"""
+        from django.template import Template, Context
+        from django.template.loader import render_to_string
+        from django.http import HttpResponse
+        
+        opp = self.get_object()
+        
+        # Dados do plano
+        plano = opp.plano
+        if not plano:
+            return Response({'error': 'Oportunidade não possui plano definido'}, status=400)
+        
+        # Calcula valor baseado no período
+        if opp.periodo_pagamento == 'ANUAL' and plano.preco_anual:
+            valor_mensal = f"{plano.preco_anual:,.0f}".replace(',', '.')
+            periodo_texto = "Anual"
+        else:
+            valor_mensal = f"{plano.preco_mensal:,.0f}".replace(',', '.')
+            periodo_texto = "Mensal"
+        
+        # Recursos do plano
+        recursos = plano.recursos if plano.recursos else []
+        
+        # Adicionais contratados
+        adicionais = []
+        valor_adicionais = 0
+        
+        from .models import OportunidadeAdicional
+        opp_adicionais = OportunidadeAdicional.objects.filter(oportunidade=opp).select_related('adicional')
+        
+        for oa in opp_adicionais:
+            adicionais.append({
+                'nome': oa.adicional.nome,
+                'quantidade': oa.quantidade,
+                'valor_unitario': float(oa.adicional.preco),
+                'ativo': True
+            })
+            valor_adicionais += float(oa.adicional.preco) * oa.quantidade
+        
+        # Lista completa de adicionais (para mostrar todos, marcando os contratados)
+        from .models import PlanoAdicional
+        todos_adicionais = PlanoAdicional.objects.all()
+        adicionais_lista = []
+        
+        for adicional in todos_adicionais:
+            contratado = next((a for a in adicionais if a['nome'] == adicional.nome), None)
+            adicionais_lista.append({
+                'nome': adicional.nome,
+                'quantidade': contratado['quantidade'] if contratado else 0,
+                'ativo': contratado is not None
+            })
+        
+        # Tabela de preços dos adicionais
+        tabela_precos = []
+        for adicional in todos_adicionais:
+            tabela_precos.append({
+                'nome': adicional.nome,
+                'valor': f"{adicional.preco:,.0f}".replace(',', '.'),
+                'unidade': 'por mês'
+            })
+        
+        # Calcula valor total
+        valor_plano = float(plano.preco_anual if opp.periodo_pagamento == 'ANUAL' and plano.preco_anual else plano.preco_mensal)
+        valor_total = valor_plano + valor_adicionais
+        valor_total_formatado = f"{valor_total:,.0f}".replace(',', '.')
+        
+        # Dados do vendedor
+        vendedor = opp.proprietario
+        vendedor_nome = vendedor.get_full_name() or vendedor.username
+        vendedor_email = vendedor.email or ''
+        vendedor_telefone = ''  # Adicionar campo se necessário
+        
+        # Renderiza o template
+        context = {
+            'plano_nome': plano.nome,
+            'valor_mensal': valor_mensal,
+            'periodo': periodo_texto,
+            'recursos': recursos,
+            'adicionais': adicionais,
+            'adicionais_lista': adicionais_lista,
+            'tabela_precos': tabela_precos,
+            'valor_total': valor_total_formatado,
+            'vendedor_nome': vendedor_nome,
+            'vendedor_email': vendedor_email,
+            'vendedor_telefone': vendedor_telefone,
+            'conta_nome': opp.conta.nome_empresa if opp.conta else '',
+            'oportunidade': opp,
+        }
+        
+        try:
+            html_content = render_to_string('proposta_comercial.html', context)
+            
+            # Retorna como HTML (frontend pode usar para preview ou converter em PDF)
+            formato = request.query_params.get('formato', 'html')
+            
+            if formato == 'html':
+                return HttpResponse(html_content, content_type='text/html')
+            else:
+                # Retorna dados JSON para o frontend renderizar
+                return Response({
+                    'html': html_content,
+                    'dados': {
+                        'plano_nome': plano.nome,
+                        'valor_mensal': valor_mensal,
+                        'periodo': periodo_texto,
+                        'recursos': recursos,
+                        'adicionais': adicionais,
+                        'valor_total': valor_total_formatado,
+                        'vendedor_nome': vendedor_nome,
+                        'conta_nome': context['conta_nome'],
+                    }
+                })
+        except Exception as e:
+            logger.error(f"Erro ao gerar proposta: {str(e)}")
+            return Response({'error': f'Erro ao gerar proposta: {str(e)}'}, status=500)
+
+
 class PlanoViewSet(viewsets.ModelViewSet):
     """ViewSet para CRUD de Planos (Admin cria/edita, todos leem)"""
     queryset = Plano.objects.all()
