@@ -879,3 +879,83 @@ class Log(models.Model):
     def __str__(self):
         usuario_nome = self.usuario.get_full_name() if self.usuario else 'Sistema'
         return f"{usuario_nome} - {self.get_acao_display()} - {self.modelo} #{self.objeto_id} em {self.timestamp.strftime('%d/%m/%Y %H:%M')}"
+
+
+class HistoricoEstagio(models.Model):
+    """Histórico de mudanças de estágio para Leads e Oportunidades"""
+    
+    TIPO_LEAD = 'LEAD'
+    TIPO_OPORTUNIDADE = 'OPORTUNIDADE'
+    TIPO_CHOICES = [
+        (TIPO_LEAD, 'Lead'),
+        (TIPO_OPORTUNIDADE, 'Oportunidade'),
+    ]
+    
+    # Tipo do objeto (Lead ou Oportunidade)
+    tipo_objeto = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    
+    # IDs dos objetos relacionados (opcional, para rastreamento)
+    lead = models.ForeignKey(
+        'Lead',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='historico_estagios'
+    )
+    oportunidade = models.ForeignKey(
+        'Oportunidade',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='historico_estagios'
+    )
+    
+    # Estágios (anterior e novo)
+    estagio_anterior = models.ForeignKey(
+        'FunilEstagio',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historico_saidas'
+    )
+    estagio_novo = models.ForeignKey(
+        'FunilEstagio',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historico_entradas'
+    )
+    
+    # Nomes dos estágios (para preservar caso seja deletado)
+    nome_estagio_anterior = models.CharField(max_length=100, null=True, blank=True)
+    nome_estagio_novo = models.CharField(max_length=100, null=True, blank=True)
+    
+    # Usuário que fez a mudança
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='mudancas_estagio'
+    )
+    
+    # Timestamp
+    data_mudanca = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    # Observação opcional
+    observacao = models.TextField(null=True, blank=True)
+    
+    class Meta:
+        verbose_name = 'Histórico de Estágio'
+        verbose_name_plural = 'Históricos de Estágios'
+        ordering = ['-data_mudanca']
+        indexes = [
+            models.Index(fields=['lead', 'data_mudanca']),
+            models.Index(fields=['oportunidade', 'data_mudanca']),
+            models.Index(fields=['tipo_objeto', 'data_mudanca']),
+        ]
+    
+    def __str__(self):
+        usuario_nome = self.usuario.get_full_name() if self.usuario else 'Sistema'
+        obj_id = self.lead_id or self.oportunidade_id
+        return f"{self.tipo_objeto} #{obj_id}: {self.nome_estagio_anterior} → {self.nome_estagio_novo} por {usuario_nome}"

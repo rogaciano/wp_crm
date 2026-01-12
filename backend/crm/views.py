@@ -423,6 +423,44 @@ class LeadViewSet(viewsets.ModelViewSet):
             estagio=estagio,
             canal=canal
         )
+        
+        # Registra histórico de criação (primeiro estágio)
+        from .models import HistoricoEstagio
+        lead = serializer.instance
+        if lead.estagio:
+            HistoricoEstagio.objects.create(
+                tipo_objeto=HistoricoEstagio.TIPO_LEAD,
+                lead=lead,
+                estagio_anterior=None,
+                estagio_novo=lead.estagio,
+                nome_estagio_anterior=None,
+                nome_estagio_novo=lead.estagio.estagio.nome if lead.estagio else None,
+                usuario=self.request.user,
+                observacao='Criação do lead'
+            )
+
+    def perform_update(self, serializer):
+        """Registra histórico quando o estágio é alterado"""
+        from .models import HistoricoEstagio
+        
+        instance = self.get_object()
+        estagio_anterior = instance.estagio
+        
+        # Salva as mudanças
+        serializer.save()
+        
+        # Verifica se o estágio mudou
+        estagio_novo = serializer.instance.estagio
+        if estagio_anterior != estagio_novo:
+            HistoricoEstagio.objects.create(
+                tipo_objeto=HistoricoEstagio.TIPO_LEAD,
+                lead=serializer.instance,
+                estagio_anterior=estagio_anterior,
+                estagio_novo=estagio_novo,
+                nome_estagio_anterior=estagio_anterior.estagio.nome if estagio_anterior else None,
+                nome_estagio_novo=estagio_novo.estagio.nome if estagio_novo else None,
+                usuario=self.request.user
+            )
 
     @action(detail=False, methods=['get'])
     def kanban(self, request):
@@ -958,6 +996,44 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
             estagio=estagio,
             canal=canal
         )
+        
+        # Registra histórico de criação (primeiro estágio)
+        from .models import HistoricoEstagio
+        oportunidade = serializer.instance
+        if oportunidade.estagio:
+            HistoricoEstagio.objects.create(
+                tipo_objeto=HistoricoEstagio.TIPO_OPORTUNIDADE,
+                oportunidade=oportunidade,
+                estagio_anterior=None,
+                estagio_novo=oportunidade.estagio,
+                nome_estagio_anterior=None,
+                nome_estagio_novo=oportunidade.estagio.estagio.nome if oportunidade.estagio else None,
+                usuario=self.request.user,
+                observacao='Criação da oportunidade'
+            )
+    
+    def perform_update(self, serializer):
+        """Registra histórico quando o estágio é alterado"""
+        from .models import HistoricoEstagio
+        
+        instance = self.get_object()
+        estagio_anterior = instance.estagio
+        
+        # Salva as mudanças
+        serializer.save()
+        
+        # Verifica se o estágio mudou
+        estagio_novo = serializer.instance.estagio
+        if estagio_anterior != estagio_novo:
+            HistoricoEstagio.objects.create(
+                tipo_objeto=HistoricoEstagio.TIPO_OPORTUNIDADE,
+                oportunidade=serializer.instance,
+                estagio_anterior=estagio_anterior,
+                estagio_novo=estagio_novo,
+                nome_estagio_anterior=estagio_anterior.estagio.nome if estagio_anterior else None,
+                nome_estagio_novo=estagio_novo.estagio.nome if estagio_novo else None,
+                usuario=self.request.user
+            )
     
     @action(detail=False, methods=['get'])
     def kanban(self, request):
@@ -1134,6 +1210,19 @@ Investimento:
         
         return Response({'texto': template})
 
+    @action(detail=True, methods=['get'])
+    def historico_estagios(self, request, pk=None):
+        """Retorna o histórico de mudanças de estágio da oportunidade"""
+        from .models import HistoricoEstagio
+        from .serializers import HistoricoEstagioSerializer
+        
+        oportunidade = self.get_object()
+        historico = HistoricoEstagio.objects.filter(
+            oportunidade=oportunidade
+        ).select_related('usuario', 'estagio_anterior__estagio', 'estagio_novo__estagio')
+        
+        serializer = HistoricoEstagioSerializer(historico, many=True)
+        return Response(serializer.data)
 
 class PlanoViewSet(viewsets.ModelViewSet):
     """ViewSet para CRUD de Planos (Admin cria/edita, todos leem)"""

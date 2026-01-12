@@ -807,3 +807,35 @@ class LogSerializer(serializers.ModelSerializer):
             'timestamp'
         ]
         read_only_fields = ['id', 'timestamp', 'usuario_nome', 'acao_display']
+
+
+class HistoricoEstagioSerializer(serializers.ModelSerializer):
+    """Serializer para histórico de mudanças de estágio"""
+    usuario_nome = serializers.SerializerMethodField()
+    data_mudanca_formatada = serializers.SerializerMethodField()
+    
+    class Meta:
+        from .models import HistoricoEstagio
+        model = HistoricoEstagio
+        fields = [
+            'id',
+            'tipo_objeto',
+            'estagio_anterior',
+            'estagio_novo',
+            'nome_estagio_anterior',
+            'nome_estagio_novo',
+            'usuario',
+            'usuario_nome',
+            'data_mudanca',
+            'data_mudanca_formatada',
+            'observacao'
+        ]
+        read_only_fields = ['id', 'data_mudanca']
+    
+    def get_usuario_nome(self, obj):
+        if obj.usuario:
+            return obj.usuario.get_full_name() or obj.usuario.username
+        return 'Sistema'
+    
+    def get_data_mudanca_formatada(self, obj):
+        return obj.data_mudanca.strftime('%d/%m/%Y às %H:%M')
