@@ -336,6 +336,13 @@ class Contato(models.Model):
     
     # Relação polimórfica com Atividades
     atividades = GenericRelation('Atividade')
+    
+    # Tags para categorização
+    tags = models.ManyToManyField(
+        'Tag',
+        blank=True,
+        related_name='contatos'
+    )
 
     class Meta:
         verbose_name = 'Contato'
@@ -348,6 +355,101 @@ class Contato(models.Model):
 
     def __str__(self):
         return f"{self.nome} ({self.conta.nome_empresa})"
+
+
+class ContatoTelefone(models.Model):
+    """Múltiplos telefones para um contato"""
+    TIPO_CHOICES = [
+        ('CELULAR', 'Celular'),
+        ('COMERCIAL', 'Comercial'),
+        ('RESIDENCIAL', 'Residencial'),
+        ('WHATSAPP', 'WhatsApp'),
+        ('OUTRO', 'Outro'),
+    ]
+    
+    contato = models.ForeignKey(
+        Contato,
+        on_delete=models.CASCADE,
+        related_name='telefones'
+    )
+    numero = models.CharField(max_length=20)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='CELULAR')
+    principal = models.BooleanField(default=False)
+    
+    class Meta:
+        verbose_name = 'Telefone do Contato'
+        verbose_name_plural = 'Telefones dos Contatos'
+        ordering = ['-principal', 'tipo']
+    
+    def __str__(self):
+        return f"{self.numero} ({self.get_tipo_display()})"
+
+
+class ContatoEmail(models.Model):
+    """Múltiplos emails para um contato"""
+    TIPO_CHOICES = [
+        ('PESSOAL', 'Pessoal'),
+        ('COMERCIAL', 'Comercial'),
+        ('OUTRO', 'Outro'),
+    ]
+    
+    contato = models.ForeignKey(
+        Contato,
+        on_delete=models.CASCADE,
+        related_name='emails'
+    )
+    email = models.EmailField()
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='COMERCIAL')
+    principal = models.BooleanField(default=False)
+    
+    class Meta:
+        verbose_name = 'Email do Contato'
+        verbose_name_plural = 'Emails dos Contatos'
+        ordering = ['-principal', 'tipo']
+    
+    def __str__(self):
+        return f"{self.email} ({self.get_tipo_display()})"
+
+
+class Tag(models.Model):
+    """Tags para categorizar contatos"""
+    nome = models.CharField(max_length=50, unique=True)
+    cor = models.CharField(max_length=7, default='#6C5CE7', help_text='Cor em hexadecimal')
+    
+    class Meta:
+        verbose_name = 'Tag'
+        verbose_name_plural = 'Tags'
+        ordering = ['nome']
+    
+    def __str__(self):
+        return self.nome
+
+
+class ContatoAnexo(models.Model):
+    """Anexos vinculados a um contato"""
+    contato = models.ForeignKey(
+        Contato,
+        on_delete=models.CASCADE,
+        related_name='anexos'
+    )
+    arquivo = models.FileField(upload_to='contatos/anexos/')
+    nome = models.CharField(max_length=255)
+    descricao = models.TextField(null=True, blank=True)
+    data_upload = models.DateTimeField(auto_now_add=True)
+    uploaded_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    
+    class Meta:
+        verbose_name = 'Anexo do Contato'
+        verbose_name_plural = 'Anexos dos Contatos'
+        ordering = ['-data_upload']
+    
+    def __str__(self):
+        return self.nome
 
 
 class ContatoRedeSocial(models.Model):

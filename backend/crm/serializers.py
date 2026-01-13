@@ -404,6 +404,54 @@ class ContatoRedeSocialSerializer(serializers.ModelSerializer):
         fields = ['id', 'tipo', 'tipo_nome', 'tipo_icone', 'tipo_cor', 'valor', 'url_completa']
 
 
+class ContatoTelefoneSerializer(serializers.ModelSerializer):
+    """Serializer para múltiplos telefones"""
+    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    
+    class Meta:
+        from .models import ContatoTelefone
+        model = ContatoTelefone
+        fields = ['id', 'numero', 'tipo', 'tipo_display', 'principal']
+
+
+class ContatoEmailSerializer(serializers.ModelSerializer):
+    """Serializer para múltiplos emails"""
+    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    
+    class Meta:
+        from .models import ContatoEmail
+        model = ContatoEmail
+        fields = ['id', 'email', 'tipo', 'tipo_display', 'principal']
+
+
+class TagSerializer(serializers.ModelSerializer):
+    """Serializer para Tags"""
+    class Meta:
+        from .models import Tag
+        model = Tag
+        fields = ['id', 'nome', 'cor']
+
+
+class ContatoAnexoSerializer(serializers.ModelSerializer):
+    """Serializer para anexos de contatos"""
+    uploaded_por_nome = serializers.CharField(source='uploaded_por.get_full_name', read_only=True)
+    arquivo_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        from .models import ContatoAnexo
+        model = ContatoAnexo
+        fields = ['id', 'arquivo', 'arquivo_url', 'nome', 'descricao', 'data_upload', 'uploaded_por', 'uploaded_por_nome']
+        read_only_fields = ['data_upload', 'uploaded_por']
+    
+    def get_arquivo_url(self, obj):
+        if obj.arquivo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.arquivo.url)
+            return obj.arquivo.url
+        return None
+
+
 class ContatoSerializer(serializers.ModelSerializer):
     proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
@@ -415,6 +463,12 @@ class ContatoSerializer(serializers.ModelSerializer):
     celular_formatado = serializers.SerializerMethodField()
     foto_url = serializers.SerializerMethodField()
     redes_sociais = ContatoRedeSocialSerializer(many=True, read_only=True)
+    
+    # Novos campos para múltiplos telefones/emails
+    telefones = ContatoTelefoneSerializer(many=True, read_only=True)
+    emails = ContatoEmailSerializer(many=True, read_only=True)
+    tags_detail = TagSerializer(source='tags', many=True, read_only=True)
+    anexos = ContatoAnexoSerializer(many=True, read_only=True)
 
     # Campos de auditoria
     criado_por_nome = serializers.CharField(source='criado_por.get_full_name', read_only=True)
@@ -427,7 +481,7 @@ class ContatoSerializer(serializers.ModelSerializer):
             'departamento', 'chave_pix', 'foto', 'foto_url', 'tipo_contato', 'tipo_contato_nome', 'tipo_contato_emoji', 'tipo',
             'conta', 'conta_nome', 'canal', 'canal_nome',
             'proprietario', 'proprietario_nome', 'notas',
-            'redes_sociais',
+            'redes_sociais', 'telefones', 'emails', 'tags', 'tags_detail', 'anexos',
             'data_criacao', 'data_atualizacao',
             'criado_por', 'criado_por_nome', 'atualizado_por', 'atualizado_por_nome'
         ]
