@@ -555,6 +555,100 @@ class ContatoSerializer(serializers.ModelSerializer):
                     valor=rede['valor']
                 )
     
+    def _get_telefones_data(self):
+        """Extrai telefones do request"""
+        import json
+        request = self.context.get('request')
+        if not request:
+            return None
+        
+        data = request.data.get('telefones_input')
+        if data is None:
+            return None
+        
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        
+        return data if isinstance(data, list) else []
+    
+    def _salvar_telefones(self, contato, telefones_data):
+        """Salva os telefones do contato"""
+        from .models import ContatoTelefone
+        contato.telefones.all().delete()
+        for tel in telefones_data:
+            if tel.get('numero'):
+                ContatoTelefone.objects.create(
+                    contato=contato,
+                    numero=tel['numero'],
+                    tipo=tel.get('tipo', 'CELULAR'),
+                    principal=tel.get('principal', False)
+                )
+    
+    def _get_emails_data(self):
+        """Extrai emails do request"""
+        import json
+        request = self.context.get('request')
+        if not request:
+            return None
+        
+        data = request.data.get('emails_input')
+        if data is None:
+            return None
+        
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        
+        return data if isinstance(data, list) else []
+    
+    def _salvar_emails(self, contato, emails_data):
+        """Salva os emails do contato"""
+        from .models import ContatoEmail
+        contato.emails.all().delete()
+        for email in emails_data:
+            if email.get('email'):
+                ContatoEmail.objects.create(
+                    contato=contato,
+                    email=email['email'],
+                    tipo=email.get('tipo', 'COMERCIAL'),
+                    principal=email.get('principal', False)
+                )
+    
+    def _get_tags_data(self):
+        """Extrai tags do request"""
+        import json
+        request = self.context.get('request')
+        if not request:
+            return None
+        
+        data = request.data.get('tags_input')
+        if data is None:
+            return None
+        
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        
+        return data if isinstance(data, list) else []
+    
+    def _salvar_tags(self, contato, tags_data):
+        """Salva as tags do contato"""
+        from .models import Tag
+        contato.tags.clear()
+        for tag_id in tags_data:
+            try:
+                tag = Tag.objects.get(id=tag_id)
+                contato.tags.add(tag)
+            except Tag.DoesNotExist:
+                pass
+    
     def create(self, validated_data):
         user = self.context['request'].user
         validated_data['proprietario'] = user
@@ -566,6 +660,21 @@ class ContatoSerializer(serializers.ModelSerializer):
         redes_sociais_data = self._get_redes_sociais_data()
         if redes_sociais_data:
             self._salvar_redes_sociais(contato, redes_sociais_data)
+        
+        # Processar telefones
+        telefones_data = self._get_telefones_data()
+        if telefones_data:
+            self._salvar_telefones(contato, telefones_data)
+        
+        # Processar emails
+        emails_data = self._get_emails_data()
+        if emails_data:
+            self._salvar_emails(contato, emails_data)
+        
+        # Processar tags
+        tags_data = self._get_tags_data()
+        if tags_data:
+            self._salvar_tags(contato, tags_data)
 
         return contato
 
@@ -578,6 +687,21 @@ class ContatoSerializer(serializers.ModelSerializer):
         redes_sociais_data = self._get_redes_sociais_data()
         if redes_sociais_data is not None:
             self._salvar_redes_sociais(contato, redes_sociais_data)
+        
+        # Processar telefones
+        telefones_data = self._get_telefones_data()
+        if telefones_data is not None:
+            self._salvar_telefones(contato, telefones_data)
+        
+        # Processar emails
+        emails_data = self._get_emails_data()
+        if emails_data is not None:
+            self._salvar_emails(contato, emails_data)
+        
+        # Processar tags
+        tags_data = self._get_tags_data()
+        if tags_data is not None:
+            self._salvar_tags(contato, tags_data)
 
         return contato
 

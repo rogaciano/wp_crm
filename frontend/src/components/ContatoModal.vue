@@ -101,25 +101,122 @@
             placeholder="Ex: Comercial"
           />
         </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Telefone
-          </label>
-          <LandlineInput
-            v-model="form.telefone"
-            input-class="input"
-          />
+        <!-- Múltiplos Telefones -->
+        <div class="md:col-span-2 pt-3 mt-2 border-t border-gray-100">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+              </svg>
+              Telefones
+            </p>
+            <button 
+              type="button"
+              @click="adicionarTelefone"
+              class="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Adicionar
+            </button>
+          </div>
+          
+          <div class="space-y-2">
+            <div 
+              v-for="(tel, index) in form.telefones_input" 
+              :key="'tel-' + index"
+              class="flex items-center gap-2"
+            >
+              <select v-model="tel.tipo" class="input w-32 text-sm">
+                <option value="CELULAR">Celular</option>
+                <option value="COMERCIAL">Comercial</option>
+                <option value="RESIDENCIAL">Residencial</option>
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="OUTRO">Outro</option>
+              </select>
+              <PhoneInput
+                v-model="tel.numero"
+                input-class="input flex-1 text-sm"
+              />
+              <label class="flex items-center gap-1 text-xs text-gray-500">
+                <input type="checkbox" v-model="tel.principal" class="rounded" />
+                Principal
+              </label>
+              <button 
+                type="button"
+                @click="removerTelefone(index)"
+                class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            
+            <p v-if="form.telefones_input.length === 0" class="text-sm text-gray-400 italic">
+              Nenhum telefone adicionado
+            </p>
+          </div>
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Celular
-          </label>
-          <PhoneInput
-            v-model="form.celular"
-            input-class="input"
-          />
+        <!-- Múltiplos Emails -->
+        <div class="md:col-span-2 pt-3 border-t border-gray-100">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+              E-mails
+            </p>
+            <button 
+              type="button"
+              @click="adicionarEmail"
+              class="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Adicionar
+            </button>
+          </div>
+          
+          <div class="space-y-2">
+            <div 
+              v-for="(email, index) in form.emails_input" 
+              :key="'email-' + index"
+              class="flex items-center gap-2"
+            >
+              <select v-model="email.tipo" class="input w-32 text-sm">
+                <option value="COMERCIAL">Comercial</option>
+                <option value="PESSOAL">Pessoal</option>
+                <option value="OUTRO">Outro</option>
+              </select>
+              <input
+                v-model="email.email"
+                type="email"
+                class="input flex-1 text-sm"
+                placeholder="email@exemplo.com"
+              />
+              <label class="flex items-center gap-1 text-xs text-gray-500">
+                <input type="checkbox" v-model="email.principal" class="rounded" />
+                Principal
+              </label>
+              <button 
+                type="button"
+                @click="removerEmail(index)"
+                class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            
+            <p v-if="form.emails_input.length === 0" class="text-sm text-gray-400 italic">
+              Nenhum e-mail adicionado
+            </p>
+          </div>
         </div>
 
         <div>
@@ -311,7 +408,10 @@ const form = ref({
   tipo: 'PADRAO',
   notas: '',
   foto_url: null,
-  redes_sociais_input: []
+  redes_sociais_input: [],
+  telefones_input: [],
+  emails_input: [],
+  tags: []
 })
 
 watch(() => props.show, async (newVal) => {
@@ -341,7 +441,21 @@ watch(() => props.contato, (newContato) => {
       redes_sociais_input: (newContato.redes_sociais || []).map(r => ({
         tipo: r.tipo,
         valor: r.valor
-      }))
+      })),
+      // Converter telefones do formato de leitura para o formato de escrita
+      telefones_input: (newContato.telefones || []).map(t => ({
+        numero: t.numero,
+        tipo: t.tipo,
+        principal: t.principal
+      })),
+      // Converter emails do formato de leitura para o formato de escrita
+      emails_input: (newContato.emails || []).map(e => ({
+        email: e.email,
+        tipo: e.tipo,
+        principal: e.principal
+      })),
+      // Tags (array de IDs)
+      tags: (newContato.tags || [])
     }
     fotoPreview.value = null
     fotoFile.value = null
@@ -400,6 +514,22 @@ function removerRedeSocial(index) {
   form.value.redes_sociais_input.splice(index, 1)
 }
 
+function adicionarTelefone() {
+  form.value.telefones_input.push({ numero: '', tipo: 'CELULAR', principal: false })
+}
+
+function removerTelefone(index) {
+  form.value.telefones_input.splice(index, 1)
+}
+
+function adicionarEmail() {
+  form.value.emails_input.push({ email: '', tipo: 'COMERCIAL', principal: false })
+}
+
+function removerEmail(index) {
+  form.value.emails_input.splice(index, 1)
+}
+
 function handleFotoChange(event) {
   const file = event.target.files[0]
   if (file) {
@@ -441,7 +571,10 @@ function resetForm() {
     tipo: 'PADRAO',
     notas: '',
     foto_url: null,
-    redes_sociais_input: []
+    redes_sociais_input: [],
+    telefones_input: [],
+    emails_input: [],
+    tags: []
   }
   fotoPreview.value = null
   fotoFile.value = null
@@ -475,6 +608,17 @@ async function handleSubmit() {
     // Adicionar redes sociais como JSON
     const redesSociais = (form.value.redes_sociais_input || []).filter(r => r.tipo && r.valor)
     formData.append('redes_sociais_input', JSON.stringify(redesSociais))
+    
+    // Adicionar telefones como JSON
+    const telefones = (form.value.telefones_input || []).filter(t => t.numero)
+    formData.append('telefones_input', JSON.stringify(telefones))
+    
+    // Adicionar emails como JSON
+    const emails = (form.value.emails_input || []).filter(e => e.email)
+    formData.append('emails_input', JSON.stringify(emails))
+    
+    // Adicionar tags como JSON (array de IDs)
+    formData.append('tags_input', JSON.stringify(form.value.tags || []))
     
     const config = {
       headers: {
