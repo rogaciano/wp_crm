@@ -9,13 +9,25 @@
 
     <!-- Filtros -->
     <div class="card mb-6">
-      <input
-        v-model="searchQuery"
-        type="text"
-        placeholder="Buscar por nome, CNPJ ou email..."
-        class="input"
-        @input="loadContas"
-      />
+      <div class="flex flex-col sm:flex-row gap-4">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Buscar por nome, CNPJ ou email..."
+          class="input flex-1"
+          @input="loadContas"
+        />
+        <select 
+          v-model="selectedCanal" 
+          @change="loadContas"
+          class="input sm:w-48"
+        >
+          <option :value="null">Todos os Canais</option>
+          <option v-for="canal in canais" :key="canal.id" :value="canal.id">
+            {{ canal.nome }}
+          </option>
+        </select>
+      </div>
     </div>
 
     <!-- Grid de Cards -->
@@ -95,19 +107,34 @@ import ContaModal from '@/components/ContaModal.vue'
 
 const router = useRouter()
 const contas = ref([])
+const canais = ref([])
 const loading = ref(false)
 const showModal = ref(false)
 const selectedConta = ref(null)
 const searchQuery = ref('')
+const selectedCanal = ref(null)
 
-onMounted(() => {
-  loadContas()
+onMounted(async () => {
+  await loadCanais()
+  await loadContas()
 })
+
+async function loadCanais() {
+  try {
+    const response = await api.get('/canais/')
+    canais.value = response.data.results || response.data
+  } catch (error) {
+    console.error('Erro ao carregar canais:', error)
+  }
+}
 
 async function loadContas() {
   loading.value = true
   try {
     const params = { search: searchQuery.value }
+    if (selectedCanal.value) {
+      params.canal = selectedCanal.value
+    }
     const response = await api.get('/contas/', { params })
     contas.value = response.data.results || response.data
   } catch (error) {
