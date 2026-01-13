@@ -120,7 +120,12 @@
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="contato in contatos" :key="contato.id" class="hover:bg-gray-50">
                 <td class="table-cell">
-                  <div class="font-medium text-gray-900 break-words">{{ contato.nome }}</div>
+                  <div 
+                    @click="viewContato(contato.id)"
+                    class="font-medium text-primary-600 hover:text-primary-700 hover:underline cursor-pointer break-words"
+                  >
+                    {{ contato.nome }}
+                  </div>
                   <div v-if="contato.criado_por_nome" class="text-xs text-gray-500 mt-1">
                     {{ contato.criado_por_nome }} • {{ formatShortDate(contato.data_criacao) }}
                   </div>
@@ -344,8 +349,11 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '@/services/api'
 import ContatoModal from '@/components/ContatoModal.vue'
+
+const router = useRouter()
 
 const contatos = ref([])
 const searchQuery = ref('')
@@ -546,6 +554,10 @@ function handleContatoSaved() {
   // Recarrega a página atual e as estatísticas
   loadContatos(pagination.value.currentPage)
   loadEstatisticas()
+}
+
+function viewContato(id) {
+  router.push(`/contatos/${id}`)
 }
 
 async function deleteContato(id) {

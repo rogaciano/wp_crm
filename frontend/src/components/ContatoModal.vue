@@ -58,12 +58,24 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Empresa (Conta) <span class="text-red-500">*</span>
           </label>
-          <select v-model="form.conta" required class="input">
-            <option value="">Selecione uma conta...</option>
-            <option v-for="conta in contas" :key="conta.id" :value="conta.id">
-              {{ conta.nome_empresa }}
-            </option>
-          </select>
+          <div class="flex gap-2">
+            <select v-model="form.conta" required class="input flex-1">
+              <option value="">Selecione uma conta...</option>
+              <option v-for="conta in contas" :key="conta.id" :value="conta.id">
+                {{ conta.nome_empresa }}
+              </option>
+            </select>
+            <button 
+              type="button"
+              @click="showNovaEmpresaModal = true"
+              class="px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors flex items-center gap-1"
+              title="Criar nova empresa"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div>
@@ -387,12 +399,20 @@
       </div>
     </form>
   </BaseModal>
+  
+  <!-- Modal para criar nova empresa -->
+  <ContaModal
+    :show="showNovaEmpresaModal"
+    @close="showNovaEmpresaModal = false"
+    @saved="handleNovaEmpresaSaved"
+  />
 </template>
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import BaseModal from './BaseModal.vue'
 import PhoneInput from './PhoneInput.vue'
+import ContaModal from './ContaModal.vue'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
@@ -413,6 +433,7 @@ const tiposContato = ref([])
 const canais = ref([])
 const tiposRedeSocial = ref([])
 const tagsDisponiveis = ref([])
+const showNovaEmpresaModal = ref(false)
 
 // Foto do contato
 const fotoPreview = ref(null)
@@ -497,6 +518,22 @@ async function loadContas() {
   } catch (error) {
     console.error('Erro ao carregar contas:', error)
   }
+}
+
+async function handleNovaEmpresaSaved() {
+  // Recarrega a lista de contas
+  await loadContas()
+  
+  // Seleciona a última conta criada (a mais recente)
+  if (contas.value.length > 0) {
+    // Ordena por data de criação (desc) e pega a primeira
+    const contasOrdenadas = [...contas.value].sort((a, b) => 
+      new Date(b.data_criacao) - new Date(a.data_criacao)
+    )
+    form.value.conta = contasOrdenadas[0].id
+  }
+  
+  showNovaEmpresaModal.value = false
 }
 
 async function loadTiposContato() {
