@@ -247,6 +247,42 @@
           </select>
         </div>
 
+        <!-- Tags -->
+        <div class="md:col-span-2 pt-3 mt-2 border-t border-gray-100">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+              </svg>
+              Tags
+            </p>
+          </div>
+          
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="tag in tagsDisponiveis"
+              :key="tag.id"
+              type="button"
+              @click="toggleTag(tag.id)"
+              class="px-3 py-1 text-xs font-medium rounded-full transition-all"
+              :class="form.tags.includes(tag.id) 
+                ? 'ring-2 ring-offset-1 opacity-100' 
+                : 'opacity-50 hover:opacity-75'"
+              :style="{ 
+                backgroundColor: form.tags.includes(tag.id) ? tag.cor : tag.cor + '40',
+                color: form.tags.includes(tag.id) ? '#fff' : tag.cor,
+                ringColor: tag.cor
+              }"
+            >
+              {{ tag.nome }}
+            </button>
+            
+            <p v-if="tagsDisponiveis.length === 0" class="text-sm text-gray-400 italic">
+              Nenhuma tag disponível
+            </p>
+          </div>
+        </div>
+
         <!-- Redes Sociais -->
         <div class="md:col-span-2 pt-3 mt-2 border-t border-gray-100">
           <div class="flex items-center justify-between mb-3">
@@ -376,6 +412,7 @@ const contas = ref([])
 const tiposContato = ref([])
 const canais = ref([])
 const tiposRedeSocial = ref([])
+const tagsDisponiveis = ref([])
 
 // Foto do contato
 const fotoPreview = ref(null)
@@ -408,6 +445,7 @@ watch(() => props.show, async (newVal) => {
     await loadTiposContato()
     await loadCanais()
     await loadTiposRedeSocial()
+    await loadTags()
     
     if (props.fixedContaId) {
       form.value.conta = props.fixedContaId
@@ -485,6 +523,24 @@ async function loadTiposRedeSocial() {
     tiposRedeSocial.value = response.data.results || response.data
   } catch (error) {
     console.error('Erro ao carregar tipos de redes sociais:', error)
+  }
+}
+
+async function loadTags() {
+  try {
+    const response = await api.get('/tags/')
+    tagsDisponiveis.value = response.data.results || response.data
+  } catch (error) {
+    console.error('Erro ao carregar tags:', error)
+  }
+}
+
+function toggleTag(tagId) {
+  const index = form.value.tags.indexOf(tagId)
+  if (index === -1) {
+    form.value.tags.push(tagId)
+  } else {
+    form.value.tags.splice(index, 1)
   }
 }
 

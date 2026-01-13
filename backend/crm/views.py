@@ -24,7 +24,8 @@ from .serializers import (
     ContatoSerializer, TipoContatoSerializer, TipoRedeSocialSerializer, EstagioFunilSerializer, FunilEstagioSerializer, OportunidadeSerializer,
     OportunidadeKanbanSerializer, AtividadeSerializer, LeadConversaoSerializer,
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
-    PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer, LogSerializer
+    PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer, LogSerializer,
+    TagSerializer
 )
 from .services.ai_service import gerar_analise_diagnostico
 from .services.evolution_api import EvolutionService
@@ -811,6 +812,21 @@ class TipoRedeSocialViewSet(viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]
         return [IsAdminUser()]
+
+
+class TagViewSet(viewsets.ModelViewSet):
+    """ViewSet para Tags de Contatos (CRUD apenas Admin, leitura para autenticados)"""
+    serializer_class = TagSerializer
+    
+    def get_queryset(self):
+        from .models import Tag
+        return Tag.objects.all().order_by('nome')
+    
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
+
 
 class ContatoViewSet(viewsets.ModelViewSet):
     """ViewSet para Contatos"""
