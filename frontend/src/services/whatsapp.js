@@ -8,24 +8,24 @@ export const whatsappService = {
     },
 
     sendMessage(data) {
-        // data: { number, text, lead, oportunidade }
+        // data: { number, text, oportunidade }
         return api.post('/whatsapp/send/', data)
     },
 
     sendMedia(data) {
-        // data: { number, media (base64), mediaType, fileName, caption, lead, oportunidade }
+        // data: { number, media (base64), mediaType, fileName, caption, oportunidade }
         return api.post('/whatsapp/send_media/', data)
     },
 
     // Sincroniza mensagens da Evolution API para o banco local
     syncMessages(data) {
-        // data: { number, lead, oportunidade, limit }
+        // data: { number, oportunidade, limit }
         return api.post('/whatsapp/sync/', data)
     },
 
     // Marca mensagens como lidas
     marcarLidas(data) {
-        // data: { number, lead, oportunidade }
+        // data: { number, oportunidade }
         return api.post('/whatsapp/marcar_lidas/', data)
     },
 

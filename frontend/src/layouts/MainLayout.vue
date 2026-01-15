@@ -90,19 +90,7 @@
             <span>Kanban</span>
           </router-link>
 
-          <router-link @click="closeSidebar" to="/leads" class="nav-link" active-class="nav-link-active">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <span class="flex-1">Leads</span>
-            <span 
-              v-if="whatsappUnread.leads > 0" 
-              class="flex items-center justify-center min-w-[20px] h-5 px-1 bg-emerald-500 text-white text-[10px] font-black rounded-full shadow-sm"
-              title="Mensagens não lidas de Leads"
-            >
-              {{ whatsappUnread.leads }}
-            </span>
-          </router-link>
+
 
           <router-link @click="closeSidebar" to="/contas" class="nav-link" active-class="nav-link-active">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

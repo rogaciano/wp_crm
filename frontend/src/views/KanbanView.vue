@@ -2,11 +2,11 @@
   <div>
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
       <div>
-        <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
-          {{ selectedFunil?.tipo === 'LEAD' ? 'Funil SDR (Leads)' : 'Pipeline de Vendas' }}
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 font-outfit">
+          Pipeline de Vendas
         </h1>
-        <p class="text-gray-500 mt-1">
-          {{ selectedFunil?.nome || 'Gerencie seu processo' }}
+        <p class="text-gray-500 mt-1 font-medium">
+          {{ selectedFunil?.nome || 'Gerencie seu processo comercial' }}
         </p>
       </div>
       
@@ -15,7 +15,7 @@
         <select 
           v-model="activeFunilId" 
           @change="onFunilChange"
-          class="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500"
+          class="bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-bold shadow-sm focus:outline-none focus:ring-4 focus:ring-primary-50 transition-all cursor-pointer"
         >
           <option v-for="funil in funis" :key="funil.id" :value="funil.id">
             {{ funil.nome }}
@@ -27,7 +27,7 @@
           v-if="authStore.isAdmin"
           v-model="activeCanalId" 
           @change="onCanalChange"
-          class="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500"
+          class="bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-bold shadow-sm focus:outline-none focus:ring-4 focus:ring-primary-50 transition-all cursor-pointer"
         >
           <option :value="null">Todos os Canais</option>
           <option v-for="canal in canais" :key="canal.id" :value="canal.id">
@@ -35,8 +35,8 @@
           </option>
         </select>
 
-        <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-sm">
-          {{ selectedFunil?.tipo === 'LEAD' ? '+ Novo Lead' : '+ Nova Oportunidade' }}
+        <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-lg shadow-primary-200">
+          + Nova Oportunidade
         </button>
       </div>
     </div>
@@ -47,7 +47,7 @@
         v-for="coluna in kanbanData" 
         :key="'tab-' + coluna.estagio.id"
         @click="scrollToStage(coluna.estagio.id)"
-        class="flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold border transition-all whitespace-nowrap"
+        class="flex-shrink-0 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all whitespace-nowrap"
         :style="{ 
           borderColor: coluna.estagio.cor, 
           backgroundColor: activeStage === coluna.estagio.id ? coluna.estagio.cor : 'transparent',
@@ -58,12 +58,14 @@
       </button>
     </div>
 
-    <div v-if="loading" class="text-center py-12">
-      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+    <div v-if="loading" class="text-center py-24">
+      <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary-100 border-b-primary-600"></div>
+      <p class="mt-4 text-gray-400 font-bold uppercase text-[10px] tracking-widest">Sincronizando pipeline...</p>
     </div>
 
-    <div v-if="error" class="mb-4 p-4 bg-red-50 text-red-600 rounded-xl border border-red-100">
-      {{ error }}
+    <div v-if="error" class="mb-6 p-5 bg-red-50 text-red-600 rounded-2xl border border-red-100 flex items-center gap-3">
+      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      <span class="font-bold text-sm">{{ error }}</span>
     </div>
 
     <div v-else 
@@ -75,28 +77,28 @@
         v-for="coluna in kanbanData"
         :key="coluna.estagio.id"
         :id="'stage-' + coluna.estagio.id"
-        class="flex-shrink-0 w-[280px] sm:w-80 snap-center"
+        class="flex-shrink-0 w-[280px] sm:w-[320px] snap-center"
       >
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
+        <div class="bg-white/50 rounded-3xl border border-gray-100 h-full flex flex-col group/col">
           <!-- Header da Coluna -->
           <div
-            class="p-4 border-b border-gray-50 bg-gray-50/30 rounded-t-2xl"
+            class="p-5 border-b border-gray-100 bg-white rounded-t-3xl shadow-sm"
             :style="{ borderTopColor: coluna.estagio.cor, borderTopWidth: '4px' }"
           >
             <div class="flex justify-between items-center">
-              <h3 class="font-bold text-gray-900 truncate">{{ coluna.estagio.nome }}</h3>
-              <span class="text-[10px] font-black bg-white px-2 py-0.5 rounded-full border border-gray-100">
+              <h3 class="font-black text-gray-800 uppercase text-[10px] tracking-widest truncate">{{ coluna.estagio.nome }}</h3>
+              <span class="text-[10px] font-black bg-gray-50 px-2 py-0.5 rounded-lg border border-gray-100 text-gray-400">
                 {{ coluna.items.length }}
               </span>
             </div>
-            <p v-if="selectedFunil?.tipo === 'OPORTUNIDADE'" class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-               Total: R$ {{ calcularTotalColuna(coluna.items).toLocaleString() }}
+            <p class="text-[10px] text-primary-600 font-black uppercase tracking-widest mt-2">
+               Vol: R$ {{ calcularTotalColuna(coluna.items).toLocaleString() }}
             </p>
           </div>
 
           <!-- Cards -->
           <div
-            class="p-3 space-y-3 flex-1 overflow-y-auto custom-scrollbar"
+            class="p-4 space-y-4 flex-1 overflow-y-auto custom-scrollbar"
             style="max-height: calc(100vh - 350px);"
             @drop="onDrop($event, coluna.estagio.id)"
             @dragover.prevent
@@ -108,93 +110,61 @@
               draggable="true"
               @dragstart="onDragStart($event, item)"
               @click="editItem(item)"
-              class="bg-white border border-gray-100 rounded-xl p-4 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-primary-100 transition-all duration-200 group relative"
+              class="bg-white border border-gray-100 rounded-2xl p-4 cursor-grab active:cursor-grabbing hover:shadow-xl hover:shadow-gray-100 hover:border-primary-100 transition-all duration-300 group relative"
             >
               <!-- Badge de tipo -->
-              <span 
-                class="absolute top-2 left-2 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded"
-                :class="selectedFunil?.tipo === 'LEAD' 
-                  ? 'bg-blue-100 text-blue-600' 
-                  : 'bg-emerald-100 text-emerald-600'"
-              >
-                {{ selectedFunil?.tipo === 'LEAD' ? 'LEAD' : 'OPORT.' }}
+              <span class="absolute top-4 right-4 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                OPORTUNIDADE
               </span>
               
-              <h4 class="font-bold text-gray-900 mb-2 leading-tight group-hover:text-primary-600 mt-4">{{ item.nome }}</h4>
+              <h4 class="font-black text-gray-800 mb-3 leading-tight group-hover:text-primary-600 transition-colors pr-20">{{ item.nome }}</h4>
               
-              <div class="text-[11px] text-gray-500 space-y-2">
-                <p class="flex items-center font-medium">
-                  <svg class="w-3.5 h-3.5 mr-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path v-if="selectedFunil?.tipo === 'OPORTUNIDADE'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  {{ selectedFunil?.tipo === 'OPORTUNIDADE' ? item.conta_nome : (item.email || item.empresa || 'N/A') }}
+              <div class="text-[11px] text-gray-500 space-y-2.5">
+                <p class="flex items-center font-bold text-gray-400">
+                  <svg class="w-3.5 h-3.5 mr-2 opacity-50 font-black" fill="currentColor" viewBox="0 0 24 24"><path d="M21 13v10h-6v-6h-6v6h-6v-10l9-9z"/></svg>
+                  <span class="truncate">{{ item.conta_nome || 'Particular' }}</span>
+                </p>
+                <p v-if="item.contato_nome" class="flex items-center font-bold text-gray-400">
+                  <svg class="w-3.5 h-3.5 mr-2 opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a5 5 0 105 5 5 5 0 00-5-5zm0 12c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z"/></svg>
+                  <span class="truncate">{{ item.contato_nome }}</span>
                 </p>
                 
-                <div v-if="selectedFunil?.tipo === 'OPORTUNIDADE'" class="flex justify-between items-end mt-4">
+                <div class="mt-4 pt-4 border-t border-gray-50 flex justify-between items-end">
                   <div>
                     <p v-if="item.valor_estimado" class="text-sm font-black text-green-600">
                       R$ {{ Number(item.valor_estimado).toLocaleString('pt-BR') }}
                     </p>
-                    <p v-if="item.data_fechamento_esperada" class="text-[10px] font-bold text-gray-400 mt-1">
+                    <p v-if="item.data_fechamento_esperada" class="text-[9px] font-black text-gray-300 uppercase tracking-tighter mt-1">
                       {{ formatDate(item.data_fechamento_esperada) }}
                     </p>
                   </div>
-                  <div class="text-right">
+                  <div class="text-right flex flex-col items-end">
                     <div v-if="item.probabilidade" class="w-12 h-1 bg-gray-100 rounded-full overflow-hidden mb-1">
                        <div class="h-full bg-primary-500" :style="{ width: item.probabilidade + '%' }"></div>
                     </div>
-                    <span class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">{{ item.probabilidade }}%</span>
+                    <span class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">{{ item.probabilidade || 0 }}% Prob.</span>
                   </div>
                 </div>
 
-                <div class="mt-4 flex flex-col space-y-1">
-                   <p v-if="item.indicador_nome" class="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter flex items-center">
-                     <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                     Ind: {{ item.indicador_nome }}
-                   </p>
-                   <p class="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{{ item.fonte || 'Fonte não informada' }}</p>
+                <div v-if="item.indicador_nome" class="mt-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-50/50 w-fit">
+                   <span class="text-[8px] font-black text-indigo-400 uppercase tracking-widest">Ind: {{ item.indicador_nome }}</span>
                 </div>
               </div>
 
-              <div class="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                 <!-- Botão Faturamento -->
-                 <button 
-                  v-if="selectedFunil?.tipo === 'OPORTUNIDADE'"
-                  @click.stop="openFaturamentoModal(item)" 
-                  class="p-1 bg-white shadow-sm border border-gray-100 rounded text-emerald-500 hover:text-emerald-700 hover:border-emerald-100 transition-all"
-                  title="Faturamento"
-                 >
+              <!-- Ações flutuantes -->
+              <div class="absolute -top-3 left-1/2 -translate-x-1/2 flex scale-90 space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 pointer-events-none group-hover:pointer-events-auto">
+                 <button @click.stop="openFaturamentoModal(item)" class="action-btn text-emerald-600 bg-white border border-emerald-100 shadow-lg" title="Faturamento">
                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                  </button>
-                 <!-- Botão Copiar Faturamento (só se tem plano) -->
-                 <button 
-                  v-if="selectedFunil?.tipo === 'OPORTUNIDADE' && item.plano"
-                  @click.stop="copyBillingInfo(item.id)" 
-                  class="p-1 bg-white shadow-sm border border-gray-100 rounded text-indigo-500 hover:text-indigo-700 hover:border-indigo-100 transition-all"
-                  title="Copiar texto de faturamento"
-                 >
+                 <button v-if="item.plano" @click.stop="copyBillingInfo(item.id)" class="action-btn text-indigo-600 bg-white border border-indigo-100 shadow-lg" title="Copiar Faturamento">
                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
                  </button>
-                 <!-- Botão Proposta Comercial (só se tem plano) -->
-                 <button 
-                  v-if="selectedFunil?.tipo === 'OPORTUNIDADE' && item.plano"
-                  @click.stop="openPropostaPreview(item.id)" 
-                  class="p-1 bg-white shadow-sm border border-gray-100 rounded text-purple-500 hover:text-purple-700 hover:border-purple-100 transition-all"
-                  title="Gerar Proposta Comercial"
-                 >
-                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                 <button v-if="item.plano" @click.stop="openPropostaPreview(item.id)" class="action-btn text-purple-600 bg-white border border-purple-100 shadow-lg" title="Gerar Proposta">
+                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1.01.293.707V19a2 2 0 01-2 2z" /></svg>
                  </button>
-                 <button @click.stop="editItem(item)" class="p-1 bg-white shadow-sm border border-gray-100 rounded text-gray-300 hover:text-primary-500 hover:border-primary-100 transition-all">
-                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                 </button>
-                 <button 
-                  @click.stop="openWhatsapp(item)" 
-                  class="p-1 bg-white shadow-sm border border-gray-100 rounded text-emerald-500 hover:text-emerald-700 hover:border-emerald-100 transition-all relative"
-                  title="Abrir WhatsApp"
-                 >
+                 <button @click.stop="openWhatsapp(item)" class="action-btn text-green-600 bg-white border border-green-100 shadow-lg relative" title="WhatsApp">
                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
-                   <span v-if="item.whatsapp_nao_lidas > 0" class="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[8px] font-black text-white ring-2 ring-white">
+                   <span v-if="item.whatsapp_nao_lidas > 0" class="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-black text-white ring-2 ring-white">
                      {{ item.whatsapp_nao_lidas }}
                    </span>
                  </button>
@@ -202,27 +172,21 @@
             </div>
             
             <!-- Empty column hint -->
-            <div v-if="coluna.items.length === 0" class="h-32 border-2 border-dashed border-gray-50 rounded-xl flex items-center justify-center">
-               <p class="text-xs text-gray-300 font-bold uppercase tracking-widest">Vazio</p>
+            <div v-if="coluna.items.length === 0" class="h-32 border-2 border-dashed border-gray-100 rounded-3xl flex items-center justify-center bg-white/30 group-hover/col:border-primary-100 transition-colors">
+               <p class="text-[10px] text-gray-300 font-black uppercase tracking-widest italic tracking-tighter">Pronto para novos negócios</p>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Modal -->
+    <!-- Modals -->
     <OportunidadeModal
       :show="showModal"
       :oportunidade="selectedOportunidade"
+      :fixed-funil-id="activeFunilId"
+      :fixed-estagio-id="activeContextEstagioId"
       @close="closeModal"
-      @saved="handleSaved"
-    />
-
-    <LeadModal
-      :show="showLeadModal"
-      :lead="selectedLead"
-      :initialFunilId="activeFunilId"
-      @close="showLeadModal = false"
       @saved="handleSaved"
     />
 
@@ -230,7 +194,6 @@
       :show="showWhatsapp"
       :number="whatsappData.number"
       :title="whatsappData.title"
-      :lead="whatsappData.lead"
       :oportunidade="whatsappData.oportunidade"
       @close="showWhatsapp = false"
       @messagesRead="whatsappStore.fetchUnreadCounts"
@@ -252,7 +215,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useWhatsappStore } from '@/stores/whatsapp'
 import { storeToRefs } from 'pinia'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
-import LeadModal from '@/components/LeadModal.vue'
 import WhatsappChat from '@/components/WhatsappChat.vue'
 import FaturamentoModal from '@/components/FaturamentoModal.vue'
 import api from '@/services/api'
@@ -267,16 +229,14 @@ const activeFunilId = ref(null)
 const activeCanalId = ref(null)
 const canais = ref([])
 const showModal = ref(false)
-const showLeadModal = ref(false)
 const selectedOportunidade = ref(null)
-const selectedLead = ref(null)
 const draggedItem = ref(null)
+const activeContextEstagioId = ref(null)
 
 const showWhatsapp = ref(false)
 const whatsappData = ref({
   number: '',
   title: '',
-  lead: null,
   oportunidade: null
 })
 
@@ -331,9 +291,11 @@ async function fetchCanais() {
 }
 
 async function fetchFunnels() {
+  // Filtramos apenas funis do tipo OPORTUNIDADE para o Kanban (limpeza técnica)
   const list = await oportunidadesStore.fetchFunis()
-  if (list && list.length > 0) {
-    activeFunilId.value = list[0].id
+  const oppFunis = list.filter(f => f.tipo === 'OPORTUNIDADE')
+  if (oppFunis.length > 0) {
+    activeFunilId.value = oppFunis[0].id
     await loadKanban()
   }
 }
@@ -368,12 +330,7 @@ async function onDrop(event, novoEstagioId) {
   if (estagioAtualId === novoEstagioId) return
   
   try {
-    if (selectedFunil.value?.tipo === 'LEAD') {
-      await api.patch(`/leads/${itemId}/mudar_estagio/`, { estagio_id: novoEstagioId })
-      await loadKanban()
-    } else {
-      await oportunidadesStore.mudarEstagio(itemId, novoEstagioId)
-    }
+    await oportunidadesStore.mudarEstagio(itemId, novoEstagioId)
   } catch (error) {
     console.error('Erro ao mover item:', error)
   }
@@ -387,24 +344,15 @@ function formatDate(dateString) {
   return date.toLocaleDateString('pt-BR')
 }
 
-function openCreateModal() {
-  if (selectedFunil.value?.tipo === 'LEAD') {
-    selectedLead.value = null
-    showLeadModal.value = true
-  } else {
-    selectedOportunidade.value = null
-    showModal.value = true
-  }
+function openCreateModal(estagioId = null) {
+  selectedOportunidade.value = null
+  activeContextEstagioId.value = typeof estagioId === 'number' ? estagioId : null
+  showModal.value = true
 }
 
 function editItem(item) {
-  if (selectedFunil.value?.tipo === 'LEAD') {
-    selectedLead.value = item
-    showLeadModal.value = true
-  } else {
-    selectedOportunidade.value = item
-    showModal.value = true
-  }
+  selectedOportunidade.value = item
+  showModal.value = true
 }
 
 function closeModal() {
@@ -425,18 +373,17 @@ async function copyBillingInfo(id) {
     alert('Texto de faturamento copiado para a área de transferência! 📋')
   } catch (error) {
     console.error('Erro ao gerar texto:', error)
-    alert('Erro ao gerar texto de faturamento. Verifique se o plano está selecionado na oportunidade.')
+    alert('Erro ao gerar texto de faturamento.')
   }
 }
 
 function openWhatsapp(item) {
-  const number = selectedFunil.value?.tipo === 'LEAD' ? item.telefone : item.contato_telefone
+  const number = item.contato_telefone
   if (!number) {
     alert('Contato sem telefone cadastrado.')
     return
   }
   
-  // Remove formatação do telefone
   let cleanNumber = number.replace(/\D/g, '')
   if (!cleanNumber.startsWith('55') && cleanNumber.length <= 11) {
     cleanNumber = '55' + cleanNumber
@@ -445,8 +392,7 @@ function openWhatsapp(item) {
   whatsappData.value = {
     number: cleanNumber,
     title: item.nome,
-    lead: selectedFunil.value?.tipo === 'LEAD' ? item.id : null,
-    oportunidade: selectedFunil.value?.tipo === 'OPORTUNIDADE' ? item.id : null
+    oportunidade: item.id
   }
   showWhatsapp.value = true
 }
@@ -458,23 +404,24 @@ function openFaturamentoModal(item) {
 
 async function openPropostaPreview(id) {
   try {
-    // Abre a proposta em uma nova aba
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
-    const token = localStorage.getItem('access_token')
-    
-    // Busca o HTML da proposta
     const response = await api.get(`/oportunidades/${id}/gerar_proposta/?formato=html`, {
       responseType: 'text'
     })
-    
-    // Abre em nova janela
     const win = window.open('', '_blank')
     win.document.write(response.data)
     win.document.close()
-    
   } catch (error) {
     console.error('Erro ao gerar proposta:', error)
-    alert('Erro ao gerar proposta. Verifique se o plano está selecionado na oportunidade.')
+    alert('Erro ao gerar proposta.')
   }
 }
 </script>
+
+<style scoped>
+.font-outfit { font-family: 'Outfit', sans-serif; }
+.btn { @apply px-5 py-2.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2; }
+.btn-primary { @apply bg-primary-600 text-white hover:bg-primary-700 shadow-primary-100; }
+.action-btn { @apply p-2 rounded-xl transition-all hover:scale-110 active:scale-90 pointer-events-auto; }
+.custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { @apply bg-gray-200 rounded-full; }
+</style>

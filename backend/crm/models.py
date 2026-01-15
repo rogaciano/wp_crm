@@ -108,87 +108,6 @@ class User(AbstractUser):
         super().save(*args, **kwargs)
 
 
-class Lead(models.Model):
-    """Lead - Prospecto inicial não qualificado"""
-    STATUS_NOVO = 'Novo'
-    STATUS_CONTATADO = 'Contatado'
-    STATUS_QUALIFICADO = 'Qualificado'
-    STATUS_CONVERTIDO = 'Convertido'
-    STATUS_DESCARTADO = 'Descartado'
-    
-    STATUS_CHOICES = [
-        (STATUS_NOVO, 'Novo'),
-        (STATUS_CONTATADO, 'Contatado'),
-        (STATUS_QUALIFICADO, 'Qualificado'),
-        (STATUS_CONVERTIDO, 'Convertido'),
-        (STATUS_DESCARTADO, 'Descartado'),
-    ]
-    
-    nome = models.CharField(max_length=255)
-    email = models.EmailField(null=True, blank=True, validators=[EmailValidator()])
-    telefone = models.CharField(max_length=20, null=True, blank=True)
-    empresa = models.CharField(max_length=255, null=True, blank=True)
-    cargo = models.CharField(max_length=100, null=True, blank=True)
-    fonte = models.CharField(max_length=100, null=True, blank=True, help_text='Ex: Site, Evento, Indicação')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_NOVO)
-    
-    # Novos campos para Funil SDR
-    funil = models.ForeignKey(
-        'Funil',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='leads',
-        help_text='Funil SDR onde este lead está'
-    )
-    estagio = models.ForeignKey(
-        'EstagioFunil',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='leads',
-        help_text='Estágio atual do lead no funil SDR'
-    )
-    canal = models.ForeignKey(
-        'Canal',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='leads',
-        help_text='Canal ao qual este lead pertence'
-    )
-    
-    notas = models.TextField(null=True, blank=True)
-    proprietario = models.ForeignKey(User, on_delete=models.PROTECT, related_name='leads')
-    data_criacao = models.DateTimeField(auto_now_add=True)
-    data_atualizacao = models.DateTimeField(auto_now=True)
-    
-    # Relação polimórfica com Atividades
-    atividades = GenericRelation('Atividade')
-    
-    # Rastreabilidade de conversão
-    oportunidade_convertida = models.ForeignKey(
-        'Oportunidade',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='lead_origem',
-        help_text='Oportunidade gerada a partir deste lead'
-    )
-
-    class Meta:
-        verbose_name = 'Lead'
-        verbose_name_plural = 'Leads'
-        ordering = ['-data_criacao']
-        indexes = [
-            models.Index(fields=['proprietario', 'status']),
-            models.Index(fields=['canal', 'status']),
-            models.Index(fields=['email']),
-            models.Index(fields=['funil', 'estagio']),
-        ]
-
-    def __str__(self):
-        return f"{self.nome} - {self.estagio.nome if self.estagio else self.status}"
 
 
 class Conta(models.Model):
@@ -484,12 +403,10 @@ class ContatoRedeSocial(models.Model):
 
 class Funil(models.Model):
     """Representa um Funil de Vendas (SDR, Vendas, etc)"""
-    TIPO_LEAD = 'LEAD'
     TIPO_OPORTUNIDADE = 'OPORTUNIDADE'
     
     TIPO_CHOICES = [
-        (TIPO_LEAD, 'Leads (SDR)'),
-        (TIPO_OPORTUNIDADE, 'Oportunidades (Vendas)'),
+        (TIPO_OPORTUNIDADE, 'Oportunidades'),
     ]
     
     nome = models.CharField(max_length=100)
@@ -617,14 +534,30 @@ class Oportunidade(models.Model):
     conta = models.ForeignKey(
         Conta,
         on_delete=models.CASCADE,
-        related_name='oportunidades'
+        related_name='oportunidades_diretas',
+        null=True,
+        blank=True
     )
+    # Novas relações ManyToMany para flexibilidade total
+    empresas = models.ManyToManyField(
+        Conta,
+        related_name='oportunidades',
+        blank=True,
+        help_text='Empresas vinculadas a esta oportunidade'
+    )
+    contatos = models.ManyToManyField(
+        Contato,
+        related_name='oportunidades',
+        blank=True,
+        help_text='Contatos vinculados a esta oportunidade'
+    )
+    
     contato_principal = models.ForeignKey(
         Contato,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='oportunidades'
+        related_name='oportunidades_principais_contato'
     )
     proprietario = models.ForeignKey(
         User,
@@ -733,6 +666,30 @@ class OportunidadeAdicional(models.Model):
     class Meta:
         verbose_name = 'Adicional da Oportunidade'
         verbose_name_plural = 'Adicionais da Oportunidade'
+
+
+class OportunidadeAnexo(models.Model):
+    """Anexos vinculados a uma oportunidade"""
+    oportunidade = models.ForeignKey(
+        Oportunidade,
+        on_delete=models.CASCADE,
+        related_name='anexos'
+    )
+    arquivo = models.FileField(upload_to='oportunidades/anexos/')
+    nome = models.CharField(max_length=255)
+    descricao = models.TextField(null=True, blank=True)
+    data_upload = models.DateTimeField(auto_now_add=True)
+    uploaded_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    
+    class Meta:
+        verbose_name = 'Anexo da Oportunidade'
+        verbose_name_plural = 'Anexos da Oportunidade'
+        ordering = ['-data_upload']
 
 
 class Atividade(models.Model):
@@ -845,9 +802,9 @@ class DiagnosticoResposta(models.Model):
 
 
 class DiagnosticoResultado(models.Model):
-    """Resultado final do diagnóstico vinculado a um Lead ou Conta"""
-    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='diagnosticos', null=True, blank=True)
+    """Resultado final do diagnóstico vinculado a um Lead, Conta ou Oportunidade"""
     conta = models.ForeignKey(Conta, on_delete=models.CASCADE, related_name='diagnosticos', null=True, blank=True)
+    oportunidade = models.ForeignKey(Oportunidade, on_delete=models.CASCADE, related_name='diagnosticos', null=True, blank=True)
     data_conclusao = models.DateTimeField(auto_now_add=True)
     
     # Armazena as respostas brutas para histórico
@@ -865,7 +822,7 @@ class DiagnosticoResultado(models.Model):
         ordering = ['-data_conclusao']
 
     def __str__(self):
-        entidade = self.lead.nome if self.lead else (self.conta.nome_empresa if self.conta else "N/A")
+        entidade = self.conta.nome_empresa if self.conta else "N/A"
         return f"Diagnóstico: {entidade} em {self.data_conclusao.strftime('%d/%m/%Y')}"
 
 
@@ -875,7 +832,6 @@ class WhatsappMessage(models.Model):
     instancia = models.CharField(max_length=100)
     
     # Relacionamentos (opcionais, vinculados pelo número)
-    lead = models.ForeignKey(Lead, on_delete=models.SET_NULL, null=True, blank=True, related_name='mensagens_whatsapp')
     oportunidade = models.ForeignKey(Oportunidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='mensagens_whatsapp')
     
     de_mim = models.BooleanField(default=False, help_text="True se enviada pelo CRM, False se recebida")
@@ -943,7 +899,7 @@ class Log(models.Model):
     acao = models.CharField(max_length=20, choices=ACAO_CHOICES)
 
     # Modelo afetado (nome do modelo Django)
-    modelo = models.CharField(max_length=100, help_text='Nome do modelo afetado (ex: Contato, Lead, Oportunidade)')
+    modelo = models.CharField(max_length=100, help_text='Nome do modelo afetado (ex: Contato, Conta, Oportunidade)')
 
     # ID do objeto afetado
     objeto_id = models.PositiveIntegerField(null=True, blank=True, help_text='ID do objeto afetado')
@@ -986,24 +942,14 @@ class Log(models.Model):
 class HistoricoEstagio(models.Model):
     """Histórico de mudanças de estágio para Leads e Oportunidades"""
     
-    TIPO_LEAD = 'LEAD'
     TIPO_OPORTUNIDADE = 'OPORTUNIDADE'
     TIPO_CHOICES = [
-        (TIPO_LEAD, 'Lead'),
         (TIPO_OPORTUNIDADE, 'Oportunidade'),
     ]
     
     # Tipo do objeto (Lead ou Oportunidade)
     tipo_objeto = models.CharField(max_length=20, choices=TIPO_CHOICES)
     
-    # IDs dos objetos relacionados (opcional, para rastreamento)
-    lead = models.ForeignKey(
-        'Lead',
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='historico_estagios'
-    )
     oportunidade = models.ForeignKey(
         'Oportunidade',
         on_delete=models.CASCADE,
@@ -1052,12 +998,11 @@ class HistoricoEstagio(models.Model):
         verbose_name_plural = 'Históricos de Estágios'
         ordering = ['-data_mudanca']
         indexes = [
-            models.Index(fields=['lead', 'data_mudanca']),
             models.Index(fields=['oportunidade', 'data_mudanca']),
             models.Index(fields=['tipo_objeto', 'data_mudanca']),
         ]
     
     def __str__(self):
         usuario_nome = self.usuario.get_full_name() if self.usuario else 'Sistema'
-        obj_id = self.lead_id or self.oportunidade_id
+        obj_id = self.oportunidade_id
         return f"{self.tipo_objeto} #{obj_id}: {self.nome_estagio_anterior} → {self.nome_estagio_novo} por {usuario_nome}"

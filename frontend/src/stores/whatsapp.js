@@ -3,7 +3,7 @@ import api from '@/services/api'
 
 export const useWhatsappStore = defineStore('whatsapp', {
     state: () => ({
-        unreadCounts: { leads: 0, oportunidades: 0, total: 0 },
+        unreadCounts: { novas: 0, oportunidades: 0, total: 0 },
         loading: false,
         error: null,
         lastUpdated: null

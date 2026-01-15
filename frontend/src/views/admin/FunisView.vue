@@ -17,7 +17,6 @@
             <thead class="bg-gray-50">
               <tr>
                 <th class="table-header">Nome</th>
-                <th class="table-header">Tipo</th>
                 <th class="table-header">Status</th>
                 <th class="table-header text-center">Acesso</th>
                 <th class="table-header text-right">Ações</th>
@@ -26,14 +25,6 @@
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="funil in funis" :key="funil.id" class="hover:bg-gray-50">
                 <td class="table-cell font-bold text-gray-900">{{ funil.nome }}</td>
-                <td class="table-cell">
-                  <span 
-                    class="px-2 py-1 text-[10px] font-black rounded-full uppercase tracking-wider"
-                    :class="funil.tipo === 'LEAD' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'"
-                  >
-                    {{ funil.tipo === 'LEAD' ? 'Leads (SDR)' : 'Oportunidades' }}
-                  </span>
-                </td>
                 <td class="table-cell">
                   <span 
                     class="px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-tighter"
@@ -70,12 +61,6 @@
             </div>
             
             <div class="flex items-center space-x-2 mt-2">
-              <span 
-                class="px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-tighter"
-                :class="funil.tipo === 'LEAD' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'"
-              >
-                {{ funil.tipo === 'LEAD' ? 'SDR' : 'Vendas' }}
-              </span>
               <span class="text-[10px] text-gray-400 font-bold uppercase">{{ funil.usuarios?.length || 0 }} usuários com acesso</span>
             </div>
 

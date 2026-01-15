@@ -6,10 +6,10 @@ from rest_framework import serializers
 from django.db import transaction
 from django.contrib.auth.password_validation import validate_password
 from .models import (
-    Canal, User, Lead, Conta, Contato, TipoContato, TipoRedeSocial, ContatoRedeSocial,
+    Canal, User, Conta, Contato, TipoContato, TipoRedeSocial, ContatoRedeSocial,
     Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
-    Plano, PlanoAdicional, OportunidadeAdicional, WhatsappMessage, Log
+    Plano, PlanoAdicional, OportunidadeAdicional, OportunidadeAnexo, WhatsappMessage, Log
 )
 
 
@@ -230,12 +230,14 @@ class DiagnosticoPilarSerializer(serializers.ModelSerializer):
 
 
 class DiagnosticoResultadoSerializer(serializers.ModelSerializer):
-    lead_nome = serializers.CharField(source='lead.nome', read_only=True)
+    conta_nome = serializers.CharField(source='conta.nome_empresa', read_only=True)
+    oportunidade_nome = serializers.CharField(source='oportunidade.nome', read_only=True)
     
     class Meta:
         model = DiagnosticoResultado
         fields = [
-            'id', 'lead', 'lead_nome', 'data_conclusao',
+            'id', 'conta', 'conta_nome', 
+            'oportunidade', 'oportunidade_nome', 'data_conclusao',
             'respostas_detalhadas', 'pontuacao_por_pilar', 'analise_ia'
         ]
         read_only_fields = ['data_conclusao']
@@ -248,6 +250,10 @@ class DiagnosticoPublicSubmissionSerializer(serializers.Serializer):
     telefone = serializers.CharField(max_length=20, required=False, allow_blank=True)
     empresa = serializers.CharField(max_length=255, required=False, allow_blank=True)
     
+    # Novos campos para vincular a entidades existentes
+    contato_id = serializers.IntegerField(required=False, allow_null=True)
+    oportunidade_id = serializers.IntegerField(required=False, allow_null=True)
+    
     # Lista de IDs das respostas escolhidas
     respostas_ids = serializers.ListField(
         child=serializers.IntegerField(),
@@ -255,99 +261,6 @@ class DiagnosticoPublicSubmissionSerializer(serializers.Serializer):
     )
 
 
-class LeadSerializer(serializers.ModelSerializer):
-    proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
-    proprietario_canal = serializers.SerializerMethodField()
-    proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
-    diagnosticos = DiagnosticoResultadoSerializer(many=True, read_only=True)
-    funil_nome = serializers.CharField(source='funil.nome', read_only=True)
-    estagio_nome = serializers.CharField(source='estagio.nome', read_only=True)
-    estagio_cor = serializers.CharField(source='estagio.cor', read_only=True)
-    canal_nome = serializers.CharField(source='canal.nome', read_only=True)
-    
-    # Rastreabilidade de conversão
-    oportunidade_convertida_nome = serializers.CharField(source='oportunidade_convertida.nome', read_only=True)
-    oportunidade_convertida_canal = serializers.CharField(source='oportunidade_convertida.canal.nome', read_only=True)
-    
-    whatsapp_nao_lidas = serializers.SerializerMethodField()
-    telefone_formatado = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Lead
-        fields = [
-            'id', 'nome', 'email', 'telefone', 'telefone_formatado', 'empresa', 'cargo',
-            'fonte', 'status', 'funil', 'funil_nome', 'estagio', 'estagio_nome', 'estagio_cor',
-            'canal', 'canal_nome',
-            'notas', 'proprietario', 'proprietario_nome', 'proprietario_canal',
-            'diagnosticos', 'whatsapp_nao_lidas', 
-            'oportunidade_convertida', 'oportunidade_convertida_nome', 'oportunidade_convertida_canal',
-            'data_criacao', 'data_atualizacao'
-        ]
-        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos', 'whatsapp_nao_lidas', 'telefone_formatado', 'oportunidade_convertida', 'oportunidade_convertida_nome', 'oportunidade_convertida_canal']
-
-    def get_whatsapp_nao_lidas(self, obj):
-        """
-        Conta mensagens não lidas respeitando o canal do usuário.
-        Se o lead tem canal definido, conta apenas mensagens desse canal.
-        Se o usuário não é admin, conta apenas mensagens do seu canal.
-        """
-        mensagens_query = obj.mensagens_whatsapp.filter(lida=False, de_mim=False)
-
-        # Se o usuário estiver disponível no contexto, filtrar por canal
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            user = request.user
-
-            # Se não é admin, precisa filtrar por canal
-            if user.perfil != 'ADMIN':
-                # Se o lead tem canal, usa o canal do lead
-                # Se não tem, usa o canal do proprietário do lead
-                canal_lead = obj.canal or (obj.proprietario.canal if obj.proprietario else None)
-
-                # Se o canal do lead é diferente do canal do usuário, retorna 0
-                if canal_lead and user.canal and canal_lead.id != user.canal.id:
-                    return 0
-
-        return mensagens_query.count()
-    
-    def get_proprietario_canal(self, obj):
-        return obj.proprietario.canal.id if obj.proprietario and obj.proprietario.canal else None
-    
-    def get_telefone_formatado(self, obj):
-        """Retorna o telefone formatado para exibição: (81) 9 9921-6560"""
-        return format_phone_display(obj.telefone) if obj.telefone else ''
-    
-    def validate_telefone(self, value):
-        """Valida e normaliza o telefone para formato brasileiro padrão"""
-        if not value:
-            return value
-        
-        normalized = normalize_phone_brazil(value)
-        if not normalized:
-            raise serializers.ValidationError(
-                "Telefone inválido. Use o formato: (DDD) 9 XXXX-XXXX ou apenas os números."
-            )
-        return normalized
-
-    def create(self, validated_data):
-        # Define o proprietário como o usuário logado
-        if 'request' in self.context and self.context['request'].user.is_authenticated:
-            validated_data['proprietario'] = self.context['request'].user
-        
-        # Se não informou funil/estágio, busca o padrão
-        if not validated_data.get('funil'):
-            funil_padrao = Funil.objects.filter(tipo=Funil.TIPO_LEAD, is_active=True).first()
-            if funil_padrao:
-                validated_data['funil'] = funil_padrao
-                if not validated_data.get('estagio'):
-                    estagio_padrao = EstagioFunil.objects.filter(funil=funil_padrao, is_padrao=True).first()
-                    if estagio_padrao:
-                        validated_data['estagio'] = estagio_padrao
-        
-        return super().create(validated_data)
-    
-    def update(self, instance, validated_data):
-        return super().update(instance, validated_data)
 
 
 class ContaSerializer(serializers.ModelSerializer):
@@ -469,6 +382,7 @@ class ContatoSerializer(serializers.ModelSerializer):
     emails = ContatoEmailSerializer(many=True, read_only=True)
     tags_detail = TagSerializer(source='tags', many=True, read_only=True)
     anexos = ContatoAnexoSerializer(many=True, read_only=True)
+    oportunidades = serializers.SerializerMethodField()
 
     # Campos de auditoria
     criado_por_nome = serializers.CharField(source='criado_por.get_full_name', read_only=True)
@@ -481,7 +395,7 @@ class ContatoSerializer(serializers.ModelSerializer):
             'departamento', 'chave_pix', 'foto', 'foto_url', 'tipo_contato', 'tipo_contato_nome', 'tipo_contato_emoji', 'tipo',
             'conta', 'conta_nome', 'canal', 'canal_nome',
             'proprietario', 'proprietario_nome', 'notas',
-            'redes_sociais', 'telefones', 'emails', 'tags', 'tags_detail', 'anexos',
+            'redes_sociais', 'telefones', 'emails', 'tags', 'tags_detail', 'anexos', 'oportunidades',
             'data_criacao', 'data_atualizacao',
             'criado_por', 'criado_por_nome', 'atualizado_por', 'atualizado_por_nome'
         ]
@@ -504,6 +418,18 @@ class ContatoSerializer(serializers.ModelSerializer):
     
     def get_celular_formatado(self, obj):
         return format_phone_display(obj.celular) if obj.celular else ''
+    
+    def get_oportunidades(self, obj):
+        """Retorna as oportunidades vinculadas a este contato"""
+        opps = obj.oportunidades.all()
+        return [{
+            'id': opp.id,
+            'nome': opp.nome,
+            'valor_estimado': opp.valor_estimado,
+            'estagio_nome': opp.estagio.nome,
+            'estagio_cor': opp.estagio.cor,
+            'data_atualizacao': opp.data_atualizacao
+        } for opp in opps]
     
     def validate_telefone(self, value):
         """Valida telefone FIXO - aceita com ou sem o 9º dígito"""
@@ -714,7 +640,7 @@ class EstagioFunilSerializer(serializers.ModelSerializer):
         fields = ['id', 'nome', 'tipo', 'cor', 'total_oportunidades']
     
     def get_total_oportunidades(self, obj):
-        return obj.oportunidades.count() + obj.leads.count()
+        return obj.oportunidades.count()
 
 
 class FunilEstagioSerializer(serializers.ModelSerializer):
@@ -763,8 +689,17 @@ class OportunidadeAdicionalSerializer(serializers.ModelSerializer):
         fields = ['id', 'adicional', 'adicional_nome', 'adicional_preco', 'adicional_unidade', 'quantidade']
 
 
+class OportunidadeAnexoSerializer(serializers.ModelSerializer):
+    uploaded_por_nome = serializers.CharField(source='uploaded_por.get_full_name', read_only=True)
+    
+    class Meta:
+        model = OportunidadeAnexo
+        fields = ['id', 'oportunidade', 'arquivo', 'nome', 'descricao', 'data_upload', 'uploaded_por', 'uploaded_por_nome']
+        read_only_fields = ['data_upload', 'uploaded_por']
+
+
 class OportunidadeSerializer(serializers.ModelSerializer):
-    proprietario_nome = serializers.SerializerMethodField()
+    proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
     conta_nome = serializers.SerializerMethodField()
     contato_nome = serializers.SerializerMethodField()
@@ -777,6 +712,12 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     contato_telefone = serializers.SerializerMethodField()
     whatsapp_nao_lidas = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
+    anexos = OportunidadeAnexoSerializer(many=True, read_only=True)
+    diagnosticos = DiagnosticoResultadoSerializer(many=True, read_only=True)
+    
+    # Detalhes das relações M2M para leitura
+    contatos_detalhe = ContatoSerializer(source='contatos', many=True, read_only=True)
+    empresas_detalhe = ContaSerializer(source='empresas', many=True, read_only=True)
     
     class Meta:
         model = Oportunidade
@@ -786,9 +727,10 @@ class OportunidadeSerializer(serializers.ModelSerializer):
             'conta', 'conta_nome', 'contato_principal', 'contato_nome',
             'proprietario', 'proprietario_nome', 'descricao', 'motivo_perda',
             'data_fechamento_real', 'plano', 'plano_nome', 'periodo_pagamento',
-            'adicionais_detalhes', 'cortesia', 
+            'adicionais_detalhes', 'cortesia', 'anexos', 'diagnosticos',
             'cupom_desconto', 'forma_pagamento', 'indicador_comissao', 'indicador_nome', 
             'canal', 'canal_nome', 'contato_telefone', 'whatsapp_nao_lidas', 'fonte',
+            'contatos', 'empresas', 'contatos_detalhe', 'empresas_detalhe',
             'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'whatsapp_nao_lidas']
@@ -796,10 +738,9 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     def get_whatsapp_nao_lidas(self, obj):
         return obj.mensagens_whatsapp.filter(lida=False, de_mim=False).count()
     
-    def get_proprietario_nome(self, obj):
-        return obj.proprietario.get_full_name() if obj.proprietario else "N/A"
-
     def get_conta_nome(self, obj):
+        if obj.empresas.exists():
+            return ", ".join([e.nome_empresa for e in obj.empresas.all()])
         return obj.conta.nome_empresa if obj.conta else "N/A"
 
     def get_estagio_nome(self, obj):
@@ -812,6 +753,8 @@ class OportunidadeSerializer(serializers.ModelSerializer):
         return obj.estagio.tipo if obj.estagio else "ABERTO"
 
     def get_contato_nome(self, obj):
+        if obj.contatos.exists():
+            return ", ".join([c.nome for c in obj.contatos.all()])
         return obj.contato_principal.nome if obj.contato_principal else None
 
     def get_contato_telefone(self, obj):
@@ -828,18 +771,23 @@ class OportunidadeSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         adicionais_data = self.context['request'].data.get('adicionais_itens', [])
+        contatos_data = validated_data.pop('contatos', [])
+        empresas_data = validated_data.pop('empresas', [])
+        
         validated_data['proprietario'] = self.context['request'].user
         
         try:
             with transaction.atomic():
-                # Removemos campos que podem ter vindo no validated_data mas são read-only no banco (como ID se enviado por engano)
                 validated_data.pop('id', None)
-                
-                # Truncamos campos de texto para segurança
                 if 'nome' in validated_data:
                     validated_data['nome'] = validated_data['nome'][:255]
                 
                 oportunidade = Oportunidade.objects.create(**validated_data)
+                
+                if contatos_data:
+                    oportunidade.contatos.set(contatos_data)
+                if empresas_data:
+                    oportunidade.empresas.set(empresas_data)
                 
                 for item in adicionais_data:
                     if item.get('adicional'):
@@ -854,17 +802,22 @@ class OportunidadeSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         adicionais_data = self.context['request'].data.get('adicionais_itens')
+        contatos_data = validated_data.pop('contatos', None)
+        empresas_data = validated_data.pop('empresas', None)
         
         try:
             with transaction.atomic():
-                # Atualização manual para evitar AssertionError do DRF com campos read-only
                 for attr, value in validated_data.items():
                     if attr == 'nome' and value:
                         value = value[:255]
                     setattr(instance, attr, value)
                 instance.save()
                 
-                # Se os adicionais foram enviados, atualiza-os (substitui tudo)
+                if contatos_data is not None:
+                    instance.contatos.set(contatos_data)
+                if empresas_data is not None:
+                    instance.empresas.set(empresas_data)
+                
                 if adicionais_data is not None:
                     instance.oportunidadeadicional_set.all().delete()
                     for item in adicionais_data:
@@ -882,37 +835,35 @@ class OportunidadeSerializer(serializers.ModelSerializer):
 class OportunidadeKanbanSerializer(serializers.ModelSerializer):
     conta_nome = serializers.SerializerMethodField()
     contato_nome = serializers.SerializerMethodField()
-    proprietario_nome = serializers.SerializerMethodField()
-    estagio_id = serializers.SerializerMethodField()
+    proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
+    estagio_id = serializers.IntegerField(source='estagio.id', read_only=True)
     contato_telefone = serializers.SerializerMethodField()
     whatsapp_nao_lidas = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
 
+    class Meta:
+        model = Oportunidade
+        fields = [
+            'id', 'nome', 'valor_estimado', 'contato_nome', 'conta_nome', 
+            'proprietario_nome', 'estagio_id', 'contato_telefone', 
+            'whatsapp_nao_lidas', 'adicionais_detalhes', 'data_atualizacao'
+        ]
+
     def get_conta_nome(self, obj):
+        if obj.empresas.exists():
+            return ", ".join([e.nome_empresa for e in obj.empresas.all()])
         return obj.conta.nome_empresa if obj.conta else "N/A"
 
     def get_whatsapp_nao_lidas(self, obj):
         return obj.mensagens_whatsapp.filter(lida=False, de_mim=False).count()
 
     def get_contato_nome(self, obj):
+        if obj.contatos.exists():
+            return ", ".join([c.nome for c in obj.contatos.all()])
         return obj.contato_principal.nome if obj.contato_principal else None
 
     def get_contato_telefone(self, obj):
-        return obj.contato_principal.telefone if obj.contato_principal else None
-
-    def get_proprietario_nome(self, obj):
-        return obj.proprietario.get_full_name() if obj.proprietario else "N/A"
-    
-    def get_estagio_id(self, obj):
-        return obj.estagio.id if obj.estagio else None
-    
-    class Meta:
-        model = Oportunidade
-        fields = [
-            'id', 'nome', 'valor_estimado', 'data_fechamento_esperada',
-            'probabilidade', 'estagio', 'estagio_id', 'conta', 'conta_nome', 'contato_principal', 'contato_nome', 'contato_telefone',
-            'proprietario_nome', 'plano', 'periodo_pagamento', 'indicador_comissao', 'canal', 'whatsapp_nao_lidas', 'adicionais_detalhes'
-        ]
+        return obj.contato_principal.telefones.filter(principal=True).first().numero if obj.contato_principal and obj.contato_principal.telefones.filter(principal=True).exists() else (obj.contato_principal.telefones.first().numero if obj.contato_principal and obj.contato_principal.telefones.exists() else None)
 
 
 class AtividadeSerializer(serializers.ModelSerializer):

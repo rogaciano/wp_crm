@@ -28,7 +28,6 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
           <select v-model="filtros.modelo" @change="aplicarFiltros" class="input">
             <option value="">Todos os modelos</option>
-            <option value="Lead">Lead</option>
             <option value="Conta">Conta</option>
             <option value="Contato">Contato</option>
             <option value="Oportunidade">Oportunidade</option>

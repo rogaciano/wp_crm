@@ -42,11 +42,7 @@ const router = createRouter({
           name: 'kanban',
           component: () => import('@/views/KanbanView.vue')
         },
-        {
-          path: '/leads',
-          name: 'leads',
-          component: () => import('@/views/LeadsView.vue')
-        },
+
         {
           path: '/contas',
           name: 'contas',

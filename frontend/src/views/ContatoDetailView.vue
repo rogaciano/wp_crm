@@ -114,32 +114,52 @@
         
         <!-- Oportunidades vinculadas -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            Oportunidades
-          </h2>
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Oportunidades
+            </h2>
+            <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-bold">
+              {{ contato?.oportunidades?.length || 0 }}
+            </span>
+          </div>
           
-          <div v-if="oportunidades.length > 0" class="space-y-3">
+          <div v-if="contato?.oportunidades?.length" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div 
-              v-for="opp in oportunidades" 
+              v-for="opp in contato.oportunidades" 
               :key="opp.id"
+              class="group p-4 bg-gray-50 rounded-xl hover:bg-white border border-transparent hover:border-emerald-200 hover:shadow-lg transition-all cursor-pointer"
               @click="irParaOportunidade(opp.id)"
-              class="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
             >
-              <div class="flex justify-between items-start">
-                <div>
-                  <h3 class="font-medium text-gray-900">{{ opp.nome }}</h3>
-                  <p class="text-sm text-gray-500">{{ opp.estagio_nome }}</p>
-                </div>
-                <span v-if="opp.valor_estimado" class="text-green-600 font-bold">
-                  R$ {{ Number(opp.valor_estimado).toLocaleString('pt-BR') }}
+              <div class="flex justify-between items-start mb-2">
+                <span 
+                  class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider"
+                  :style="{ backgroundColor: opp.estagio_cor + '20', color: opp.estagio_cor }"
+                >
+                  {{ opp.estagio_nome }}
                 </span>
+                <span class="text-xs font-bold text-gray-400">{{ formatDate(opp.data_atualizacao) }}</span>
+              </div>
+              
+              <h4 class="font-bold text-gray-900 mb-2 truncate group-hover:text-emerald-600">{{ opp.nome }}</h4>
+              
+              <div class="flex justify-between items-end">
+                <p class="text-lg font-black text-emerald-600">
+                  R$ {{ Number(opp.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+                </p>
+                <div class="p-1 rounded bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                  <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                  </svg>
+                </div>
               </div>
             </div>
           </div>
-          <p v-else class="text-gray-400 text-sm italic">Nenhuma oportunidade vinculada</p>
+          <div v-else class="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+             <p class="text-gray-400 text-sm italic">Nenhuma oportunidade vinculada a este contato.</p>
+          </div>
         </div>
         
         <!-- Notas -->
@@ -245,7 +265,6 @@ const route = useRoute()
 const router = useRouter()
 
 const contato = ref(null)
-const oportunidades = ref([])
 const loading = ref(false)
 const showEditModal = ref(false)
 
@@ -265,25 +284,10 @@ async function loadContato() {
     const id = route.params.id
     const response = await api.get(`/contatos/${id}/`)
     contato.value = response.data
-    
-    // Carrega oportunidades vinculadas
-    await loadOportunidades()
   } catch (error) {
     console.error('Erro ao carregar contato:', error)
   } finally {
     loading.value = false
-  }
-}
-
-async function loadOportunidades() {
-  try {
-    // Busca oportunidades onde este contato é o contato principal
-    const response = await api.get('/oportunidades/', {
-      params: { contato_principal: route.params.id }
-    })
-    oportunidades.value = response.data.results || response.data
-  } catch (error) {
-    console.error('Erro ao carregar oportunidades:', error)
   }
 }
 
@@ -302,10 +306,6 @@ function irParaEmpresa() {
   }
 }
 
-function irParaOportunidade(id) {
-  router.push(`/kanban`)
-}
-
 function abrirWhatsapp() {
   if (!telefonePrincipal.value) return
   
@@ -315,6 +315,17 @@ function abrirWhatsapp() {
   }
   
   window.open(`https://wa.me/${cleanNumber}`, '_blank')
+}
+
+function irParaOportunidade(id) {
+  router.push(`/kanban`) // Por enquanto volta pro kanban, ou se tiver rota de detalhe de oportunidade...
+  // TODO: Se houver OportunidadeDetailView, navegar para lá.
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('pt-BR')
 }
 
 function formatDateTime(dateString) {

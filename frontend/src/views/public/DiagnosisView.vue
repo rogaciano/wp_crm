@@ -88,8 +88,8 @@
         </div>
       </div>
 
-      <!-- State: Lead Info -->
-      <div v-else-if="state === 'lead_info'" class="max-w-md mx-auto animate-in zoom-in-95 duration-500">
+      <!-- State: Contact Info -->
+      <div v-else-if="state === 'contact_info'" class="max-w-md mx-auto animate-in zoom-in-95 duration-500">
         <div class="text-center mb-10">
           <div class="w-20 h-20 bg-primary-100 text-primary-600 rounded-3xl flex items-center justify-center mx-auto mb-6 rotate-3">
             <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -101,20 +101,20 @@
         <form @submit.prevent="submitDiagnosis" class="space-y-5">
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1">Seu Nome Completo</label>
-            <input v-model="leadForm.nome" type="text" required class="w-full px-5 py-4 rounded-xl border-2 border-gray-100 focus:border-primary-500 focus:ring-0 transition-all outline-none" placeholder="João Silva">
+            <input v-model="contactForm.nome" type="text" required class="w-full px-5 py-4 rounded-xl border-2 border-gray-100 focus:border-primary-500 focus:ring-0 transition-all outline-none" placeholder="João Silva">
           </div>
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1">E-mail Profissional</label>
-            <input v-model="leadForm.email" type="email" required class="w-full px-5 py-4 rounded-xl border-2 border-gray-100 focus:border-primary-500 focus:ring-0 transition-all outline-none" placeholder="joao@suaempresa.com.br">
+            <input v-model="contactForm.email" type="email" required class="w-full px-5 py-4 rounded-xl border-2 border-gray-100 focus:border-primary-500 focus:ring-0 transition-all outline-none" placeholder="joao@suaempresa.com.br">
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1">WhatsApp</label>
-              <input v-model="leadForm.telefone" type="text" class="w-full px-5 py-4 rounded-xl border-2 border-gray-100 focus:border-primary-500 focus:ring-0 transition-all outline-none" placeholder="(11) 99999-9999">
+              <input v-model="contactForm.telefone" type="text" class="w-full px-5 py-4 rounded-xl border-2 border-gray-100 focus:border-primary-500 focus:ring-0 transition-all outline-none" placeholder="(11) 99999-9999">
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1">Nome da Empresa</label>
-              <input v-model="leadForm.empresa" type="text" class="w-full px-5 py-4 rounded-xl border-2 border-gray-100 focus:border-primary-500 focus:ring-0 transition-all outline-none" placeholder="Minha Confecção">
+              <input v-model="contactForm.empresa" type="text" class="w-full px-5 py-4 rounded-xl border-2 border-gray-100 focus:border-primary-500 focus:ring-0 transition-all outline-none" placeholder="Minha Confecção">
             </div>
           </div>
 
@@ -135,11 +135,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import api from '@/services/api'
 
 const router = useRouter()
-const state = ref('welcome') // welcome, loading, questions, lead_info
+const route = useRoute()
+const state = ref('welcome') // welcome, loading, questions, contact_info
 const submitting = ref(false)
 
 const pilares = ref([])
@@ -147,7 +148,7 @@ const currentPilarIndex = ref(0)
 const currentQuestionIndex = ref(0)
 const selectedResponses = ref({})
 
-const leadForm = ref({
+const contactForm = ref({
   nome: '',
   email: '',
   telefone: '',
@@ -170,7 +171,7 @@ const currentPilar = computed(() => {
 const allQuestionIndex = ref(0)
 const progress = computed(() => {
   if (state.value === 'welcome') return 0
-  if (state.value === 'lead_info') return 100
+  if (state.value === 'contact_info') return 100
   return ((allQuestionIndex.value) / allQuestions.value.length) * 100
 })
 
@@ -196,7 +197,7 @@ function selectResponse(respId) {
 
 function nextQuestion() {
   if (isLastQuestion.value) {
-    state.value = 'lead_info'
+    state.value = 'contact_info'
   } else {
     allQuestionIndex.value++
   }
@@ -212,8 +213,10 @@ async function submitDiagnosis() {
   submitting.value = true
   try {
     const payload = {
-      ...leadForm.value,
-      respostas_ids: Object.values(selectedResponses.value)
+      ...contactForm.value,
+      respostas_ids: Object.values(selectedResponses.value),
+      oportunidade_id: route.query.oportunidade_id || null,
+      contato_id: route.query.contato_id || null
     }
     
     const response = await api.post('/diagnosticos/submeter/', payload)

@@ -214,7 +214,6 @@ const props = defineProps({
   show: Boolean,
   number: String,
   title: String,
-  lead: [Number, String],
   oportunidade: [Number, String]
 })
 
@@ -319,7 +318,6 @@ const syncMessages = async () => {
   try {
     const response = await whatsappService.syncMessages({
       number: props.number,
-      lead: props.lead,
       oportunidade: props.oportunidade,
       limit: 50
     })
@@ -345,7 +343,6 @@ const markAsRead = async () => {
   try {
     const response = await whatsappService.marcarLidas({
       number: props.number,
-      lead: props.lead,
       oportunidade: props.oportunidade
     })
     // Se marcou mensagens novas como lidas, avisa o layout para atualizar o contador
@@ -459,7 +456,6 @@ const send = async () => {
         mediaType: 'image',
         fileName: selectedImage.value.name,
         caption: newMessage.value,
-        lead: props.lead,
         oportunidade: props.oportunidade
       })
       
@@ -469,7 +465,6 @@ const send = async () => {
       response = await whatsappService.sendMessage({
         number: props.number,
         text: newMessage.value,
-        lead: props.lead,
         oportunidade: props.oportunidade
       })
     }
