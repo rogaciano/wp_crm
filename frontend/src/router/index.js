@@ -42,11 +42,7 @@ const router = createRouter({
           name: 'kanban',
           component: () => import('@/views/KanbanView.vue')
         },
-        {
-          path: '/leads',
-          name: 'leads',
-          component: () => import('@/views/LeadsView.vue')
-        },
+
         {
           path: '/contas',
           name: 'contas',
@@ -61,6 +57,16 @@ const router = createRouter({
           path: '/contatos',
           name: 'contatos',
           component: () => import('@/views/ContatosView.vue')
+        },
+        {
+          path: '/contatos/:id',
+          name: 'contato-detail',
+          component: () => import('@/views/ContatoDetailView.vue')
+        },
+        {
+          path: '/negocios/:id',
+          name: 'oportunidade-detail',
+          component: () => import('@/views/OportunidadeDetailView.vue')
         },
         {
           path: '/oportunidades',

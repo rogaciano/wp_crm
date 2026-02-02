@@ -22,6 +22,57 @@
           />
         </div>
 
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Marca Principal (Nome Fantasia)
+          </label>
+          <input
+            v-model="form.marca"
+            type="text"
+            class="input mb-2"
+            placeholder="Marca ou nome comercial"
+          />
+          
+          <!-- Marcas Adicionais -->
+          <div class="mt-2 text-sm text-gray-500">
+            <button 
+              type="button" 
+              class="flex items-center gap-1 text-primary-600 hover:text-primary-700 font-medium"
+              @click="adicionarMarcaAdicional"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Adicionar Outra Marca
+            </button>
+          </div>
+          
+          <div v-if="form.marcas_adicionais_input.length > 0" class="mt-2 space-y-2">
+            <div 
+              v-for="(marca, index) in form.marcas_adicionais_input" 
+              :key="index"
+              class="flex items-center gap-2"
+            >
+              <input
+                v-model="marca.nome"
+                type="text"
+                class="input flex-1 text-sm bg-gray-50 border-gray-200"
+                placeholder="Nome da marca adicional"
+              />
+              <button 
+                type="button"
+                @click="removerMarcaAdicional(index)"
+                class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                title="Remover marca"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
             CNPJ
@@ -375,6 +426,8 @@ function handleCompare() {
 
 const form = ref({
   nome_empresa: '',
+  marca: '',
+  marcas_adicionais_input: [],
   cnpj: '',
   setor: '',
   telefone_principal: '',
@@ -405,7 +458,10 @@ async function loadCanais() {
 watch(() => props.conta, (newConta) => {
   if (newConta) {
     isEdit.value = true
-    form.value = { ...newConta }
+    form.value = { 
+      ...newConta,
+      marcas_adicionais_input: (newConta.marcas_adicionais || []).map(m => ({ nome: m.nome }))
+    }
   } else {
     isEdit.value = false
     resetForm()
@@ -415,6 +471,8 @@ watch(() => props.conta, (newConta) => {
 function resetForm() {
   form.value = {
     nome_empresa: '',
+    marca: '',
+    marcas_adicionais_input: [],
     cnpj: '',
     setor: '',
     telefone_principal: '',
@@ -428,13 +486,31 @@ function resetForm() {
   }
 }
 
+function adicionarMarcaAdicional() {
+  form.value.marcas_adicionais_input.push({ nome: '' })
+}
+
+function removerMarcaAdicional(index) {
+  form.value.marcas_adicionais_input.splice(index, 1)
+}
+
 async function handleSubmit() {
   loading.value = true
   try {
     const data = { ...form.value }
     
-    // Remover campos vazios opcionais e campos de sistema
+    // Serializar marcas adicionais
+    const marcasRefinadas = form.value.marcas_adicionais_input
+      .filter(m => m.nome && m.nome.trim())
+      .map(m => ({ nome: m.nome.trim() }))
+      
+    data.marcas_adicionais_input = JSON.stringify(marcasRefinadas)
+    
+    // Remover campos vazios e de sistema
     Object.keys(data).forEach(key => {
+      // Ignora marcas_adicionais_input que já tratamos manualmente e mantemos
+      if (key === 'marcas_adicionais_input') return
+      
       if (data[key] === '' || data[key] === null || data[key] === undefined) {
         delete data[key]
       }
@@ -447,9 +523,15 @@ async function handleSubmit() {
       delete data.proprietario_nome
       delete data.total_contatos
       delete data.total_oportunidades
+      delete data.total_contatos
+      delete data.total_oportunidades
       delete data.data_criacao
       delete data.data_atualizacao
+      delete data.marcas_adicionais // Remove o campo de leitura da API
     }
+    
+    // Garantir remoção do campo de leitura
+    delete data.marcas_adicionais
     
     if (isEdit.value) {
       await api.put(`/contas/${form.value.id}/`, data)

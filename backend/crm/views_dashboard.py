@@ -4,7 +4,7 @@ from django.db.models import Sum, Avg, Count, Q
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from datetime import timedelta
-from .models import Lead, Conta, Contato, TipoContato, Canal, Oportunidade, Atividade, DiagnosticoResultado, EstagioFunil
+from .models import Conta, Contato, TipoContato, Canal, Oportunidade, Atividade, DiagnosticoResultado, EstagioFunil
 from .permissions import HierarchyPermission
 
 class DashboardViewSet(viewsets.ViewSet):
@@ -23,7 +23,7 @@ class DashboardViewSet(viewsets.ViewSet):
         print(f"Dashboard - Usuário: {user.username}, Perfil: {user.perfil}, Período: {periodo_dias} dias, Canal: {canal_id}")
 
         # Filtros de Hierarquia base
-        # 1. Filtro para coisas criadas no período (Leads novos)
+        # 1. Filtro para coisas criadas no período (Oportunidades novas)
         periodo_filter = Q(data_criacao__gte=data_inicio)
         
         # 2. Filtro para coisas fechadas no período (Receita, Win Rate)
@@ -180,11 +180,11 @@ class DashboardViewSet(viewsets.ViewSet):
             print(traceback.format_exc())
             tendencia = []
 
-        # 4. Origem de Leads (Baseado no período selecionado)
-        leads_query = Lead.objects.filter(base_hierarquia & periodo_filter) if base_hierarquia else Lead.objects.filter(periodo_filter)
-        print(f"Leads no período: {leads_query.count()}")
+        # 4. Origem de Oportunidades (Baseado no período selecionado)
+        opps_novas_query = Oportunidade.objects.filter(opp_filter & periodo_filter)
+        print(f"Oportunidades novas no período: {opps_novas_query.count()}")
         
-        origens = leads_query.values('fonte').annotate(
+        origens = opps_novas_query.values('fonte').annotate(
             total=Count('id')
         ).order_by('-total')[:5]
 
@@ -254,7 +254,7 @@ class DashboardViewSet(viewsets.ViewSet):
                 'pipeline_ativo': float(stats_pipeline['pipeline_total'] or 0),
                 'win_rate': round(win_rate, 1),
                 'ticket_medio': round(ticket_medio, 2),
-                'leads_novos': leads_query.count(),
+                'opps_novas': opps_novas_query.count(),
                 'atividades_ativas': ativas_count,
                 'atividades_atrasadas': atrasadas_count
             },

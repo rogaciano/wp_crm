@@ -28,6 +28,27 @@
             <p class="text-sm text-gray-500">Email</p>
             <p class="font-medium">{{ conta.email || 'N/A' }}</p>
           </div>
+          
+          <!-- Marcas -->
+          <div class="col-span-2 bg-gray-50 p-3 rounded-lg border border-gray-100" v-if="conta.marca || conta.marcas_adicionais?.length">
+            <p class="text-xs text-gray-400 font-bold uppercase mb-2 flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+              Marcas
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <span v-if="conta.marca" class="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 shadow-sm">
+                {{ conta.marca }} (Principal)
+              </span>
+              <span 
+                v-for="m in conta.marcas_adicionais" 
+                :key="m.id"
+                class="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 shadow-sm"
+              >
+                {{ m.nome }}
+              </span>
+            </div>
+          </div>
+          
           <div>
             <p class="text-sm text-gray-500">Website</p>
             <p class="font-medium">
@@ -103,66 +124,155 @@
 
       <!-- Contatos Tab -->
       <div v-if="activeTab === 'contatos'">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-medium text-gray-900">Lista de Contatos</h3>
-          <button @click="openContactModal()" class="btn btn-primary text-xs">+ Adicionar Contato</button>
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <svg class="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            Contatos da Empresa
+          </h3>
+          <button @click="openContactModal()" class="btn btn-primary shadow-sm flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Novo Contato
+          </button>
         </div>
-        <div class="space-y-4">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div
             v-for="contato in contatos"
             :key="contato.id"
-            class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+            class="group p-5 bg-white border border-gray-100 rounded-xl hover:border-primary-200 hover:shadow-md transition-all duration-300 relative overflow-hidden"
           >
-            <div>
-              <h3 class="font-medium text-gray-900">{{ contato.nome }}</h3>
-              <p class="text-sm text-gray-500">{{ contato.cargo || 'N/A' }}</p>
-              <div class="mt-1 text-sm text-gray-600">
-                <span v-if="contato.email">{{ contato.email }}</span>
-                <span v-if="contato.telefone" class="ml-4">{{ contato.telefone }}</span>
+            <!-- Background Accent -->
+            <div class="absolute top-0 right-0 w-24 h-24 bg-primary-50 rounded-full -mr-12 -mt-12 opacity-0 group-hover:opacity-40 transition-opacity duration-500"></div>
+
+            <div class="flex items-start gap-4">
+              <!-- Avatar placeholder -->
+              <div 
+                @click="viewContato(contato.id)"
+                class="w-12 h-12 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-lg shadow-sm flex-shrink-0 cursor-pointer"
+              >
+                {{ contato.nome?.charAt(0)?.toUpperCase() || '?' }}
+              </div>
+
+              <div class="flex-1 min-w-0">
+                <h4 
+                  @click="viewContato(contato.id)"
+                  class="font-bold text-gray-900 truncate hover:text-primary-600 cursor-pointer text-lg"
+                >
+                  {{ contato.nome }}
+                </h4>
+                <p class="text-sm text-gray-500 font-medium truncate">{{ contato.cargo || 'Responsável' }}</p>
+                
+                <div class="mt-3 space-y-1.5">
+                  <div v-if="contato.email" class="flex items-center gap-2 text-sm text-gray-600">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                    <span class="truncate">{{ contato.email }}</span>
+                  </div>
+                  <div v-if="contato.telefone" class="flex items-center gap-2 text-sm text-gray-600">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                    </svg>
+                    <span>{{ contato.telefone }}</span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="flex space-x-2">
-              <button @click="openContactModal(contato)" class="text-primary-600 hover:text-primary-900 text-sm">Editar</button>
-              <button @click="deleteContato(contato.id)" class="text-red-600 hover:text-red-900 text-sm">Excluir</button>
+
+            <div class="mt-4 pt-4 border-t border-gray-50 flex justify-end gap-3">
+              <button @click="openContactModal(contato)" class="p-2 text-gray-400 hover:text-primary-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                </svg>
+              </button>
+              <button @click="deleteContato(contato.id)" class="p-2 text-gray-400 hover:text-red-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
             </div>
           </div>
-          <p v-if="contatos.length === 0" class="text-center text-gray-500 py-8">
-            Nenhum contato cadastrado
-          </p>
+          
+          <div v-if="contatos.length === 0" class="md:col-span-2 card bg-gray-50 border-dashed border-2 py-12 flex flex-col items-center justify-center opacity-60">
+            <svg class="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            <p class="text-xl font-medium text-gray-500">Nenhum contato cadastrado</p>
+            <p class="text-sm text-gray-400 mt-2">Clique em "+ Novo Contato" para começar</p>
+          </div>
         </div>
       </div>
 
       <!-- Oportunidades Tab -->
       <div v-if="activeTab === 'oportunidades'">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-medium text-gray-900">Lista de Oportunidades</h3>
-          <button @click="openOportunidadeModal()" class="btn btn-primary text-xs">+ Adicionar Oportunidade</button>
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Oportunidades de Negócio
+          </h3>
+          <button @click="openOportunidadeModal()" class="btn btn-primary shadow-sm flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Nova Oportunidade
+          </button>
         </div>
-        <div class="space-y-4">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div
             v-for="oportunidade in oportunidades"
             :key="oportunidade.id"
-            class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+            class="p-5 bg-white border border-gray-100 rounded-xl hover:border-green-200 hover:shadow-md transition-all duration-300 flex flex-col justify-between"
           >
             <div>
-              <h3 class="font-medium text-gray-900">{{ oportunidade.nome }}</h3>
-              <p class="text-sm text-gray-500">{{ oportunidade.estagio_nome }}</p>
+              <div class="flex justify-between items-start mb-3">
+                <span 
+                  class="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
+                  :class="{
+                    'bg-blue-100 text-blue-700': opport_is_early(oportunidade.estagio_nome),
+                    'bg-amber-100 text-amber-700': opport_is_mid(oportunidade.estagio_nome),
+                    'bg-green-100 text-green-700': opport_is_late(oportunidade.estagio_nome)
+                  }"
+                >
+                  {{ oportunidade.estagio_nome }}
+                </span>
+                <span class="text-2xl">💰</span>
+              </div>
+              
+              <h4 class="font-bold text-gray-900 text-lg mb-1 leading-tight">{{ oportunidade.nome }}</h4>
+              <p class="text-sm text-gray-500 mb-4">Atualizado em: {{ formatShortDate(oportunidade.data_atualizacao) }}</p>
             </div>
-            <div class="flex items-center space-x-4">
-              <div class="text-right">
-                <p class="font-semibold text-green-600">
+
+            <div class="flex items-end justify-between pt-4 border-t border-gray-50">
+              <div>
+                <p class="text-xs text-gray-400 font-bold uppercase">Valor Estimado</p>
+                <p class="text-xl font-black text-green-600">
                   R$ {{ Number(oportunidade.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
                 </p>
-                <p v-if="oportunidade.probabilidade" class="text-sm text-gray-500">
-                  {{ oportunidade.probabilidade }}% prob.
-                </p>
               </div>
-              <button @click="openOportunidadeModal(oportunidade)" class="text-primary-600 hover:text-primary-900 text-sm">Editar</button>
+              <div class="flex gap-2">
+                <button @click="openOportunidadeModal(oportunidade)" class="p-2 text-gray-400 hover:text-primary-600 transition-colors bg-gray-50 rounded-lg">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
-          <p v-if="oportunidades.length === 0" class="text-center text-gray-500 py-8">
-            Nenhuma oportunidade cadastrada
-          </p>
+
+          <div v-if="oportunidades.length === 0" class="md:col-span-2 card bg-gray-50 border-dashed border-2 py-12 flex flex-col items-center justify-center opacity-60">
+            <svg class="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+            </svg>
+            <p class="text-xl font-medium text-gray-500">Nenhuma oportunidade ativa</p>
+            <p class="text-sm text-gray-400 mt-2">Clique em "+ Nova Oportunidade" para prospectar</p>
+          </div>
         </div>
       </div>
     </div>
@@ -198,13 +308,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import ContatoModal from '@/components/ContatoModal.vue'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
 import ContaModal from '@/components/ContaModal.vue'
 
 const route = useRoute()
+const router = useRouter()
 const conta = ref(null)
 const contatos = ref([])
 const oportunidades = ref([])
@@ -221,6 +332,10 @@ const selectedOportunidade = ref(null)
 function openContactModal(contato = null) {
   selectedContato.value = contato
   showContactModal.value = true
+}
+
+function viewContato(id) {
+  router.push(`/contatos/${id}`)
 }
 
 async function refreshContacts() {
@@ -293,4 +408,26 @@ const valorTotal = computed(() => {
 onMounted(async () => {
   await loadContaData()
 })
+
+// Funções auxiliares de UI
+function formatShortDate(dateString) {
+  if (!dateString) return 'N/A'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
+function opport_is_early(estagio) {
+  const early = ['Prospecção', 'Qualificação', 'Diagnóstico']
+  return early.includes(estagio)
+}
+
+function opport_is_mid(estagio) {
+  const mid = ['Proposta', 'Negociação']
+  return mid.includes(estagio)
+}
+
+function opport_is_late(estagio) {
+  const late = ['Fechamento', 'Ganho', 'Perdido']
+  return late.includes(estagio)
+}
 </script>

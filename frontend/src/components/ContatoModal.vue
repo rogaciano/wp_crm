@@ -56,26 +56,26 @@
 
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
-            Email
+            Empresa (Conta)
           </label>
-          <input
-            v-model="form.email"
-            type="email"
-            class="input"
-            placeholder="joao@exemplo.com"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Empresa (Conta) <span class="text-red-500">*</span>
-          </label>
-          <select v-model="form.conta" required class="input">
-            <option value="">Selecione uma conta...</option>
-            <option v-for="conta in contas" :key="conta.id" :value="conta.id">
-              {{ conta.nome_empresa }}
-            </option>
-          </select>
+          <div class="flex gap-2">
+            <select v-model="form.conta" class="input flex-1">
+              <option value="">Selecione uma conta...</option>
+              <option v-for="conta in contas" :key="conta.id" :value="conta.id">
+                {{ conta.nome_empresa }}
+              </option>
+            </select>
+            <button 
+              type="button"
+              @click="showNovaEmpresaModal = true"
+              class="px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors flex items-center gap-1"
+              title="Criar nova empresa"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div>
@@ -101,25 +101,122 @@
             placeholder="Ex: Comercial"
           />
         </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Telefone
-          </label>
-          <LandlineInput
-            v-model="form.telefone"
-            input-class="input"
-          />
+        <!-- Múltiplos Telefones -->
+        <div class="md:col-span-2 pt-3 mt-2 border-t border-gray-100">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+              </svg>
+              Telefones
+            </p>
+            <button 
+              type="button"
+              @click="adicionarTelefone"
+              class="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Adicionar
+            </button>
+          </div>
+          
+          <div class="space-y-2">
+            <div 
+              v-for="(tel, index) in form.telefones_input" 
+              :key="'tel-' + index"
+              class="flex items-center gap-2"
+            >
+              <select v-model="tel.tipo" class="input w-32 text-sm">
+                <option value="CELULAR">Celular</option>
+                <option value="COMERCIAL">Comercial</option>
+                <option value="RESIDENCIAL">Residencial</option>
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="OUTRO">Outro</option>
+              </select>
+              <PhoneInput
+                v-model="tel.numero"
+                input-class="input flex-1 text-sm"
+              />
+              <label class="flex items-center gap-1 text-xs text-gray-500">
+                <input type="checkbox" v-model="tel.principal" class="rounded" />
+                Principal
+              </label>
+              <button 
+                type="button"
+                @click="removerTelefone(index)"
+                class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            
+            <p v-if="form.telefones_input.length === 0" class="text-sm text-gray-400 italic">
+              Nenhum telefone adicionado
+            </p>
+          </div>
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Celular
-          </label>
-          <PhoneInput
-            v-model="form.celular"
-            input-class="input"
-          />
+        <!-- Múltiplos Emails -->
+        <div class="md:col-span-2 pt-3 border-t border-gray-100">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+              E-mails
+            </p>
+            <button 
+              type="button"
+              @click="adicionarEmail"
+              class="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Adicionar
+            </button>
+          </div>
+          
+          <div class="space-y-2">
+            <div 
+              v-for="(email, index) in form.emails_input" 
+              :key="'email-' + index"
+              class="flex items-center gap-2"
+            >
+              <select v-model="email.tipo" class="input w-32 text-sm">
+                <option value="COMERCIAL">Comercial</option>
+                <option value="PESSOAL">Pessoal</option>
+                <option value="OUTRO">Outro</option>
+              </select>
+              <input
+                v-model="email.email"
+                type="email"
+                class="input flex-1 text-sm"
+                placeholder="email@exemplo.com"
+              />
+              <label class="flex items-center gap-1 text-xs text-gray-500">
+                <input type="checkbox" v-model="email.principal" class="rounded" />
+                Principal
+              </label>
+              <button 
+                type="button"
+                @click="removerEmail(index)"
+                class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            
+            <p v-if="form.emails_input.length === 0" class="text-sm text-gray-400 italic">
+              Nenhum e-mail adicionado
+            </p>
+          </div>
         </div>
 
         <div>
@@ -160,6 +257,42 @@
               {{ canal.nome }}
             </option>
           </select>
+        </div>
+
+        <!-- Tags -->
+        <div class="md:col-span-2 pt-3 mt-2 border-t border-gray-100">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+              </svg>
+              Tags
+            </p>
+          </div>
+          
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="tag in tagsDisponiveis"
+              :key="tag.id"
+              type="button"
+              @click="toggleTag(tag.id)"
+              class="px-3 py-1 text-xs font-medium rounded-full transition-all"
+              :class="form.tags.includes(tag.id) 
+                ? 'ring-2 ring-offset-1 opacity-100' 
+                : 'opacity-50 hover:opacity-75'"
+              :style="{ 
+                backgroundColor: form.tags.includes(tag.id) ? tag.cor : tag.cor + '40',
+                color: form.tags.includes(tag.id) ? '#fff' : tag.cor,
+                ringColor: tag.cor
+              }"
+            >
+              {{ tag.nome }}
+            </button>
+            
+            <p v-if="tagsDisponiveis.length === 0" class="text-sm text-gray-400 italic">
+              Nenhuma tag disponível
+            </p>
+          </div>
         </div>
 
         <!-- Redes Sociais -->
@@ -266,13 +399,20 @@
       </div>
     </form>
   </BaseModal>
+  
+  <!-- Modal para criar nova empresa -->
+  <ContaModal
+    :show="showNovaEmpresaModal"
+    @close="showNovaEmpresaModal = false"
+    @saved="handleNovaEmpresaSaved"
+  />
 </template>
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import BaseModal from './BaseModal.vue'
 import PhoneInput from './PhoneInput.vue'
-import LandlineInput from './LandlineInput.vue'
+import ContaModal from './ContaModal.vue'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
@@ -292,6 +432,8 @@ const contas = ref([])
 const tiposContato = ref([])
 const canais = ref([])
 const tiposRedeSocial = ref([])
+const tagsDisponiveis = ref([])
+const showNovaEmpresaModal = ref(false)
 
 // Foto do contato
 const fotoPreview = ref(null)
@@ -311,7 +453,10 @@ const form = ref({
   tipo: 'PADRAO',
   notas: '',
   foto_url: null,
-  redes_sociais_input: []
+  redes_sociais_input: [],
+  telefones_input: [],
+  emails_input: [],
+  tags: []
 })
 
 watch(() => props.show, async (newVal) => {
@@ -321,6 +466,7 @@ watch(() => props.show, async (newVal) => {
     await loadTiposContato()
     await loadCanais()
     await loadTiposRedeSocial()
+    await loadTags()
     
     if (props.fixedContaId) {
       form.value.conta = props.fixedContaId
@@ -341,7 +487,21 @@ watch(() => props.contato, (newContato) => {
       redes_sociais_input: (newContato.redes_sociais || []).map(r => ({
         tipo: r.tipo,
         valor: r.valor
-      }))
+      })),
+      // Converter telefones do formato de leitura para o formato de escrita
+      telefones_input: (newContato.telefones || []).map(t => ({
+        numero: t.numero,
+        tipo: t.tipo,
+        principal: t.principal
+      })),
+      // Converter emails do formato de leitura para o formato de escrita
+      emails_input: (newContato.emails || []).map(e => ({
+        email: e.email,
+        tipo: e.tipo,
+        principal: e.principal
+      })),
+      // Tags (array de IDs)
+      tags: (newContato.tags || [])
     }
     fotoPreview.value = null
     fotoFile.value = null
@@ -358,6 +518,22 @@ async function loadContas() {
   } catch (error) {
     console.error('Erro ao carregar contas:', error)
   }
+}
+
+async function handleNovaEmpresaSaved() {
+  // Recarrega a lista de contas
+  await loadContas()
+  
+  // Seleciona a última conta criada (a mais recente)
+  if (contas.value.length > 0) {
+    // Ordena por data de criação (desc) e pega a primeira
+    const contasOrdenadas = [...contas.value].sort((a, b) => 
+      new Date(b.data_criacao) - new Date(a.data_criacao)
+    )
+    form.value.conta = contasOrdenadas[0].id
+  }
+  
+  showNovaEmpresaModal.value = false
 }
 
 async function loadTiposContato() {
@@ -387,6 +563,24 @@ async function loadTiposRedeSocial() {
   }
 }
 
+async function loadTags() {
+  try {
+    const response = await api.get('/tags/')
+    tagsDisponiveis.value = response.data.results || response.data
+  } catch (error) {
+    console.error('Erro ao carregar tags:', error)
+  }
+}
+
+function toggleTag(tagId) {
+  const index = form.value.tags.indexOf(tagId)
+  if (index === -1) {
+    form.value.tags.push(tagId)
+  } else {
+    form.value.tags.splice(index, 1)
+  }
+}
+
 function getPlaceholder(tipoId) {
   const tipo = tiposRedeSocial.value.find(t => t.id === tipoId)
   return tipo?.placeholder || 'Informe o usuário ou URL'
@@ -398,6 +592,29 @@ function adicionarRedeSocial() {
 
 function removerRedeSocial(index) {
   form.value.redes_sociais_input.splice(index, 1)
+}
+
+function adicionarTelefone() {
+  const isFirst = form.value.telefones_input.length === 0
+  form.value.telefones_input.push({ numero: '', tipo: 'CELULAR', principal: isFirst })
+}
+
+function removerTelefone(index) {
+  const wasPrincipal = form.value.telefones_input[index].principal
+  form.value.telefones_input.splice(index, 1)
+  
+  // Se removeu o principal e ainda tem telefones, define o primeiro como principal
+  if (wasPrincipal && form.value.telefones_input.length > 0) {
+    form.value.telefones_input[0].principal = true
+  }
+}
+
+function adicionarEmail() {
+  form.value.emails_input.push({ email: '', tipo: 'COMERCIAL', principal: false })
+}
+
+function removerEmail(index) {
+  form.value.emails_input.splice(index, 1)
 }
 
 function handleFotoChange(event) {
@@ -441,7 +658,10 @@ function resetForm() {
     tipo: 'PADRAO',
     notas: '',
     foto_url: null,
-    redes_sociais_input: []
+    redes_sociais_input: [],
+    telefones_input: [],
+    emails_input: [],
+    tags: []
   }
   fotoPreview.value = null
   fotoFile.value = null
@@ -450,6 +670,14 @@ function resetForm() {
 async function handleSubmit() {
   loading.value = true
   try {
+    // Validação: Pelo menos um telefone deve existir
+    const hasPhone = form.value.telefones_input.some(t => t.numero && t.numero.trim() !== '')
+    if (!hasPhone) {
+      alert('É obrigatório cadastrar pelo menos um telefone.')
+      loading.value = false
+      return
+    }
+
     // Usar FormData para suportar upload de arquivo
     const formData = new FormData()
     
@@ -461,7 +689,10 @@ async function handleSubmit() {
     if (form.value.cargo) formData.append('cargo', form.value.cargo)
     if (form.value.departamento) formData.append('departamento', form.value.departamento)
     if (form.value.chave_pix) formData.append('chave_pix', form.value.chave_pix)
-    if (form.value.conta) formData.append('conta', form.value.conta)
+    
+    // Envia o valor de conta (mesmo que vazio, para permitir remover)
+    formData.append('conta', form.value.conta || '')
+    
     if (form.value.tipo_contato) formData.append('tipo_contato', form.value.tipo_contato)
     if (form.value.canal) formData.append('canal', form.value.canal)
     formData.append('tipo', form.value.tipo || 'PADRAO')
@@ -475,6 +706,17 @@ async function handleSubmit() {
     // Adicionar redes sociais como JSON
     const redesSociais = (form.value.redes_sociais_input || []).filter(r => r.tipo && r.valor)
     formData.append('redes_sociais_input', JSON.stringify(redesSociais))
+    
+    // Adicionar telefones como JSON
+    const telefones = (form.value.telefones_input || []).filter(t => t.numero)
+    formData.append('telefones_input', JSON.stringify(telefones))
+    
+    // Adicionar emails como JSON
+    const emails = (form.value.emails_input || []).filter(e => e.email)
+    formData.append('emails_input', JSON.stringify(emails))
+    
+    // Adicionar tags como JSON (array de IDs)
+    formData.append('tags_input', JSON.stringify(form.value.tags || []))
     
     const config = {
       headers: {

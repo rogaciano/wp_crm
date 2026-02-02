@@ -3,7 +3,7 @@ import json
 import logging
 from django.conf import settings
 from datetime import datetime
-from ..models import WhatsappMessage, Lead, Oportunidade
+from ..models import WhatsappMessage, Oportunidade
 from django.db.models import Q
 
 logger = logging.getLogger(__name__)
@@ -499,25 +499,15 @@ class EvolutionService:
         
         # logger.debug(f"[Evolution] Variações geradas para {remote_number}: {variations}")
         
-        # Filtros de busca para Lead
-        q_filter = Q()
-        for v in variations:
-            if len(v) >= 8:
-                q_filter |= Q(telefone__icontains=v)
-            
-        # Tenta Lead
-        lead = Lead.objects.filter(q_filter).first()
-        if lead:
-            message_obj.lead = lead
-            
-        # Tenta Oportunidade (via contato principal)
+        # Tenta Oportunidade (via contatos vinculados)
+        # Primeiro busca por contato principal (se houver esse campo ou via M2M)
         q_opp = Q()
         for v in variations:
             if len(v) >= 8:
-                q_opp |= Q(contato_principal__telefone__icontains=v) | \
-                         Q(contato_principal__celular__icontains=v)
+                q_opp |= Q(contatos__telefone__icontains=v) | \
+                         Q(contatos__celular__icontains=v)
             
-        opp = Oportunidade.objects.filter(q_opp).first()
+        opp = Oportunidade.objects.filter(q_opp).distinct().first()
         if opp:
             message_obj.oportunidade = opp
             

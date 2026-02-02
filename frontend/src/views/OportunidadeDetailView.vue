@@ -1,0 +1,808 @@
+<template>
+  <div v-if="loading" class="flex items-center justify-center min-h-screen">
+    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+  </div>
+
+  <div v-else-if="oportunidade" class="min-h-screen bg-gray-50 flex flex-col">
+    <!-- Header de Negócio -->
+    <header class="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-20">
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+            <span class="cursor-pointer hover:text-primary-600" @click="goBack">Pipelines</span>
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            <span>{{ oportunidade.funil_nome || 'Funil Padrão' }}</span>
+            <span v-if="oportunidade.id" class="text-gray-300">#{{ oportunidade.id }}</span>
+          </div>
+          <h1 class="text-2xl font-black text-gray-900 leading-tight">
+            {{ oportunidade.nome }}
+          </h1>
+        </div>
+        
+        <div class="flex items-center gap-3">
+          <button 
+            @click="handleDelete" 
+            class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            title="Excluir Negócio"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          </button>
+          
+          <div class="h-6 w-px bg-gray-200 mx-2"></div>
+          
+          <button class="btn btn-white border-gray-200 text-gray-600 shadow-sm">
+            Cancelar
+          </button>
+          <button @click="saveChanges" class="btn btn-primary shadow-lg shadow-primary-200">
+            Salvar
+          </button>
+        </div>
+      </div>
+      
+      <!-- Barra de Estágios -->
+      <div class="mt-6 flex items-center gap-1 overflow-x-auto pb-2 no-scrollbar">
+        <div 
+          v-for="estagio in estagios" 
+          :key="estagio.id"
+          @click="updateEstagio(estagio.id)"
+          class="h-2 flex-1 rounded-full cursor-pointer transition-all relative group"
+          :class="getEstagioClass(estagio)"
+          :style="{ backgroundColor: getEstagioColor(estagio) }"
+        >
+          <div class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity text-gray-500">
+            {{ estagio.nome }}
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="flex-1 max-w-[1600px] w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      <div class="lg:col-span-4 flex flex-col gap-0 bg-white border-r border-gray-200 h-[calc(100vh-80px)] overflow-y-auto custom-scrollbar">
+        
+        <!-- Sidebar Tabs -->
+        <div class="flex items-center gap-4 px-6 border-b border-gray-100 text-[11px] font-bold text-gray-400 uppercase tracking-widest bg-white sticky top-0 z-10 transition-colors">
+           <button 
+             @click="activeSidebarTab = 'principal'"
+             class="py-3 border-b-2 transition-colors duration-200"
+             :class="activeSidebarTab === 'principal' ? 'text-primary-600 border-primary-600' : 'border-transparent hover:text-gray-600'"
+           >
+             Principal
+           </button>
+           <button 
+             @click="activeSidebarTab = 'estatisticas'"
+             class="py-3 border-b-2 transition-colors duration-200"
+             :class="activeSidebarTab === 'estatisticas' ? 'text-primary-600 border-primary-600' : 'border-transparent hover:text-gray-600'"
+           >
+             Estatísticas
+           </button>
+
+        </div>
+
+        <!-- CONTEÚDO: PRINCIPAL -->
+        <div v-if="activeSidebarTab === 'principal'">
+            <!-- Campos do Negócio -->
+            <div class="p-6 space-y-5 border-b border-gray-100">
+               
+               <!-- Responsável -->
+               <div class="group flex items-center justify-between">
+                  <label class="text-xs text-gray-400 font-medium w-1/3">Responsável</label>
+                  <div class="w-2/3">
+                     <select 
+                        v-model="oportunidadeForm.proprietario"
+                        @change="saveChanges"
+                        class="w-full py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none appearance-none cursor-pointer"
+                     >
+                        <option :value="null">Selecione</option>
+                        <option v-for="user in usuarios" :key="user.id" :value="user.id">
+                           {{ user.first_name }} {{ user.last_name }} ({{ user.username }})
+                        </option>
+                     </select>
+                  </div>
+               </div>
+
+               <!-- Venda (Valor) -->
+               <div class="group flex items-center justify-between">
+                  <label class="text-xs text-gray-400 font-medium w-1/3">Venda</label>
+                  <div class="w-2/3 relative">
+                     <span class="absolute left-0 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R$</span>
+                     <input 
+                        v-model="oportunidadeForm.valor_estimado"
+                        @blur="saveChanges" 
+                        type="number"
+                        class="w-full pl-6 py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 font-bold focus:outline-none transition-colors text-right"
+                        placeholder="0,00"
+                     />
+                  </div>
+               </div>
+
+               <!-- Produto (Plano) -->
+               <div class="group flex items-center justify-between">
+                  <label class="text-xs text-gray-400 font-medium w-1/3">Faturamento</label>
+                  <div class="w-2/3">
+                     <select 
+                        v-model="oportunidadeForm.plano"
+                        @change="saveChanges"
+                        class="w-full py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none appearance-none cursor-pointer"
+                     >
+                        <option :value="null">Selecione...</option>
+                        <option v-for="plano in planos" :key="plano.id" :value="plano.id">
+                           {{ plano.nome }} (R$ {{ plano.preco_mensal }})
+                        </option>
+                     </select>
+                  </div>
+               </div>
+
+               <!-- Adicionais (Upgrade) -->
+               <div class="group flex items-center justify-between relative">
+                  <label class="text-xs text-gray-400 font-medium w-1/3">Adicionais (Upgrade)</label>
+                  <div class="w-2/3 relative">
+                     <!-- Trigger -->
+                     <button 
+                        @click="showAdicionaisDropdown = !showAdicionaisDropdown"
+                        class="w-full py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 cursor-pointer flex justify-between items-center text-left focus:outline-none"
+                     >
+                         <span class="text-sm text-gray-900 truncate pr-2">
+                             {{ formatSelectedAdicionais() || 'Selecione...' }}
+                         </span>
+                         <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                     </button>
+
+                     <!-- Dropdown Content -->
+                     <div v-if="showAdicionaisDropdown" class="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-md z-50 p-2 max-h-60 overflow-y-auto">
+                        <div class="space-y-1">
+                           <div v-for="adc in adicionais_opcoes" :key="adc.id" class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer" @click.stop="toggleAdicional(adc.id, !hasAdicional(adc.id))">
+                              <input 
+                                 type="checkbox" 
+                                 :value="adc.id" 
+                                 :checked="hasAdicional(adc.id)"
+                                 class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4 pointer-events-none"
+                              />
+                              <span class="text-sm text-gray-700 select-none">{{ adc.nome }}</span>
+                           </div>
+                        </div>
+                     </div>
+                     
+                     <!-- Backdrop para fechar ao clicar fora (opcional mas bom para UX) -->
+                     <div v-if="showAdicionaisDropdown" class="fixed inset-0 z-40 bg-transparent cursor-default" @click="showAdicionaisDropdown = false"></div>
+                  </div>
+               </div>
+               
+               <!-- Fonte -->
+               <div class="group flex items-center justify-between">
+                  <label class="text-xs text-gray-400 font-medium w-1/3">Fonte</label>
+                  <div class="w-2/3">
+                     <div class="flex items-center justify-end w-full text-sm text-gray-600 font-medium py-1">
+                        {{ oportunidade.fonte || 'Tráfego Direto Site' }} 
+                        <span class="text-gray-400 text-xs ml-2" v-if="oportunidade.data_criacao">
+                           {{ formatDateShort(oportunidade.data_criacao) }}
+                        </span>
+                     </div>
+                  </div>
+               </div>
+
+               <!-- Fechamento -->
+               <div class="group flex items-center justify-between">
+                  <label class="text-xs text-gray-400 font-medium w-1/3">Previsão</label>
+                  <div class="w-2/3">
+                     <input 
+                        type="date"
+                        v-model="oportunidadeForm.data_fechamento_esperada"
+                        @blur="saveChanges"
+                        class="w-full py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 text-sm text-right focus:outline-none"
+                     />
+                  </div>
+               </div>
+               
+               <!-- Tarefas Agendadas -->
+               <div class="group flex items-center justify-between">
+                  <label class="text-xs text-gray-400 font-medium w-1/3">Próxima Tarefa</label>
+                   <div class="w-2/3 flex justify-end">
+                     <div v-if="oportunidade.proxima_atividade" class="text-right">
+                        <div class="text-sm font-bold text-gray-900 leading-tight">{{ oportunidade.proxima_atividade.titulo }}</div>
+                        <div class="text-xs text-red-500 font-medium mt-0.5" v-if="new Date(oportunidade.proxima_atividade.data) < new Date()">
+                           Vencida: {{ formatDateShort(oportunidade.proxima_atividade.data) }}
+                        </div>
+                        <div class="text-xs text-green-600 font-medium mt-0.5" v-else>
+                           {{ formatDateShort(oportunidade.proxima_atividade.data) }}
+                        </div>
+                     </div>
+                     <button v-else class="text-xs text-primary-600 hover:underline flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        Agendar
+                     </button>
+                   </div>
+               </div>
+
+            </div>
+
+            <!-- Seção Contato (Editável) -->
+            <div class="p-6 border-b border-gray-100 relative group/contact">
+               <div class="flex items-start gap-4 mb-4">
+                  <!-- Avatar -->
+                  <div class="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm relative overflow-hidden">
+                     <img v-if="oportunidade.contato_foto" :src="oportunidade.contato_foto" class="w-full h-full object-cover" />
+                     <span v-else>{{ oportunidade.contato_nome?.charAt(0) || '?' }}</span>
+                     <div class="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-0.5 border border-white">
+                        <svg class="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
+                     </div>
+                  </div>
+
+                  <div class="flex-1 min-w-0">
+                     <div class="flex justify-between items-start">
+                        <!-- Nome com link para modal se quiser full detail -->
+                        <h3 class="font-bold text-gray-900 truncate cursor-pointer hover:text-primary-600 hover:underline" @click="openContactModal">
+                           {{ oportunidade.contato_nome || 'Sem Contato' }}
+                        </h3>
+                        <button class="text-gray-400 hover:text-gray-600">•••</button>
+                     </div>
+                     
+                     <div class="mt-3 space-y-1">
+                        <!-- Cargo (Posição) -->
+                        <div class="flex items-center text-sm group/field">
+                           <span class="text-gray-400 w-24 shrink-0">Posição</span>
+                           <input 
+                              v-if="oportunidade.contato_principal"
+                              v-model="contactForm.cargo" 
+                              @blur="saveContactField('cargo')"
+                              class="w-full bg-transparent border-b border-transparent group-hover/field:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none"
+                              placeholder="..."
+                           />
+                           <span v-else class="text-gray-300">...</span>
+                        </div>
+
+                        <!-- Telefone -->
+                        <div class="flex items-center text-sm group/field">
+                           <span class="text-gray-400 w-24 shrink-0">Tel. comercial</span>
+                           <div class="flex items-center gap-2 flex-1">
+                              <input 
+                                 v-if="oportunidade.contato_principal"
+                                 v-model="contactForm.telefone" 
+                                 @blur="saveContactField('telefone')"
+                                 class="w-full bg-transparent border-b border-transparent group-hover/field:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none"
+                                 placeholder="..."
+                              />
+                              <span v-else class="text-gray-300 flex-1">...</span>
+                              
+                              <button v-if="oportunidade.contato_telefone" @click="openWhatsapp" class="text-green-500 hover:text-green-600" title="Chamar no WhatsApp">
+                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
+                              </button>
+                           </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="flex items-center text-sm group/field">
+                           <span class="text-gray-400 w-24 shrink-0">E-mail comercial</span>
+                           <input 
+                              v-if="oportunidade.contato_principal"
+                              v-model="contactForm.email" 
+                              @blur="saveContactField('email')"
+                              class="w-full bg-transparent border-b border-transparent group-hover/field:border-gray-200 focus:border-primary-500 text-blue-600 font-medium underline focus:outline-none"
+                              placeholder="..."
+                           />
+                           <span v-else class="text-gray-300">...</span>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+               
+               <!-- Link: Adicionar contato -->
+               <button v-if="!oportunidade.contato_principal" @click="openContactModal" class="flex items-center gap-2 text-gray-400 hover:text-primary-600 transition-colors mt-2 text-sm font-medium">
+                  <div class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-lg leading-none pb-0.5">+</div>
+                  Adicionar contato
+               </button>
+            </div>
+
+            <!-- Seção Empresa (Editável) -->
+            <div class="p-6 relative group/company" v-if="oportunidade.conta || true"> <!-- Always show struct but hide if empty? user wants explicit form -->
+               <div class="flex items-start gap-4 mb-4" v-if="oportunidade.conta">
+                  <div class="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-gray-400 font-bold text-xs">
+                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                  </div>
+                   
+                  <div class="flex-1 min-w-0">
+                     <div class="flex justify-between items-start">
+                        <!-- Nome Empresa -->
+                        <div class="w-full">
+                           <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-0.5">Empresa</span>
+                           <h3 class="font-bold text-gray-900 leading-tight cursor-pointer hover:text-primary-600 hover:underline" @click="openCompanyModal">
+                              {{ oportunidade.conta_nome }}
+                           </h3>
+                        </div>
+                        <button class="text-gray-400 hover:text-gray-600">•••</button>
+                     </div>
+                      
+                     <div class="mt-3 space-y-1">
+                        <!-- Site -->
+                        <div class="flex items-center text-sm group/field">
+                           <span class="text-gray-400 w-24 shrink-0">Site</span>
+                           <input 
+                              v-if="oportunidade.conta"
+                              v-model="companyForm.website" 
+                              @blur="saveCompanyField('website')"
+                              class="w-full bg-transparent border-b border-transparent group-hover/field:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none"
+                              placeholder="..."
+                           />
+                        </div>
+
+                        <!-- Endereço (usando só um campo genérico para simplificar visualmente) -->
+                        <div class="flex items-center text-sm group/field">
+                           <span class="text-gray-400 w-24 shrink-0">Endereço</span>
+                           <input 
+                              v-if="oportunidade.conta"
+                              v-model="companyForm.endereco" 
+                              @blur="saveCompanyField('endereco')"
+                              class="w-full bg-transparent border-b border-transparent group-hover/field:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none"
+                              placeholder="..."
+                           />
+                        </div>
+
+                        <!-- Email Comercial Empresa -->
+                        <div class="flex items-center text-sm group/field">
+                           <span class="text-gray-400 w-24 shrink-0">E-mail comercial</span>
+                           <input 
+                              v-if="oportunidade.conta"
+                              v-model="companyForm.email" 
+                              @blur="saveCompanyField('email')"
+                              class="w-full bg-transparent border-b border-transparent group-hover/field:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none"
+                              placeholder="..."
+                           />
+                        </div>
+                     </div>
+                  </div>
+               </div>
+
+               <div v-else class="p-0">
+                   <button @click="openCompanyModal" class="flex items-center gap-2 text-gray-400 hover:text-primary-600 transition-colors text-sm font-medium">
+                      <div class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-lg leading-none pb-0.5">+</div>
+                      Adicionar empresa
+                   </button>
+               </div>
+            </div>
+        </div>
+        
+        <!-- CONTEÚDO: ESTATÍSTICAS (MANTIDO) -->
+        <div v-else-if="activeSidebarTab === 'estatisticas'" class="p-6">
+           <!-- Fonte -->
+           <div class="mb-8">
+              <span class="block text-gray-900 font-bold mb-1 text-sm">Fonte:</span>
+              <div class="text-gray-500 text-sm">
+                {{ oportunidade.fonte || 'Origem Desconhecida' }} / {{ formatDateShort(oportunidade.data_criacao) }}
+              </div>
+           </div>
+           
+           <!-- Dias Ativos -->
+           <div class="mb-8">
+               <div class="text-6xl font-light text-blue-500 mb-1 leading-none tracking-tight">
+                   {{ daysActive }}
+               </div>
+               <div class="text-blue-500 text-sm">Dias ativos</div>
+           </div>
+           
+           <!-- Lista de Métricas -->
+           <div class="space-y-4">
+               <div class="flex justify-between items-baseline text-sm">
+                   <div class="text-gray-600">Chamadas <span class="text-gray-400 text-xs">recebidas / realizadas</span></div>
+                   <div class="font-medium text-gray-900">0/0</div>
+               </div>
+               
+               <div class="flex justify-between items-center text-sm">
+                   <div class="text-gray-600">E-mails</div>
+                   <div class="font-medium text-gray-900">0</div>
+               </div>
+               
+               <div class="flex justify-between items-baseline text-sm">
+                   <div class="text-gray-600">Tarefas <span class="text-gray-400 text-xs">finalizadas / <span class="text-red-300">vencidas</span></span></div>
+                   <div class="font-medium"><span class="text-gray-900">0</span>/<span class="text-red-400">0</span></div>
+               </div>
+               
+               <div class="flex justify-between items-center text-sm">
+                   <div class="text-gray-600">Notas</div>
+                   <div class="font-medium text-gray-900">0</div>
+               </div>
+               
+               <div class="flex justify-between items-center text-sm">
+                   <div class="text-gray-600">Bate-papo com o cliente</div>
+                   <div class="font-medium text-gray-900">{{ oportunidade.whatsapp_nao_lidas || 0 }}</div>
+               </div>
+               
+               <div class="flex justify-between items-center text-sm">
+                   <div class="text-gray-600">Bate-papo interno</div>
+                   <div class="font-medium text-gray-900">0</div>
+               </div>
+           </div>
+           
+           <div class="mt-8 pt-6 border-t border-gray-100">
+               <div class="font-bold text-gray-900 text-sm mb-1">Informação rastreada:</div>
+               <div class="text-sm text-gray-400">
+                   Preenchida 0 de 10 <a href="#" class="underline hover:text-gray-600">Mostrar</a>
+               </div>
+           </div>
+        </div>
+
+      </div>
+
+      <!-- Coluna Direita: Feed e Atividades -->
+      <div class="lg:col-span-8 bg-white rounded-xl shadow-sm border border-gray-200 min-h-[600px] flex flex-col overflow-hidden">
+        <div class="flex-1 bg-gray-50/50">
+           <TimelineFeed 
+             model="oportunidade"
+             :id="oportunidade.id"
+             class="h-full max-w-4xl mx-auto"
+           />
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Modais Auxiliares -->
+    <ContatoModal 
+      :show="showContactModal" 
+      :contato="selectedContato"
+      :fixed-conta-id="oportunidade.conta"
+      @close="closeContactModal"
+      @saved="refreshData"
+    />
+    
+    <ContaModal
+      :show="showCompanyModal"
+      :conta="selectedCompany"
+      @close="closeCompanyModal"
+      @saved="refreshData"
+    />
+    
+    <WhatsappChat
+      :show="showWhatsappChat"
+      :number="whatsappData.number"
+      :title="whatsappData.title"
+      :oportunidade="oportunidade.id"
+      @close="showWhatsappChat = false"
+    />
+    
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import api from '@/services/api'
+import { useOportunidadesStore } from '@/stores/oportunidades'
+import TimelineFeed from '@/components/TimelineFeed.vue'
+import ContatoModal from '@/components/ContatoModal.vue'
+import ContaModal from '@/components/ContaModal.vue'
+import WhatsappChat from '@/components/WhatsappChat.vue'
+
+const route = useRoute()
+const router = useRouter()
+const oportunidadesStore = useOportunidadesStore()
+
+const loading = ref(true)
+const oportunidade = ref(null)
+const estagios = ref([])
+
+// Listas de Opções
+const usuarios = ref([])
+const planos = ref([])
+const adicionais_opcoes = ref([])
+
+// Forms e Estados
+const oportunidadeForm = ref({
+  valor_estimado: 0,
+  data_fechamento_esperada: '',
+  probabilidade: 0,
+  proprietario: null,
+  plano: null,
+  adicionais_itens: []
+})
+
+// Forms Entidades Vinculadas (para edição direta)
+const contactForm = ref({
+    cargo: '',
+    telefone: '',
+    email: ''
+})
+
+const companyForm = ref({
+    website: '',
+    endereco: '',
+    email: ''
+})
+
+const activeSidebarTab = ref('principal')
+
+// Modais
+const showContactModal = ref(false)
+const selectedContato = ref(null)
+
+const showCompanyModal = ref(false)
+const selectedCompany = ref(null)
+
+const showWhatsappChat = ref(false)
+const whatsappData = ref({})
+
+// Computed
+const daysActive = computed(() => {
+  if (!oportunidade.value?.data_criacao) return 0
+  
+  const created = new Date(oportunidade.value.data_criacao)
+  const now = new Date()
+  const diffTime = Math.abs(now - created)
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) 
+  return diffDays
+})
+
+function formatDateShort(dateString) {
+  if (!dateString) return ''
+  const d = new Date(dateString)
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function hasAdicional(adicionalId) {
+    if (!oportunidadeForm.value.adicionais_itens) return false;
+    return oportunidadeForm.value.adicionais_itens.some(item => item.adicional === adicionalId);
+}
+
+function toggleAdicional(adicionalId, checked) {
+    if (!oportunidadeForm.value.adicionais_itens) oportunidadeForm.value.adicionais_itens = [];
+    
+    if (checked) {
+        oportunidadeForm.value.adicionais_itens.push({
+            adicional: adicionalId,
+            quantidade: 1
+        });
+    } else {
+        oportunidadeForm.value.adicionais_itens = oportunidadeForm.value.adicionais_itens.filter(item => item.adicional !== adicionalId);
+    }
+    saveChanges(); // Auto-save ao clicar checkbox
+}
+
+const showAdicionaisDropdown = ref(false)
+
+function formatSelectedAdicionais() {
+    if (!oportunidadeForm.value.adicionais_itens?.length) return ''
+    
+    // Mapeia IDs para Nomes
+    const names = oportunidadeForm.value.adicionais_itens.map(item => {
+        const found = adicionais_opcoes.value.find(op => op.id === item.adicional)
+        return found ? found.nome : ''
+    }).filter(n => n)
+    
+    if (names.length === 0) return ''
+    if (names.length <= 2) return names.join(', ')
+    return `${names.length} selecionados`
+}
+
+// Carregamento Inicial
+onMounted(async () => {
+  await loadAuxData()
+  await loadData()
+})
+
+async function loadAuxData() {
+    try {
+        const [usersRes, planosRes, adicRes] = await Promise.all([
+            api.get('/usuarios/'),
+            api.get('/planos/'),
+            api.get('/adicionais-plano/')
+        ])
+        usuarios.value = usersRes.data.results || usersRes.data
+        planos.value = planosRes.data.results || planosRes.data
+        adicionais_opcoes.value = adicRes.data.results || adicRes.data
+    } catch (err) {
+        console.error("Erro carregando listas auxiliares", err)
+    }
+}
+
+async function loadData() {
+  loading.value = true
+  try {
+    const id = route.params.id
+    
+    // 1. Oportunidade
+    const res = await api.get(`/oportunidades/${id}/`)
+    oportunidade.value = res.data
+    
+    // Preencher form local
+    oportunidadeForm.value = {
+      valor_estimado: res.data.valor_estimado,
+      data_fechamento_esperada: res.data.data_fechamento_esperada,
+      probabilidade: res.data.probabilidade,
+      proprietario: res.data.proprietario,
+      plano: res.data.plano,
+      adicionais_itens: res.data.adicionais_detalhes?.map(d => ({
+          adicional: d.adicional,
+          quantidade: d.quantidade
+      })) || []
+    }
+    
+    // Preencher Forms vinculados (Contato/Empresa)
+    if (res.data.contato_principal_dados) {
+        const c = res.data.contato_principal_dados
+        contactForm.value = {
+            cargo: c.cargo,
+            telefone: c.telefone, 
+            email: c.email
+        }
+    } else {
+        contactForm.value = { cargo: '', telefone: '', email: '' }
+    }
+    
+    if (res.data.conta_dados) {
+        const emp = res.data.conta_dados
+        companyForm.value = {
+            website: emp.website,
+            endereco: emp.endereco,
+            email: emp.email
+        }
+    } else {
+        companyForm.value = { website: '', endereco: '', email: '' }
+    }
+
+    // 2. Estágios do Funil
+    if (res.data.funil) {
+      const funilRes = await api.get(`/funis/${res.data.funil}/`)
+      // Ordenar e planificar estágios
+      estagios.value = funilRes.data.estagios_detalhe
+        .sort((a, b) => a.ordem - b.ordem)
+        .map(fe => ({
+          id: fe.estagio_id,
+          nome: fe.nome,
+          cor: fe.cor
+        }))
+    }
+  } catch (error) {
+    console.error('Erro ao carregar oportunidade:', error)
+    if (error.response?.status === 404) {
+      router.push('/kanban')
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+// Ações
+function goBack() {
+  router.push('/kanban')
+}
+
+async function saveChanges() {
+  try {
+     await api.patch(`/oportunidades/${oportunidade.value.id}/`, oportunidadeForm.value)
+     // Não precisa loadData em tudo para performance, mas para garantir consistência ok
+     // await loadData() 
+     // Atualizar apenas o local 'oportunidade' com os dados novos se necessário, mas o form já tá atualizado
+  } catch (error) {
+    console.error('Erro ao salvar:', error)
+    alert('Erro ao salvar alterações.')
+  }
+}
+
+async function saveContactField(field) {
+    if (!oportunidade.value.contato_principal) return;
+    
+    try {
+        const payload = {}
+        payload[field] = contactForm.value[field]
+        await api.patch(`/contatos/${oportunidade.value.contato_principal}/`, payload)
+        // Feedback visual sutil?
+    } catch(err) {
+        console.error("Erro salvando contato", err)
+    }
+}
+
+async function saveCompanyField(field) {
+    if (!oportunidade.value.conta) return;
+    
+    try {
+        const payload = {}
+        payload[field] = companyForm.value[field]
+        await api.patch(`/contas/${oportunidade.value.conta}/`, payload)
+    } catch(err) {
+        console.error("Erro salvando empresa", err)
+    }
+}
+
+async function updateEstagio(estagioId) {
+  if (estagioId === oportunidade.value.estagio) return
+  
+  if (!confirm(`Deseja mover para o estágio "${estagios.value.find(e => e.id === estagioId)?.nome}"?`)) return
+  
+  try {
+    await api.patch(`/oportunidades/${oportunidade.value.id}/`, { estagio: estagioId })
+    oportunidade.value.estagio = estagioId
+  } catch (error) {
+    alert('Erro ao mudar estágio.')
+  }
+}
+
+async function handleDelete() {
+  if (!confirm('Tem certeza que deseja EXCLUIR este negócio? Esta ação não pode ser desfeita.')) return
+  
+  try {
+    await api.delete(`/oportunidades/${oportunidade.value.id}/`)
+    router.push('/kanban')
+  } catch (error) {
+    alert('Erro ao excluir negócio.')
+  }
+}
+
+// Helpers de UI
+function getEstagioColor(estagio) {
+  if (estagio.id === oportunidade.value?.estagio) return estagio.cor
+  return '#e5e7eb' // Gray-200
+}
+
+function getEstagioClass(estagio) {
+   if (estagio.id === oportunidade.value?.estagio) return 'opacity-100 scale-110 z-10'
+   return 'opacity-60 hover:opacity-100'
+}
+
+function formatPhone(phone) {
+  if (!phone) return ''
+  return phone.replace(/(\d{2})(\d{1})(\d{4})(\d{4})/, '($1) $2 $3-$4')
+}
+
+// Modais Contato/Empresa
+// NOTA: Se já tem entidade vinculada, abre para EDIÇÃO. Se não, abre NOVO.
+function openContactModal() {
+  if (oportunidade.value.contatos_detalhe?.length) {
+    selectedContato.value = oportunidade.value.contatos_detalhe[0]
+  } else {
+    selectedContato.value = null
+  }
+  showContactModal.value = true
+}
+
+function closeContactModal() {
+  showContactModal.value = false
+  selectedContato.value = null
+}
+
+function openCompanyModal() {
+  if (oportunidade.value.empresas_detalhe?.length) {
+    selectedCompany.value = oportunidade.value.empresas_detalhe[0]
+  } else {
+    selectedCompany.value = null
+  }
+  showCompanyModal.value = true
+}
+
+function closeCompanyModal() {
+  showCompanyModal.value = false
+  selectedCompany.value = null
+}
+
+function openWhatsapp() {
+   const phone = oportunidade.value.contato_telefone
+   if (!phone) return alert('Sem telefone para WhatsApp')
+   
+   whatsappData.value = {
+     number: phone,
+     title: oportunidade.value.contato_nome
+   }
+   showWhatsappChat.value = true
+}
+
+async function refreshData() {
+  await loadData()
+}
+</script>
+
+<style scoped>
+.btn {
+  @apply px-4 py-2 rounded-lg font-bold text-sm uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center;
+}
+.btn-primary {
+  @apply bg-primary-600 text-white hover:bg-primary-700;
+}
+.btn-white {
+  @apply bg-white border hover:bg-gray-50;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>

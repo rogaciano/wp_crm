@@ -6,10 +6,10 @@ __pycache__/
 .Python
 venv/
 .venv/
+backend/.venv/
 env/
 .env/
 ENV/
-*.egg-info/
 dist/
 build/
 
@@ -20,7 +20,10 @@ db.sqlite3
 db.sqlite3-journal
 static/
 media/
+backend/staticfiles/
+backend/media/
 .env
+backend/.env
 local_settings.py
 
 # Vue.js / Node
@@ -39,3 +42,8 @@ dist/
 # OS
 Thumbs.db
 .DS_Store
+
+# AI Assistants
+.agent/
+.claude/
+.gemini/

@@ -23,15 +23,6 @@
           />
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Tipo de Funil <span class="text-red-500">*</span>
-          </label>
-          <select v-model="form.tipo" required class="input" :disabled="isEdit">
-            <option value="LEAD">Leads (SDR)</option>
-            <option value="OPORTUNIDADE">Oportunidades (Vendas)</option>
-          </select>
-        </div>
 
         <div>
           <label class="flex items-center space-x-2 cursor-pointer">

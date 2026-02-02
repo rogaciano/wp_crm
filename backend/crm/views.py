@@ -15,16 +15,17 @@ from django_filters.rest_framework import DjangoFilterBackend
 logger = logging.getLogger(__name__)
 
 from .models import (
-    Canal, User, Lead, Conta, Contato, TipoContato, TipoRedeSocial, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
+    Canal, User, Conta, Contato, TipoContato, TipoRedeSocial, Funil, EstagioFunil, FunilEstagio, Oportunidade, OportunidadeAnexo, Atividade, Origem,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
     Plano, PlanoAdicional, WhatsappMessage, Log
 )
 from .serializers import (
-    CanalSerializer, UserSerializer, LeadSerializer, ContaSerializer,
+    CanalSerializer, UserSerializer, ContaSerializer, OrigemSerializer,
     ContatoSerializer, TipoContatoSerializer, TipoRedeSocialSerializer, EstagioFunilSerializer, FunilEstagioSerializer, OportunidadeSerializer,
-    OportunidadeKanbanSerializer, AtividadeSerializer, LeadConversaoSerializer,
+    OportunidadeKanbanSerializer, AtividadeSerializer, OportunidadeAnexoSerializer,
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
-    PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer, LogSerializer
+    PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer, LogSerializer,
+    TagSerializer
 )
 from .services.ai_service import gerar_analise_diagnostico
 from .services.evolution_api import EvolutionService
@@ -245,6 +246,27 @@ class CanalViewSet(viewsets.ModelViewSet):
         return Response(result)
 
 
+class OrigemViewSet(viewsets.ModelViewSet):
+    """ViewSet para Origens (Fontes de Oportunidades)"""
+    queryset = Origem.objects.filter(ativo=True)
+    serializer_class = OrigemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nome']
+    ordering_fields = ['nome']
+
+    def get_queryset(self):
+        # Show all for reading, but admin can manage all including inactive
+        if self.request.user.perfil == 'ADMIN':
+            return Origem.objects.all()
+        return Origem.objects.filter(ativo=True)
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
+
+
 class UserViewSet(viewsets.ModelViewSet):
     """ViewSet para Usuários (apenas Admin)"""
     queryset = User.objects.all()
@@ -352,328 +374,6 @@ class FunilViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=400)
 
 
-class LeadViewSet(viewsets.ModelViewSet):
-    """ViewSet para Leads"""
-    serializer_class = LeadSerializer
-    permission_classes = [HierarchyPermission]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'fonte', 'funil', 'estagio', 'canal']
-    search_fields = ['nome', 'email', 'empresa']
-    ordering_fields = ['nome', 'data_criacao']
-    
-    def get_queryset(self):
-        """Aplica filtros de hierarquia e funis de acesso"""
-        import sys
-        user = self.request.user
-        
-        print(f"[LeadViewSet] Usuario: {user.username}, Perfil: {user.perfil}, Canal: {user.canal}", file=sys.stderr)
-
-        if user.perfil == 'ADMIN':
-            queryset = Lead.objects.all()
-            print(f"[LeadViewSet] Admin - retornando todos os leads", file=sys.stderr)
-        elif user.perfil == 'RESPONSAVEL':
-            # Vê leads do seu canal
-            queryset = Lead.objects.filter(
-                Q(canal=user.canal) | Q(proprietario__canal=user.canal)
-            ).distinct()
-            
-            print(f"[LeadViewSet] RESPONSAVEL - leads do canal: {queryset.count()}", file=sys.stderr)
-
-            # Apenas filtra por funis se o usuário tiver funis de LEAD configurados
-            funis_lead_permitidos = user.funis_acesso.filter(tipo='LEAD')
-            if funis_lead_permitidos.exists():
-                queryset = queryset.filter(funil__in=funis_lead_permitidos)
-                print(f"[LeadViewSet] Filtrado por funis LEAD: {list(funis_lead_permitidos.values_list('id', flat=True))}", file=sys.stderr)
-            else:
-                print(f"[LeadViewSet] Sem filtro de funis (usuário não tem funis LEAD específicos)", file=sys.stderr)
-                
-        else:  # VENDEDOR
-            # Vê seus leads
-            queryset = Lead.objects.filter(proprietario=user)
-
-            # Apenas filtra por funis se o usuário tiver funis de LEAD configurados
-            funis_lead_permitidos = user.funis_acesso.filter(tipo='LEAD')
-            if funis_lead_permitidos.exists():
-                queryset = queryset.filter(funil__in=funis_lead_permitidos)
-        
-        print(f"[LeadViewSet] Total de leads retornados: {queryset.count()}", file=sys.stderr)
-        return queryset.select_related('funil', 'estagio', 'proprietario', 'canal')
-
-    def perform_create(self, serializer):
-        # Se não forneceu estágio, busca o padrão do funil
-        estagio = serializer.validated_data.get('estagio')
-        funil = serializer.validated_data.get('funil')
-        
-        if not estagio and funil:
-            vinculo_padrao = FunilEstagio.objects.filter(funil=funil, is_padrao=True).first()
-            if not vinculo_padrao:
-                # Se não houver marcado como padrão, pega o de menor ordem
-                vinculo_padrao = FunilEstagio.objects.filter(funil=funil).order_by('ordem').first()
-            
-            if vinculo_padrao:
-                estagio = vinculo_padrao.estagio
-        
-        # Atribui canal automaticamente se o usuário tiver um
-        canal = serializer.validated_data.get('canal')
-        if not canal and self.request.user.canal:
-            canal = self.request.user.canal
-            
-        serializer.save(
-            proprietario=self.request.user, 
-            estagio=estagio,
-            canal=canal
-        )
-        
-        # Registra histórico de criação (primeiro estágio)
-        from .models import HistoricoEstagio, FunilEstagio as FE
-        lead = serializer.instance
-        if lead.estagio:
-            fe_novo = FE.objects.filter(
-                funil=lead.funil,
-                estagio=lead.estagio
-            ).first()
-            
-            HistoricoEstagio.objects.create(
-                tipo_objeto=HistoricoEstagio.TIPO_LEAD,
-                lead=lead,
-                estagio_anterior=None,
-                estagio_novo=fe_novo,
-                nome_estagio_anterior=None,
-                nome_estagio_novo=lead.estagio.nome,
-                usuario=self.request.user,
-                observacao='Criação do lead'
-            )
-
-    def perform_update(self, serializer):
-        """Registra histórico quando o estágio é alterado"""
-        from .models import HistoricoEstagio, FunilEstagio
-        
-        instance = self.get_object()
-        estagio_anterior = instance.estagio
-        
-        # Salva as mudanças
-        serializer.save()
-        
-        # Verifica se o estágio mudou
-        estagio_novo = serializer.instance.estagio
-        if estagio_anterior != estagio_novo:
-            fe_anterior = FunilEstagio.objects.filter(
-                funil=instance.funil,
-                estagio=estagio_anterior
-            ).first() if estagio_anterior else None
-            
-            fe_novo = FunilEstagio.objects.filter(
-                funil=serializer.instance.funil,
-                estagio=estagio_novo
-            ).first() if estagio_novo else None
-            
-            HistoricoEstagio.objects.create(
-                tipo_objeto=HistoricoEstagio.TIPO_LEAD,
-                lead=serializer.instance,
-                estagio_anterior=fe_anterior,
-                estagio_novo=fe_novo,
-                nome_estagio_anterior=estagio_anterior.nome if estagio_anterior else None,
-                nome_estagio_novo=estagio_novo.nome if estagio_novo else None,
-                usuario=self.request.user
-            )
-
-    @action(detail=False, methods=['get'])
-    def kanban(self, request):
-        """Retorna leads agrupados por estágio para visão Kanban SDR"""
-        funil_id = request.query_params.get('funil_id')
-        
-        # Filtros de hierarquia já no get_queryset
-        queryset = self.get_queryset()
-        
-        if funil_id:
-            queryset = queryset.filter(funil_id=funil_id)
-        else:
-            # Padrão: primeiro funil de leads disponível para o usuário
-            user_funis = request.user.funis_acesso.filter(tipo=Funil.TIPO_LEAD) if request.user.perfil != 'ADMIN' else Funil.objects.filter(tipo=Funil.TIPO_LEAD)
-            funil = user_funis.first()
-            if funil:
-                queryset = queryset.filter(funil=funil)
-            else:
-                return Response({'error': 'Nenhum funil de Leads associado ao usuário'}, status=400)
-                
-        # Agrupa por estágios do funil selecionado via tabela de ligação
-        funil_selecionado_id = funil_id or (funil.id if 'funil' in locals() and funil else None)
-        vinculos = FunilEstagio.objects.filter(funil_id=funil_selecionado_id).select_related('estagio').order_by('ordem')
-        
-        # Serializamos apenas os leads necessários
-        serializer = LeadSerializer(queryset, many=True)
-        
-        kanban_data = []
-        for vinculo in vinculos:
-            leads_estagio = [
-                lead for lead in serializer.data
-                if lead.get('estagio') == vinculo.estagio_id
-            ]
-            # Montamos o objeto de estágio como o frontend espera
-            estagio_data = EstagioFunilSerializer(vinculo.estagio).data
-            estagio_data['ordem'] = vinculo.ordem
-            estagio_data['is_padrao'] = vinculo.is_padrao
-            
-            kanban_data.append({
-                'estagio': estagio_data,
-                'items': leads_estagio
-            })
-            
-        return Response(kanban_data)
-
-    @action(detail=True, methods=['patch'])
-    def mudar_estagio(self, request, pk=None):
-        """Muda o estágio de um lead (usado no drag-and-drop do Kanban)"""
-        lead = self.get_object()
-        novo_estagio_id = request.data.get('estagio_id')
-        
-        if not novo_estagio_id:
-            return Response(
-                {'error': 'estagio_id é obrigatório'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            with transaction.atomic():
-                novo_estagio = EstagioFunil.objects.get(id=novo_estagio_id)
-                lead.estagio = novo_estagio
-                lead.save()
-            
-            serializer = LeadSerializer(lead)
-            return Response(serializer.data)
-        
-        except EstagioFunil.DoesNotExist:
-            return Response(
-                {'error': 'Estágio não encontrado'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
-    @action(detail=True, methods=['post'])
-    def converter(self, request, pk=None):
-        """Converte um Lead em Conta, Contato e opcionalmente Oportunidade"""
-        lead = self.get_object()
-        
-        # Verifica se o lead já foi convertido
-        if lead.status == Lead.STATUS_CONVERTIDO:
-            return Response(
-                {'error': 'Lead já foi convertido'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        serializer = LeadConversaoSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        try:
-            with transaction.atomic():
-                # Cria a Conta
-                nome_empresa = (lead.empresa or f"Empresa de {lead.nome}")[:255]
-                conta = Conta.objects.create(
-                    nome_empresa=nome_empresa,
-                    telefone_principal=lead.telefone,
-                    email=lead.email,
-                    proprietario=lead.proprietario
-                )
-                
-                # Cria o Contato
-                contato = Contato.objects.create(
-                    nome=lead.nome,
-                    email=lead.email,
-                    telefone=lead.telefone,
-                    cargo=lead.cargo,
-                    conta=conta,
-                    proprietario=lead.proprietario
-                )
-                
-                # Cria Oportunidade se solicitado
-                oportunidade = None
-                if serializer.validated_data.get('criar_oportunidade', False):
-                    # Busca o funil de destino (pode vir no request ou ser o padrão de vendas do user)
-                    funil_id = request.data.get('funil_id')
-                    if funil_id:
-                        funil_venda = Funil.objects.get(id=funil_id)
-                    else:
-                        funil_venda = Funil.objects.filter(tipo=Funil.TIPO_OPORTUNIDADE).first()
-
-                    if not funil_venda:
-                        raise ValueError("Não foi possível criar a oportunidade: Nenhum funil de Vendas disponível.")
-
-                    # Busca o estágio padrão DESTE funil
-                    vinculo_estagio = FunilEstagio.objects.filter(funil=funil_venda, is_padrao=True).first() or \
-                                     FunilEstagio.objects.filter(funil=funil_venda).order_by('ordem').first()
-                    
-                    if not vinculo_estagio:
-                        raise ValueError(f"O funil '{funil_venda.nome}' não possui estágios configurados.")
-                    
-                    primeiro_estagio = vinculo_estagio.estagio
-                    
-                    nome_oportunidade = serializer.validated_data.get(
-                        'nome_oportunidade',
-                        f"Oportunidade - {lead.nome}"
-                    )[:255]
-                    
-                    # Definir Canal: o informado no serializer ou o canal do proprietário do lead
-                    canal_id = serializer.validated_data.get('canal')
-                    canal_obj = Canal.objects.filter(id=canal_id).first() if canal_id else (lead.proprietario.canal if lead.proprietario else None)
-
-                    oportunidade = Oportunidade.objects.create(
-                        nome=nome_oportunidade,
-                        valor_estimado=serializer.validated_data.get('valor_estimado'),
-                        conta=conta,
-                        contato_principal=contato,
-                        funil=funil_venda,
-                        estagio=primeiro_estagio,
-                        proprietario=lead.proprietario,
-                        canal=canal_obj,
-                        fonte=lead.fonte  # Copia a fonte do lead
-                    )
-                
-                # Marca o lead como convertido e salva referência da oportunidade
-                lead.status = Lead.STATUS_CONVERTIDO
-                if oportunidade:
-                    lead.oportunidade_convertida = oportunidade
-                lead.save()
-                
-                # Vincula histórico de diagnósticos à nova Conta
-                DiagnosticoResultado.objects.filter(lead=lead).update(conta=conta)
-                
-                return Response({
-                    'message': 'Lead convertido com sucesso',
-                    'conta_id': conta.id,
-                    'contato_id': contato.id,
-                    'oportunidade_id': oportunidade.id if oportunidade else None
-                }, status=status.HTTP_201_CREATED)
-        
-        except Exception as e:
-            import traceback
-            print(f"Erro na conversão de lead: {str(e)}")
-            traceback.print_exc()
-            return Response(
-                {'error': f'Falha na conversão: {str(e)}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-    @action(detail=True, methods=['patch'])
-    def mudar_estagio(self, request, pk=None):
-        """Muda o estágio de um lead"""
-        lead = self.get_object()
-        novo_estagio_id = request.data.get('estagio_id') or request.data.get('estagio')
-        
-        if not novo_estagio_id:
-            return Response({'error': 'estagio_id é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        try:
-            estagio = EstagioFunil.objects.get(id=novo_estagio_id)
-            lead.estagio = estagio
-            lead.save()
-            return Response(self.get_serializer(lead).data)
-        except EstagioFunil.DoesNotExist:
-            return Response({'error': 'Estágio não encontrado'}, status=status.HTTP_404_NOT_FOUND)
-
-    @action(detail=False, methods=['get'])
-    def stats(self, request):
-        """Retorna indicadores resumidos dos leads (KPIs)"""
         queryset = self.get_queryset()
         
         # Filtros de busca se enviados
@@ -812,12 +512,27 @@ class TipoRedeSocialViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         return [IsAdminUser()]
 
+
+class TagViewSet(viewsets.ModelViewSet):
+    """ViewSet para Tags de Contatos (CRUD apenas Admin, leitura para autenticados)"""
+    serializer_class = TagSerializer
+    
+    def get_queryset(self):
+        from .models import Tag
+        return Tag.objects.all().order_by('nome')
+    
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
+
+
 class ContatoViewSet(viewsets.ModelViewSet):
     """ViewSet para Contatos"""
     serializer_class = ContatoSerializer
     permission_classes = [HierarchyPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['conta', 'tipo', 'canal']
+    filterset_fields = ['conta', 'tipo', 'canal', 'tags', 'proprietario']
     search_fields = ['nome', 'email', 'conta__nome_empresa']
     ordering_fields = ['nome', 'data_criacao']
 
@@ -949,8 +664,8 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
     serializer_class = OportunidadeSerializer
     permission_classes = [HierarchyPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['estagio', 'conta', 'canal', 'funil']
-    search_fields = ['nome', 'conta__nome_empresa']
+    filterset_fields = ['estagio', 'conta', 'canal', 'funil', 'contatos', 'empresas']
+    search_fields = ['nome', 'conta__nome_empresa', 'empresas__nome_empresa', 'contatos__nome']
     ordering_fields = ['nome', 'valor_estimado', 'data_fechamento_esperada', 'data_criacao']
     
     def get_queryset(self):
@@ -978,7 +693,11 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                     funil__in=user.funis_acesso.all()
                 )
             
-        return queryset.select_related('funil', 'estagio', 'conta', 'contato_principal', 'proprietario').prefetch_related('oportunidadeadicional_set')
+        return queryset.select_related(
+            'funil', 'estagio', 'conta', 'contato_principal', 'proprietario'
+        ).prefetch_related(
+            'oportunidadeadicional_set', 'contatos', 'empresas', 'anexos'
+        )
 
     def perform_create(self, serializer):
         # Se não forneceu estágio, busca o padrão do funil
@@ -1401,6 +1120,22 @@ Investimento:
             return Response({'error': f'Erro ao gerar proposta: {str(e)}'}, status=500)
 
 
+class OportunidadeAnexoViewSet(viewsets.ModelViewSet):
+    """ViewSet para Anexos de Oportunidades"""
+    queryset = OportunidadeAnexo.objects.all()
+    serializer_class = OportunidadeAnexoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(uploaded_por=self.request.user)
+
+    @action(detail=False, methods=['delete'])
+    def batch_delete(self, request):
+        ids = request.data.get('ids', [])
+        OportunidadeAnexo.objects.filter(id__in=ids).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class PlanoViewSet(viewsets.ModelViewSet):
     """ViewSet para CRUD de Planos (Admin cria/edita, todos leem)"""
     queryset = Plano.objects.all()
@@ -1521,7 +1256,7 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def submeter(self, request):
-        """Recebe as respostas do diagnóstico, cria o Lead e salva o resultado"""
+        """Recebe as respostas do diagnóstico, cria Contato/Oportunidade e salva o resultado"""
         serializer = DiagnosticoPublicSubmissionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -1573,47 +1308,95 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
 
         try:
             with transaction.atomic():
-                # 3. Cria ou busca o Lead (pelo e-mail)
+                # 3. Cria ou busca Contato, Conta e Oportunidade
                 admin_user = User.objects.filter(perfil='ADMIN', is_active=True).first()
                 
-                # Procura se já existe uma conta vinculada a esse e-mail via Contato
-                conta_existente = None
                 contato = Contato.objects.filter(email=data['email']).first()
-                if contato:
-                    conta_existente = contato.conta
+                conta = contato.conta if contato else None
+                oportunidade = None
 
-                lead, created = Lead.objects.update_or_create(
-                    email=data['email'],
-                    defaults={
-                        'nome': data['nome'],
-                        'telefone': data.get('telefone', ''),
-                        'empresa': data.get('empresa', ''),
-                        'fonte': 'Diagnóstico de Maturidade',
-                        'proprietario': admin_user
-                    }
-                )
+                # Se veio oportunidade_id, tenta buscá-la
+                if data.get('oportunidade_id'):
+                    oportunidade = Oportunidade.objects.filter(id=data['oportunidade_id']).first()
+                    if oportunidade:
+                        contato = oportunidade.contato_principal
+                        conta = oportunidade.conta
+
+                # Se não temos contato mas temos contato_id
+                if not contato and data.get('contato_id'):
+                    contato = Contato.objects.filter(id=data['contato_id']).first()
+                    if contato:
+                        conta = contato.conta
+
+                # Se ainda não temos contato por e-mail, cria um
+                if not contato:
+                    # Se temos empresa, tenta achar ou criar a conta
+                    empresa_nome = data.get('empresa')
+                    if empresa_nome and not conta:
+                        conta = Conta.objects.filter(nome_empresa__iexact=empresa_nome).first()
+                        if not conta:
+                            conta = Conta.objects.create(
+                                nome_empresa=empresa_nome,
+                                proprietario=admin_user
+                            )
+                    
+                    contato = Contato.objects.create(
+                        nome=data['nome'],
+                        email=data['email'],
+                        telefone=data.get('telefone', ''),
+                        conta=conta,
+                        proprietario=admin_user
+                    )
+
+                # Se não temos oportunidade, cria uma nova
+                if not oportunidade:
+                    # Busca o funil "SDR" ou o primeiro do tipo OPORTUNIDADE
+                    funil = Funil.objects.filter(nome__icontains='SDR').first() or \
+                            Funil.objects.filter(tipo=Funil.TIPO_OPORTUNIDADE).first() or \
+                            Funil.objects.first()
+                    
+                    if funil:
+                        vinculo_estagio = FunilEstagio.objects.filter(funil=funil, is_padrao=True).first() or \
+                                         FunilEstagio.objects.filter(funil=funil).order_by('ordem').first()
+                        
+                        estagio = vinculo_estagio.estagio if vinculo_estagio else None
+                        
+                        oportunidade = Oportunidade.objects.create(
+                            nome=f"Oportunidade - {contato.nome} (Diagnóstico)",
+                            contato_principal=contato,
+                            conta=conta,
+                            funil=funil,
+                            estagio=estagio,
+                            proprietario=admin_user,
+                            fonte='Diagnóstico de Maturidade'
+                        )
 
                 # 4. Salva o resultado do diagnóstico
                 diagnostico = DiagnosticoResultado.objects.create(
-                    lead=lead,
-                    conta=conta_existente,  # Vincula à conta se o e-mail for de um cliente
+                    conta=conta,
+                    oportunidade=oportunidade,
                     respostas_detalhadas=respostas_detalhadas,
                     pontuacao_por_pilar=resultado_final
                 )
                 
-                # 5. Gera Análise de IA (Pode demorar, em produção usar Celery)
+                # 5. Gera Análise de IA
                 diagnostico.analise_ia = gerar_analise_diagnostico(diagnostico)
                 diagnostico.save()
 
                 return Response({
                     'message': 'Diagnóstico processado com sucesso',
-                    'lead_id': lead.id,
+                    'contato_id': contato.id,
+                    'oportunidade_id': oportunidade.id if oportunidade else None,
                     'resultado': resultado_final,
                     'analise_ia': diagnostico.analise_ia
                 }, status=status.HTTP_201_CREATED)
                 
         except Exception as e:
+            print(f"Erro ao submeter diagnóstico: {e}")
+            import traceback
+            traceback.print_exc()
             return Response(
+                {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -1623,12 +1406,12 @@ class WhatsappViewSet(viewsets.ModelViewSet):
     queryset = WhatsappMessage.objects.all()
     serializer_class = WhatsappMessageSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['lead', 'oportunidade', 'numero_remetente', 'numero_destinatario']
+    filterset_fields = ['oportunidade', 'numero_remetente', 'numero_destinatario']
     ordering_fields = ['timestamp']
 
-    def _get_evolution_service_for_entity(self, lead_id=None, opp_id=None):
+    def _get_evolution_service_for_entity(self, opp_id=None):
         """
-        Retorna um EvolutionService configurado para o canal do Lead ou Oportunidade.
+        Retorna um EvolutionService configurado para o canal da Oportunidade.
         Se não encontrar canal configurado, usa a instância global.
         
         Returns:
@@ -1636,16 +1419,8 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         """
         canal = None
         
-        # Tenta obter o canal do Lead
-        if lead_id:
-            try:
-                lead = Lead.objects.select_related('canal').get(id=lead_id)
-                canal = lead.canal
-            except Lead.DoesNotExist:
-                pass
-        
         # Tenta obter o canal da Oportunidade
-        if not canal and opp_id:
+        if opp_id:
             try:
                 opp = Oportunidade.objects.select_related('canal').get(id=opp_id)
                 canal = opp.canal
@@ -1797,16 +1572,15 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         
         number = request.data.get('number')
         text = request.data.get('text')
-        lead_id = request.data.get('lead')
         opp_id = request.data.get('oportunidade')
         
-        print(f"number={number}, text={text[:20] if text else None}..., lead_id={lead_id}, opp_id={opp_id}", file=sys.stderr)
+        print(f"number={number}, text={text[:20] if text else None}..., opp_id={opp_id}", file=sys.stderr)
 
         if not number or not text:
             return Response({'error': 'Número e texto são obrigatórios'}, status=400)
 
         # Obtém o serviço Evolution do canal correto
-        service, canal, instance_name = self._get_evolution_service_for_entity(lead_id, opp_id)
+        service, canal, instance_name = self._get_evolution_service_for_entity(opp_id)
         print(f"[SEND] Usando instância: {instance_name} (canal: {canal.nome if canal else 'global'})", file=sys.stderr)
         
         try:
@@ -1852,7 +1626,6 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                 numero_destinatario=formatted_number,
                 texto=text,
                 timestamp=timezone.now(),
-                lead_id=lead_id,
                 oportunidade_id=opp_id
             )
             
@@ -1874,7 +1647,6 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         media_type = request.data.get('mediaType', 'image')
         file_name = request.data.get('fileName', 'image.jpg')
         caption = request.data.get('caption', '')
-        lead_id = request.data.get('lead')
         opp_id = request.data.get('oportunidade')
         
         print(f"[SEND_MEDIA] number={number}, type={media_type}, caption={caption[:20] if caption else 'none'}...", file=sys.stderr)
@@ -1883,7 +1655,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Número e mídia são obrigatórios'}, status=400)
 
         # Obtém o serviço Evolution do canal correto
-        service, canal, instance_name = self._get_evolution_service_for_entity(lead_id, opp_id)
+        service, canal, instance_name = self._get_evolution_service_for_entity(opp_id)
         print(f"[SEND_MEDIA] Usando instância: {instance_name}", file=sys.stderr)
         
         try:
@@ -2096,29 +1868,28 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         # Filtro base: mensagens recebidas e não lidas
         unread_base = WhatsappMessage.objects.filter(lida=False, de_mim=False)
         
-        # Aplicar filtros de hierarquia similares aos ViewSets de Lead/Oportunidade
+        # Filtros de Hierarquia
         if user.perfil == 'ADMIN':
-            # ADMIN vê tudo. Mensagens não vinculadas a oportunidades contam como leads
-            leads_unread = unread_base.filter(oportunidade__isnull=True).count()
+            # ADMIN vê tudo
+            outros_unread = unread_base.filter(oportunidade__isnull=True).count()
             opps_unread = unread_base.filter(oportunidade__isnull=False).count()
         elif user.perfil == 'RESPONSAVEL':
-            # RESPONSAVEL vê mensagens de leads/oportunidades do seu canal
-            # E também mensagens não vinculadas (se houver apenas uma instância, assumimos que é do canal)
-            leads_unread = unread_base.filter(
-                Q(lead__canal=user.canal) | Q(lead__proprietario__canal=user.canal) | Q(lead__isnull=True, oportunidade__isnull=True)
-            ).count()
+            # RESPONSAVEL vê do seu canal
+            outros_unread = unread_base.filter(
+                oportunidade__isnull=True
+            ).count() # TODO: Filtrar outros por canal se possível via instância
             opps_unread = unread_base.filter(
                 Q(oportunidade__canal=user.canal) | Q(oportunidade__proprietario__canal=user.canal)
             ).count()
         else: # VENDEDOR
             # VENDEDOR vê apenas o que é dele
-            leads_unread = unread_base.filter(lead__proprietario=user).count()
+            outros_unread = 0 # Vendedor geralmente não vê novos que não são dele
             opps_unread = unread_base.filter(oportunidade__proprietario=user).count()
             
         return Response({
-            'leads': leads_unread,
+            'novas': outros_unread,
             'oportunidades': opps_unread,
-            'total': leads_unread + opps_unread
+            'total': outros_unread + opps_unread
         })
 
     @action(detail=False, methods=['post'])
@@ -2794,4 +2565,122 @@ class OrganogramaViewSet(viewsets.ViewSet):
                 'total_responsaveis': total_responsaveis,
                 'total_vendedores': total_vendedores
             }
+        })
+
+class TimelineViewSet(viewsets.ViewSet):
+    """
+    ViewSet unificado para a Timeline (Feed)
+    Agrega Atividades, Mensagens do WhatsApp e Logs em uma única lista cronológica.
+    Endpoint: /api/timeline/?model=oportunidade&id=1
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        model_name = request.query_params.get('model')
+        model_id = request.query_params.get('id')
+        
+        if not model_name or not model_id:
+            return Response(
+                {'error': 'Parâmetros "model" e "id" são obrigatórios'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 1. Identificar a entidade
+        entity = None
+        if model_name == 'oportunidade':
+            entity = Oportunidade.objects.filter(id=model_id).first()
+        elif model_name == 'contato':
+            entity = Contato.objects.filter(id=model_id).first()
+        elif model_name == 'conta':
+            entity = Conta.objects.filter(id=model_id).first()
+        
+        if not entity:
+            return Response({'error': 'Objeto não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        # 2. Buscar Dados
+        timeline_items = []
+
+        # A. Atividades (Padrão Django ContentType)
+        # Precisamos descobrir o ContentType do modelo
+        from django.contrib.contenttypes.models import ContentType
+        ct = ContentType.objects.get_for_model(entity)
+        atividades = Atividade.objects.filter(content_type=ct, object_id=entity.id).select_related('proprietario')
+        
+        for item in atividades:
+            timeline_items.append({
+                'id': f"atividade_{item.id}",
+                'db_id': item.id,
+                'type': 'atividade',
+                'subtype': item.tipo, # TAREFA, LIGACAO, NOTA, etc
+                'timestamp': item.data_criacao,
+                'author': item.proprietario.get_full_name() if item.proprietario else 'Sistema',
+                'content': item.descricao or item.titulo,
+                'title': item.titulo,
+                'status': item.status,
+                'data': AtividadeSerializer(item).data
+            })
+
+        # B. WhatsApp Messages
+        # Lógica de vínculo varia por modelo
+        msgs = []
+        if model_name == 'oportunidade':
+            # Mensagens vinculadas diretamente à oportunidade
+            # OU mensagens do contato principal da oportunidade (opcional, pode ser complexo filtrar data)
+            msgs = WhatsappMessage.objects.filter(oportunidade=entity)
+        elif model_name == 'contato':
+            # Mensagens onde o telefone é do contato
+            telefones = [t.numero for t in entity.telefones.all()] 
+            # Normalizar telefones pode ser necessário.
+            # Por simplicidade, vamos buscar mensagens vinculadas a oportunidades DESTE contato 
+            # OU tentar bater numero (complexo sem normalização)
+            # Vamos assumir vínculo direto se existir campo ou através das oportunidades
+            # POR ORA: Buscamos mensagens vinculadas a oportunidades deste contato
+            msgs = WhatsappMessage.objects.filter(oportunidade__contato_principal=entity)
+            
+            # TODO: Melhorar busca por número de telefone direto
+        
+        for item in msgs:
+            timeline_items.append({
+                'id': f"whatsapp_{item.id}",
+                'db_id': item.id,
+                'type': 'whatsapp',
+                'subtype': item.tipo_mensagem, # text, image, audio
+                'timestamp': item.timestamp,
+                'author': 'Eu' if item.de_mim else (item.numero_remetente or 'Cliente'),
+                'direction': 'outbound' if item.de_mim else 'inbound',
+                'content': item.texto,
+                'status': 'read' if item.lida else 'delivered',
+                'data': WhatsappMessageSerializer(item).data
+            })
+
+        # C. Logs (Audit)
+        logs = Log.objects.filter(modelo=entity.__class__.__name__, objeto_id=entity.id)
+        for item in logs:
+             timeline_items.append({
+                'id': f"log_{item.id}",
+                'db_id': item.id,
+                'type': 'log',
+                'subtype': item.acao,
+                'timestamp': item.timestamp,
+                'author': item.usuario.get_full_name() if item.usuario else 'Sistema',
+                'content': f"{item.get_acao_display()}: {item.observacao or ''}",
+                'data': LogSerializer(item).data
+            })
+
+        # 3. Ordenação (Do mais recente para o mais antigo)
+        timeline_items.sort(key=lambda x: x['timestamp'], reverse=True)
+
+        # 4. Paginação Manual
+        page = int(request.query_params.get('page', 1))
+        page_size = 20
+        start = (page - 1) * page_size
+        end = start + page_size
+        
+        paginated_items = timeline_items[start:end]
+        
+        return Response({
+            'count': len(timeline_items),
+            'results': paginated_items,
+            'page': page,
+            'pages': (len(timeline_items) // page_size) + 1
         })

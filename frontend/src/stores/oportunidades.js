@@ -24,28 +24,15 @@ export const useOportunidadesStore = defineStore('oportunidades', () => {
     loading.value = true
     error.value = null
     try {
-      // Determina o endpoint baseado no funil selecionado
       let endpoint = '/oportunidades/kanban/'
       let params = {}
 
       if (canalId) params.canal = canalId
-
-      if (funilId) {
-        params.funil_id = funilId
-        const funil = funis.value.find(f => f.id === funilId)
-        if (funil && funil.tipo === 'LEAD') {
-          endpoint = '/leads/kanban/'
-        }
-      } else if (funis.value.length > 0) {
-        // Usa o primeiro funil se não especificado
-        const funil = funis.value[0]
-        if (funil.tipo === 'LEAD') endpoint = '/leads/kanban/'
-        params.funil_id = funil.id
-      }
+      if (funilId) params.funil_id = funilId
 
       const response = await api.get(endpoint, { params })
 
-      // Padroniza a resposta (leads usam 'items', oportunidades usam 'oportunidades')
+      // Padroniza a resposta
       const data = response.data.map(col => ({
         ...col,
         items: col.oportunidades || col.items || []
