@@ -6,6 +6,7 @@ __pycache__/
 .Python
 venv/
 .venv/
+backend/.venv/
 env/
 ENV/
 dist/
@@ -15,9 +16,10 @@ build/
 *.log
 db.sqlite3
 db.sqlite3-journal
-/static/
-/media/
+backend/staticfiles/
+backend/media/
 .env
+backend/.env
 local_settings.py
 
 # Vue.js / Node
