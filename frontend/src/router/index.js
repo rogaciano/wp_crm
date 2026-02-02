@@ -64,6 +64,11 @@ const router = createRouter({
           component: () => import('@/views/ContatoDetailView.vue')
         },
         {
+          path: '/negocios/:id',
+          name: 'oportunidade-detail',
+          component: () => import('@/views/OportunidadeDetailView.vue')
+        },
+        {
           path: '/oportunidades',
           name: 'oportunidades',
           component: () => import('@/views/OportunidadesView.vue')

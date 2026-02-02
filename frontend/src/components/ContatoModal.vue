@@ -56,10 +56,10 @@
 
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
-            Empresa (Conta) <span class="text-red-500">*</span>
+            Empresa (Conta)
           </label>
           <div class="flex gap-2">
-            <select v-model="form.conta" required class="input flex-1">
+            <select v-model="form.conta" class="input flex-1">
               <option value="">Selecione uma conta...</option>
               <option v-for="conta in contas" :key="conta.id" :value="conta.id">
                 {{ conta.nome_empresa }}
@@ -595,11 +595,18 @@ function removerRedeSocial(index) {
 }
 
 function adicionarTelefone() {
-  form.value.telefones_input.push({ numero: '', tipo: 'CELULAR', principal: false })
+  const isFirst = form.value.telefones_input.length === 0
+  form.value.telefones_input.push({ numero: '', tipo: 'CELULAR', principal: isFirst })
 }
 
 function removerTelefone(index) {
+  const wasPrincipal = form.value.telefones_input[index].principal
   form.value.telefones_input.splice(index, 1)
+  
+  // Se removeu o principal e ainda tem telefones, define o primeiro como principal
+  if (wasPrincipal && form.value.telefones_input.length > 0) {
+    form.value.telefones_input[0].principal = true
+  }
 }
 
 function adicionarEmail() {
@@ -663,6 +670,14 @@ function resetForm() {
 async function handleSubmit() {
   loading.value = true
   try {
+    // Validação: Pelo menos um telefone deve existir
+    const hasPhone = form.value.telefones_input.some(t => t.numero && t.numero.trim() !== '')
+    if (!hasPhone) {
+      alert('É obrigatório cadastrar pelo menos um telefone.')
+      loading.value = false
+      return
+    }
+
     // Usar FormData para suportar upload de arquivo
     const formData = new FormData()
     
@@ -674,7 +689,10 @@ async function handleSubmit() {
     if (form.value.cargo) formData.append('cargo', form.value.cargo)
     if (form.value.departamento) formData.append('departamento', form.value.departamento)
     if (form.value.chave_pix) formData.append('chave_pix', form.value.chave_pix)
-    if (form.value.conta) formData.append('conta', form.value.conta)
+    
+    // Envia o valor de conta (mesmo que vazio, para permitir remover)
+    formData.append('conta', form.value.conta || '')
+    
     if (form.value.tipo_contato) formData.append('tipo_contato', form.value.tipo_contato)
     if (form.value.canal) formData.append('canal', form.value.canal)
     formData.append('tipo', form.value.tipo || 'PADRAO')

@@ -28,6 +28,27 @@
             <p class="text-sm text-gray-500">Email</p>
             <p class="font-medium">{{ conta.email || 'N/A' }}</p>
           </div>
+          
+          <!-- Marcas -->
+          <div class="col-span-2 bg-gray-50 p-3 rounded-lg border border-gray-100" v-if="conta.marca || conta.marcas_adicionais?.length">
+            <p class="text-xs text-gray-400 font-bold uppercase mb-2 flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+              Marcas
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <span v-if="conta.marca" class="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 shadow-sm">
+                {{ conta.marca }} (Principal)
+              </span>
+              <span 
+                v-for="m in conta.marcas_adicionais" 
+                :key="m.id"
+                class="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 shadow-sm"
+              >
+                {{ m.nome }}
+              </span>
+            </div>
+          </div>
+          
           <div>
             <p class="text-sm text-gray-500">Website</p>
             <p class="font-medium">

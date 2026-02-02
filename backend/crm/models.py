@@ -60,6 +60,21 @@ class Canal(models.Model):
         return self.nome
 
 
+class Origem(models.Model):
+    """Origem/Fonte de Oportunidades (Google, Indicação, Evento, etc)"""
+    nome = models.CharField(max_length=100, unique=True)
+    ativo = models.BooleanField(default=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Origem'
+        verbose_name_plural = 'Origens'
+        ordering = ['nome']
+
+    def __str__(self):
+        return self.nome
+
+
 class User(AbstractUser):
     """Usuário customizado do sistema"""
     PERFIL_VENDEDOR = 'VENDEDOR'
@@ -113,6 +128,7 @@ class User(AbstractUser):
 class Conta(models.Model):
     """Conta - Representa uma empresa/organização"""
     nome_empresa = models.CharField(max_length=255)
+    marca = models.CharField(max_length=100, null=True, blank=True)
     cnpj = models.CharField(max_length=20, null=True, blank=True, unique=True)
     telefone_principal = models.CharField(max_length=20, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
@@ -152,6 +168,24 @@ class Conta(models.Model):
 
     def __str__(self):
         return self.nome_empresa
+
+
+class ContaMarca(models.Model):
+    """Marcas adicionais vinculadas a uma Conta"""
+    conta = models.ForeignKey(
+        Conta,
+        on_delete=models.CASCADE,
+        related_name='marcas_adicionais'
+    )
+    nome = models.CharField(max_length=100)
+    
+    class Meta:
+        verbose_name = 'Marca Adicional'
+        verbose_name_plural = 'Marcas Adicionais'
+        ordering = ['nome']
+
+    def __str__(self):
+        return f"{self.nome} ({self.conta.nome_empresa})"
 
 
 class TipoContato(models.Model):
@@ -226,8 +260,10 @@ class Contato(models.Model):
     
     conta = models.ForeignKey(
         Conta,
-        on_delete=models.CASCADE,
-        related_name='contatos'
+        on_delete=models.SET_NULL,
+        related_name='contatos',
+        null=True,
+        blank=True
     )
     proprietario = models.ForeignKey(User, on_delete=models.PROTECT, related_name='contatos')
 
@@ -273,7 +309,8 @@ class Contato(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.nome} ({self.conta.nome_empresa})"
+        conta_nome = self.conta.nome_empresa if self.conta else "Sem Empresa"
+        return f"{self.nome} ({conta_nome})"
 
 
 class ContatoTelefone(models.Model):
@@ -594,6 +631,14 @@ class Oportunidade(models.Model):
     cortesia = models.TextField(null=True, blank=True)
     cupom_desconto = models.CharField(max_length=100, null=True, blank=True)
     fonte = models.CharField(max_length=100, null=True, blank=True, help_text='Origem da oportunidade (Site, Evento, Indicação, etc)')
+    origem = models.ForeignKey(
+        Origem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='oportunidades',
+        help_text='Origem padronizada da oportunidade'
+    )
     
     FORMA_PAGAMENTO_CHOICES = [
         ('CARTAO_RECORRENTE', 'Cartão de crédito recorrente'),

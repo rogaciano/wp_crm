@@ -11,15 +11,81 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <!-- Coluna Principal (Formulário) -->
       <form @submit.prevent="handleSubmit" class="lg:col-span-2 space-y-8">
-        <!-- Informações Básicas -->
+        
+        <!-- 1. Identificação (Kommo Style) -->
         <section class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-          <h3 class="text-xs font-black text-primary-600 uppercase tracking-[0.2em] mb-6 flex items-center">
-            <span class="w-8 h-px bg-primary-200 mr-3"></span>
-            Informações Básicas
+          <h3 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-6 flex items-center">
+            <span class="w-8 h-px bg-gray-300 mr-3"></span>
+            Definição
           </h3>
           
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="md:col-span-2">
+          <div class="space-y-6">
+            <!-- Row 1: Contato, Telefone e Fonte -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Contato Principal -->
+                <div class="relative">
+                  <label class="text-sm font-bold text-gray-700 mb-1.5 flex justify-between">
+                    <span>Contato Principal <span class="text-red-500">*</span></span>
+                    <button type="button" @click="showNovoContatoModal = true" class="text-primary-600 hover:text-primary-700 text-[10px] font-black uppercase tracking-wider">+ Novo</button>
+                  </label>
+                  
+                  <div class="relative group">
+                    <input 
+                      v-model="searchContatoPrincipal" 
+                      type="text" 
+                      class="input pl-10 pr-10" 
+                      placeholder="Buscar ou criar contato..."
+                      @focus="showContatosPrincipalDropdown = true"
+                    >
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <button v-if="form.contato_principal" @click="form.contato_principal = null; searchContatoPrincipal = ''; telefoneContato = ''" type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                      <svg class="h-4 w-4 text-gray-400 hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+
+                    <div v-if="showContatosPrincipalDropdown && filteredContatosPrincipal.length > 0" class="absolute z-50 mt-1 w-full bg-white shadow-2xl rounded-xl border border-gray-100 max-h-60 overflow-y-auto custom-scrollbar">
+                      <div 
+                        v-for="c in filteredContatosPrincipal" :key="c.id"
+                        @click="selectContatoPrincipal(c)"
+                        class="p-3 hover:bg-primary-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
+                      >
+                        <div class="font-bold text-gray-900 text-sm">{{ c.nome }}</div>
+                        <div class="text-[10px] text-gray-500">{{ c.celular || c.telefone || 'Sem telefone' }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Telefone (Mandatory) -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5">Telefone <span class="text-red-500">*</span></label>
+                    <input 
+                      v-model="telefoneContato" 
+                      type="tel" 
+                      class="input" 
+                      placeholder="(XX) 9XXXX-XXXX" 
+                      required
+                      @input="formatPhone"
+                    />
+                </div>
+
+                <!-- Fonte (Select) -->
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5">Fonte <span class="text-red-500">*</span></label>
+                    <select v-model="form.origem" class="input" required>
+                      <option :value="null">Selecione a fonte...</option>
+                      <option v-for="o in origens" :key="o.id" :value="o.id">{{ o.nome }}</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Row 2: Nome -->
+            <div>
               <label class="block text-sm font-bold text-gray-700 mb-1.5">
                 Nome da Oportunidade <span class="text-red-500">*</span>
               </label>
@@ -32,8 +98,141 @@
               />
             </div>
 
+            <!-- Row 3: Funil e Estagio (Hidden on Create) -->
+            <div v-if="isEdit" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Funil</label>
+                <select v-model="form.funil" required class="input">
+                  <option :value="null">Selecione o funil...</option>
+                  <option v-for="f in funis" :key="f.id" :value="f.id">{{ f.nome }}</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Estágio</label>
+                <select v-model="form.estagio" required class="input" :disabled="!form.funil">
+                  <option v-for="e in estagios" :key="e.id" :value="e.id">{{ e.nome }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. Comercial (Sidebar Matching Flow) -->
+        <section class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
+          <h3 class="text-xs font-black text-primary-600 uppercase tracking-[0.2em] mb-6 flex items-center">
+            <span class="w-8 h-px bg-primary-200 mr-3"></span>
+            Dados Comerciais
+          </h3>
+          
+          <div class="space-y-6">
+            
+            <!-- 1. Responsável -->
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1.5">Responsável</label>
+              <select v-model="form.proprietario" class="input">
+                 <option :value="null">Selecione...</option>
+                 <option v-for="u in usuarios" :key="u.id" :value="u.id">{{ u.first_name }} {{ u.last_name }}</option>
+              </select>
+            </div>
+
+            <!-- 2. Valor -->
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1.5">Valor Estimado (R$)</label>
+              <input v-model.number="form.valor_estimado" type="number" step="0.01" class="input" placeholder="0,00" />
+            </div>
+
+            <!-- 3. Produto (Plano) -->
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1.5">Produto (Plano)</label>
+              <select v-model="form.plano" class="input">
+                 <option :value="null">Selecione...</option>
+                 <option v-for="p in planos" :key="p.id" :value="p.id">{{ p.nome }} (R$ {{ p.preco_mensal }})</option>
+              </select>
+            </div>
+
+            <!-- 4. Adicionais (Dropdown) -->
             <div class="relative">
-              <label class="block text-sm font-bold text-gray-700 mb-1.5 flex justify-between">
+               <label class="block text-sm font-bold text-gray-700 mb-1.5">Adicionais (Upgrade)</label>
+               <div class="relative">
+                  <!-- Trigger -->
+                  <button 
+                     type="button"
+                     @click="showAdicionaisDropdown = !showAdicionaisDropdown"
+                     class="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent flex justify-between items-center transition-shadow shadow-sm hover:border-gray-400"
+                  >
+                      <span class="text-sm text-gray-700 truncate pr-2">
+                          {{ formatSelectedAdicionais() || 'Selecione...' }}
+                      </span>
+                      <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+
+                  <!-- Dropdown Content -->
+                  <div v-if="showAdicionaisDropdown" class="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-lg z-50 p-2 max-h-60 overflow-y-auto">
+                     <div class="space-y-1">
+                        <div v-for="adc in adicionais_opcoes" :key="adc.id" class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors" @click.stop="toggleAdicional(adc.id, !hasAdicional(adc.id))">
+                           <input 
+                              type="checkbox" 
+                              :value="adc.id" 
+                              :checked="hasAdicional(adc.id)"
+                              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4 pointer-events-none"
+                           />
+                           <span class="text-sm text-gray-700 select-none">{{ adc.nome }}</span>
+                        </div>
+                     </div>
+                  </div>
+                  
+                  <!-- Backdrop to close -->
+                  <div v-if="showAdicionaisDropdown" class="fixed inset-0 z-40 bg-transparent cursor-default" @click="showAdicionaisDropdown = false"></div>
+               </div>
+            </div>
+
+            <div class="border-t border-gray-200"></div>
+
+            <!-- 5. Origem (Canal) -->
+            <div>
+                 <label class="block text-sm font-bold text-gray-700 mb-1.5">Canal de Aquisição</label>
+                 <select v-model="form.canal" class="input">
+                    <option :value="null">Selecione...</option>
+                    <option v-for="c in canais" :key="c.id" :value="c.id">{{ c.nome }}</option>
+                 </select>
+            </div>
+
+            <!-- 6. Previsão -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label class="block text-sm font-bold text-gray-700 mb-1.5">Previsão Fechamento</label>
+                  <input v-model="form.data_fechamento_esperada" type="date" class="input" />
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-bold text-gray-700 mb-1.5">Probabilidade (%)</label>
+                  <input v-model.number="form.probabilidade" type="number" min="0" max="100" class="input" />
+                </div>
+            </div>
+
+             <!-- 7. Indicador (Extra) -->
+            <div>
+                 <label class="block text-sm font-bold text-gray-700 mb-1.5">Indicador de Comissão</label>
+                 <select v-model="form.indicador_comissao" class="input">
+                     <option :value="null">Sem indicador...</option>
+                     <option v-for="u in usuarios" :key="u.id" :value="u.id">{{ u.first_name }} {{ u.last_name }}</option>
+                 </select>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- 3. Entidades (Empresa/Contato) -->
+        <section class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
+          <h3 class="text-xs font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center">
+            <span class="w-8 h-px bg-indigo-200 mr-3"></span>
+             Cliente e Contatos
+          </h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div class="relative">
+              <label class="text-sm font-bold text-gray-700 mb-1.5 flex justify-between">
                 <span>Empresa Principal <span class="text-red-500">*</span></span>
                 <button type="button" @click="showNovaEmpresaModal = true" class="text-primary-600 hover:text-primary-700 text-[10px] font-black uppercase tracking-wider">+ Nova Empresa</button>
               </label>
@@ -70,100 +269,8 @@
               </div>
             </div>
 
-            <div class="relative">
-              <label class="block text-sm font-bold text-gray-700 mb-1.5 flex justify-between">
-                <span>Contato Principal</span>
-                <button type="button" @click="showNovoContatoModal = true" class="text-primary-600 hover:text-primary-700 text-[10px] font-black uppercase tracking-wider">+ Novo Contato</button>
-              </label>
-              
-              <div class="relative group">
-                <input 
-                  v-model="searchContatoPrincipal" 
-                  type="text" 
-                  class="input pl-10 pr-10 disabled:bg-gray-50" 
-                  :placeholder="form.conta ? 'Buscar contato...' : 'Selecione uma empresa primeiro'"
-                  :disabled="!form.conta"
-                  @focus="showContatosPrincipalDropdown = true"
-                >
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <button v-if="form.contato_principal" @click="form.contato_principal = null; searchContatoPrincipal = ''" type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center">
-                  <svg class="h-4 w-4 text-gray-400 hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
 
-                <div v-if="showContatosPrincipalDropdown && filteredContatosPrincipal.length > 0" class="absolute z-50 mt-1 w-full bg-white shadow-2xl rounded-xl border border-gray-100 max-h-60 overflow-y-auto custom-scrollbar">
-                  <div 
-                    v-for="c in filteredContatosPrincipal" :key="c.id"
-                    @click="selectContatoPrincipal(c)"
-                    class="p-3 hover:bg-primary-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
-                  >
-                    <div class="font-bold text-gray-900 text-sm">{{ c.nome }}</div>
-                    <div class="text-[10px] text-gray-500">{{ c.email || 'Sem e-mail' }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
 
-        <!-- Funções e Estágios -->
-        <section class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-          <h3 class="text-xs font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center">
-            <span class="w-8 h-px bg-indigo-200 mr-3"></span>
-            Funil e Estágio
-          </h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1.5">Funil</label>
-              <select v-model="form.funil" required class="input">
-                <option :value="null">Selecione o funil...</option>
-                <option v-for="f in funis" :key="f.id" :value="f.id">{{ f.nome }}</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1.5">Estágio</label>
-              <select v-model="form.estagio" required class="input" :disabled="!form.funil">
-                <option v-for="e in estagios" :key="e.id" :value="e.id">{{ e.nome }}</option>
-              </select>
-            </div>
-          </div>
-        </section>
-
-        <!-- Valores e Datas -->
-        <section class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-          <h3 class="text-xs font-black text-emerald-600 uppercase tracking-[0.2em] mb-6 flex items-center">
-            <span class="w-8 h-px bg-emerald-200 mr-3"></span>
-            Valores e Previsão
-          </h3>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1.5">Valor Estimado (R$)</label>
-              <input v-model.number="form.valor_estimado" type="number" step="0.01" class="input" placeholder="0,00" />
-            </div>
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1.5">Probabilidade (%)</label>
-              <input v-model.number="form.probabilidade" type="number" min="0" max="100" class="input" />
-            </div>
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1.5">Fechamento Esperado</label>
-              <input v-model="form.data_fechamento_esperada" type="date" class="input" />
-            </div>
-          </div>
-        </section>
-
-        <!-- Relações Adicionais (M2M) -->
-        <section class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-          <h3 class="text-xs font-black text-amber-600 uppercase tracking-[0.2em] mb-6 flex items-center">
-            <span class="w-8 h-px bg-amber-200 mr-3"></span>
-            Pessoas e Empresas Envolvidas
-          </h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <!-- M2M Contatos -->
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-3">Contatos Extras</label>
@@ -306,8 +413,17 @@
           </div>
         </div>
 
-        <!-- Histórico de Estágios -->
-        <div v-if="isEdit && historico.length > 0" class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+       <!-- Timeline Unificada (Substitui Histórico Antigo) -->
+        <div v-if="isEdit" class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden h-[600px] flex flex-col">
+           <TimelineFeed 
+              model="oportunidade" 
+              :id="form.id" 
+              @action="(type) => console.log('Action triggered:', type)" 
+           />
+        </div>
+
+        <!-- Histórico de Estágios (Legado - Manter escondido ou remover futuramente) -->
+        <div v-if="isEdit && historico.length > 0 && false" class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
            <h4 class="text-xs font-black text-amber-400 uppercase tracking-widest mb-4">Track de Evolução</h4>
            <div class="space-y-4 relative">
              <div v-for="(item, idx) in historico.slice(0, 5)" :key="item.id" class="flex gap-3 relative">
@@ -348,6 +464,7 @@ import { useOportunidadesStore } from '@/stores/oportunidades'
 import { useAuthStore } from '@/stores/auth'
 import ContaModal from './ContaModal.vue'
 import ContatoModal from './ContatoModal.vue'
+import TimelineFeed from './TimelineFeed.vue'
 
 const authStore = useAuthStore()
 
@@ -376,8 +493,106 @@ const form = ref({
   indicador_comissao: null,
   fonte: '',
   contatos: [],
-  empresas: []
+  empresas: [],
+  proprietario: null,
+  plano: null,
+  adicionais_itens: []
 })
+
+// ... (existing helper functions)
+
+function hasAdicional(adicionalId) {
+    if (!form.value.adicionais_itens) return false;
+    return form.value.adicionais_itens.some(item => item.adicional === adicionalId);
+}
+
+function toggleAdicional(adicionalId, checked) {
+    if (!form.value.adicionais_itens) form.value.adicionais_itens = [];
+    
+    if (checked) {
+        form.value.adicionais_itens.push({
+            adicional: adicionalId,
+            quantidade: 1
+        });
+    } else {
+        form.value.adicionais_itens = form.value.adicionais_itens.filter(item => item.adicional !== adicionalId);
+    }
+}
+
+// ...
+
+watch(() => props.oportunidade, async (newOp) => {
+  if (newOp) {
+    isEdit.value = true
+    form.value = { 
+       ...newOp,
+       contatos: newOp.contatos || [],
+       empresas: newOp.empresas || [],
+       adicionais_itens: newOp.adicionais_detalhes?.map(d => ({
+           adicional: d.adicional,
+           quantidade: d.quantidade
+       })) || []
+    }
+    // ...
+  } else {
+    isEdit.value = false
+    resetForm()
+  }
+}, { immediate: true })
+
+async function loadOptions() {
+  try {
+    console.log('[loadOptions] Starting...')
+    const [cRes, ctRes, fnRes, cnRes, uRes, pRes, adcRes, orRes] = await Promise.all([
+      api.get('/contas/'),
+      api.get('/contatos/'),
+      api.get('/funis/'),
+      api.get('/canais/'),
+      api.get('/usuarios/'),
+      api.get('/planos/'),
+      api.get('/adicionais-plano/'),
+      api.get('/origens/')
+    ])
+    console.log('[loadOptions] pRes:', pRes.data)
+    console.log('[loadOptions] orRes:', orRes.data)
+    
+    contas.value = cRes.data.results || cRes.data
+    contatos.value = ctRes.data.results || ctRes.data
+    funis.value = (fnRes.data.results || fnRes.data).filter(f => f.tipo === 'OPORTUNIDADE')
+    canais.value = cnRes.data.results || cnRes.data
+    usuarios.value = uRes.data.results || uRes.data
+    planos.value = pRes.data.results || pRes.data
+    adicionais_opcoes.value = adcRes.data.results || adcRes.data
+    origens.value = orRes.data.results || orRes.data
+    
+    console.log('[loadOptions] planos.value:', planos.value)
+    console.log('[loadOptions] origens.value:', origens.value)
+  } catch (err) { console.error('[loadOptions] ERROR:', err) }
+}
+
+// ...
+
+function resetForm() {
+  form.value = {
+    nome: '',
+    conta: props.fixedContaId ? parseInt(props.fixedContaId) : null,
+    contato_principal: null,
+    funil: props.fixedFunilId ? parseInt(props.fixedFunilId) : null,
+    estagio: props.fixedEstagioId ? parseInt(props.fixedEstagioId) : null,
+    valor_estimado: 0,
+    probabilidade: 0,
+    contatos: [],
+    empresas: [],
+    proprietario: authStore.user?.id || null, // Default to current user
+    plano: null,
+    adicionais_itens: [],
+    origem: null
+  }
+  searchContaPrincipal.value = ''
+  searchContatoPrincipal.value = ''
+  telefoneContato.value = ''
+  anexos.value = []
+}
 
 const loading = ref(false)
 const isEdit = ref(false)
@@ -389,6 +604,22 @@ const funis = ref([])
 const historico = ref([])
 const anexos = ref([])
 const diagnosticos = ref([])
+
+// Comercial Options
+const usuarios = ref([])
+const planos = ref([])
+const adicionais_opcoes = ref([])
+const origens = ref([])
+const showAdicionaisDropdown = ref(false)
+
+function formatSelectedAdicionais() {
+    if (!form.value.adicionais_itens || form.value.adicionais_itens.length === 0) return ''
+    const names = form.value.adicionais_itens.map(item => {
+        const opt = adicionais_opcoes.value.find(o => o.id === item.adicional)
+        return opt ? opt.nome : '?'
+    })
+    return names.join(', ')
+}
 
 const showNovaEmpresaModal = ref(false)
 const showNovoContatoModal = ref(false)
@@ -404,6 +635,7 @@ const filteredContasPrincipal = computed(() => {
 })
 
 const searchContatoPrincipal = ref('')
+const telefoneContato = ref('') // Phone field for new/selected contact
 const showContatosPrincipalDropdown = ref(false)
 const filteredContatosPrincipal = computed(() => {
   const base = form.value.conta ? contatos.value.filter(c => c.conta === form.value.conta) : contatos.value
@@ -443,6 +675,7 @@ function selectContaPrincipal(c) {
 function selectContatoPrincipal(c) {
   form.value.contato_principal = c.id
   searchContatoPrincipal.value = c.nome
+  telefoneContato.value = c.celular || c.telefone || ''
   showContatosPrincipalDropdown.value = false
 }
 
@@ -470,6 +703,22 @@ function removeEmpresaM2M(id) {
   form.value.empresas = form.value.empresas.filter(e => e !== id)
 }
 
+function formatPhone() {
+  // Brazilian phone mask: (XX) 9XXXX-XXXX
+  let digits = telefoneContato.value.replace(/\D/g, '')
+  if (digits.length > 11) digits = digits.slice(0, 11)
+  
+  if (digits.length === 0) {
+    telefoneContato.value = ''
+  } else if (digits.length <= 2) {
+    telefoneContato.value = `(${digits}`
+  } else if (digits.length <= 7) {
+    telefoneContato.value = `(${digits.slice(0,2)}) ${digits.slice(2)}`
+  } else {
+    telefoneContato.value = `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`
+  }
+}
+
 function getContatoNome(id) {
   return contatos.value.find(c => c.id === id)?.nome || '...'
 }
@@ -478,26 +727,14 @@ function getEmpresaNome(id) {
   return contas.value.find(c => c.id === id)?.nome_empresa || '...'
 }
 
-// Watchers
-watch(() => props.show, async (newVal) => {
-  if (newVal) {
-    await loadOptions()
-    if (!isEdit.value) {
-      if (props.fixedContaId) {
-        form.value.conta = parseInt(props.fixedContaId)
-        const c = contas.value.find(x => x.id === form.value.conta)
-        if (c) searchContaPrincipal.value = c.nome_empresa
-      }
-      if (props.fixedFunilId) form.value.funil = parseInt(props.fixedFunilId)
-      if (props.fixedEstagioId) form.value.estagio = parseInt(props.fixedEstagioId)
-    }
+// Helper to load stages
+async function updateEstagios(funilId) {
+  if (!funilId) {
+      estagios.value = []
+      return
   }
-})
-
-watch(() => form.value.funil, async (newFunil) => {
-  if (newFunil) {
-    try {
-      const response = await api.get(`/funis/${newFunil}/estagios/`)
+  try {
+      const response = await api.get(`/funis/${funilId}/estagios/`)
       const raw = response.data.results || response.data
       estagios.value = raw.map(v => ({
         id: v.estagio_id,
@@ -510,115 +747,133 @@ watch(() => form.value.funil, async (newFunil) => {
         const defaultEstagio = estagios.value.find(e => e.is_padrao) || estagios.value[0]
         if (defaultEstagio) form.value.estagio = defaultEstagio.id
       }
-    } catch (error) {
+  } catch (error) {
       console.error('Erro ao carregar estágios:', error)
       estagios.value = []
+  }
+}
+
+// Watchers
+watch(() => props.show, async (newVal) => {
+  if (newVal) {
+    await loadOptions()
+    if (!isEdit.value) {
+      if (props.fixedContaId) {
+        form.value.conta = parseInt(props.fixedContaId)
+        const c = contas.value.find(x => x.id === form.value.conta)
+        if (c) searchContaPrincipal.value = c.nome_empresa
+      }
+      
+      if (props.fixedFunilId) {
+          const fid = parseInt(props.fixedFunilId)
+          // If value is different, watcher will handle it.
+          // If value is same, watcher won't trigger, so we must call manual update to be sure stages are loaded/reset.
+          if (form.value.funil !== fid) {
+             form.value.funil = fid
+             // Watcher triggers
+          } else {
+             // Same value, manual trigger
+             await updateEstagios(fid)
+          }
+      }
+      
+      if (props.fixedEstagioId) form.value.estagio = parseInt(props.fixedEstagioId)
+      
+      // Auto-select cheapest plan
+      if (planos.value.length > 0) {
+        const cheapest = planos.value.reduce((min, p) => 
+          (!min || Number(p.preco_mensal) < Number(min.preco_mensal)) ? p : min
+        , null)
+        if (cheapest) form.value.plano = cheapest.id
+      }
     }
   }
 })
 
-watch(() => props.oportunidade, async (newOp) => {
-  if (newOp) {
-    isEdit.value = true
-    form.value = { 
-       ...newOp,
-       contatos: newOp.contatos || [],
-       empresas: newOp.empresas || []
+watch(() => form.value.funil, async (newFunil) => {
+    await updateEstagios(newFunil)
+})
+
+
+watch(searchContatoPrincipal, (val) => {
+    if (!isEdit.value) {
+        form.value.nome = val
     }
-    anexos.value = newOp.anexos || []
-    diagnosticos.value = newOp.diagnosticos || []
-    
-    // Set search inputs
-    const cp = contas.value.find(x => x.id === newOp.conta)
-    if (cp) searchContaPrincipal.value = cp.nome_empresa
-    
-    const ctp = contatos.value.find(x => x.id === newOp.contato_principal)
-    if (ctp) searchContatoPrincipal.value = ctp.nome
-
-    // Historico
-    try {
-      const h = await api.get(`/oportunidades/${newOp.id}/historico_estagios/`)
-      historico.value = h.data || []
-    } catch (err) { console.error(err) }
-  } else {
-    isEdit.value = false
-    resetForm()
-  }
-}, { immediate: true })
-
-async function loadOptions() {
-  try {
-    const [cRes, ctRes, fnRes, cnRes] = await Promise.all([
-      api.get('/contas/'),
-      api.get('/contatos/'),
-      api.get('/funis/'),
-      api.get('/canais/')
-    ])
-    contas.value = cRes.data.results || cRes.data
-    contatos.value = ctRes.data.results || ctRes.data
-    funis.value = (fnRes.data.results || fnRes.data).filter(f => f.tipo === 'OPORTUNIDADE')
-    canais.value = cnRes.data.results || cnRes.data
-  } catch (err) { console.error(err) }
-}
-
-async function handleFileUpload(event) {
-  const files = event.target.files
-  if (!files.length || !form.value.id) return
-  
-  loading.value = true
-  for (const file of files) {
-    const formData = new FormData()
-    formData.append('arquivo', file)
-    formData.append('nome', file.name)
-    formData.append('oportunidade', form.value.id)
-
-    try {
-      const response = await api.post('/oportunidade-anexos/', formData)
-      anexos.value.unshift(response.data)
-    } catch (err) {
-      console.error('Erro no upload:', err)
-      alert(`Falha ao enviar ${file.name}`)
-    }
-  }
-  loading.value = false
-}
-
-async function deleteAnexo(id) {
-  if (!confirm('Excluir anexo?')) return
-  try {
-    await api.delete(`/oportunidade-anexos/${id}/`)
-    anexos.value = anexos.value.filter(a => a.id !== id)
-  } catch (err) { console.error(err) }
-}
-
-function verDiagnostico(diag) {
-  localStorage.setItem('last_diagnosis_result', JSON.stringify(diag))
-  window.open('/diagnostico-resultado', '_blank')
-}
-
-function resetForm() {
-  form.value = {
-    nome: '',
-    conta: props.fixedContaId ? parseInt(props.fixedContaId) : null,
-    contato_principal: null,
-    funil: props.fixedFunilId ? parseInt(props.fixedFunilId) : null,
-    estagio: props.fixedEstagioId ? parseInt(props.fixedEstagioId) : null,
-    valor_estimado: 0,
-    probabilidade: 0,
-    contatos: [],
-    empresas: []
-  }
-  searchContaPrincipal.value = ''
-  searchContatoPrincipal.value = ''
-  anexos.value = []
-}
+})
 
 async function handleSubmit() {
+  if (!searchContatoPrincipal.value.trim() && !form.value.contato_principal) {
+      alert('Obrigatório informar o Contato Principal.')
+      return
+  }
+  if (!form.value.origem) {
+      alert('Obrigatório informar a Fonte.')
+      return
+  }
+  if (!telefoneContato.value.trim()) {
+      alert('Obrigatório informar o Telefone.')
+      return
+  }
+
   loading.value = true
   try {
+    // 1. Auto-create Company if typed but not selected
+    if (!form.value.conta && searchContaPrincipal.value.trim()) {
+      try {
+        const res = await api.post('/contas/', { 
+          nome_empresa: searchContaPrincipal.value,
+          email: '', // Optional defaults
+          telefone: ''
+        })
+        form.value.conta = res.data.id
+        contas.value.unshift(res.data) // Add to local list
+      } catch (e) {
+        console.error("Erro ao criar empresa automática:", e)
+        // Decide if we abort or continue. Let's alert and abort to be safe.
+        alert('Erro ao criar empresa automática: ' +  (e.response?.data?.detail || e.message))
+        loading.value = false
+        return
+      }
+    }
+
+    // 2. Auto-create Contact if typed but not selected
+    if (!form.value.contato_principal && searchContatoPrincipal.value.trim()) {
+      try {
+        const payload = {
+          nome: searchContatoPrincipal.value,
+          email: null,
+          telefone: null,
+          celular: telefoneContato.value.trim() || null,
+          cargo: ''
+        }
+        // Link to company if we have one (either selected or just created)
+        if (form.value.conta) {
+          payload.conta = form.value.conta
+        }
+
+        const res = await api.post('/contatos/', payload)
+        form.value.contato_principal = res.data.id
+        contatos.value.unshift(res.data)
+      } catch (e) {
+        console.error("Erro ao criar contato automático:", e)
+        alert('Erro ao criar contato automático: ' + (e.response?.data?.detail || e.message))
+        loading.value = false
+        return
+      }
+    }
+
     const payload = { ...form.value }
-    // Remove null values that the API might reject if they are not expected
     if (payload.id === null) delete payload.id
+
+    // Sanitize fields to avoid 400 Bad Request
+    if (!payload.data_fechamento_esperada) payload.data_fechamento_esperada = null
+    if (payload.valor_estimado === '') payload.valor_estimado = null
+    if (!payload.conta) payload.conta = null
+    if (!payload.proprietario) payload.proprietario = null
+    if (!payload.canal) payload.canal = null
+    if (!payload.plano) payload.plano = null
+    if (!payload.indicador_comissao) payload.indicador_comissao = null
+    if (!payload.probabilidade && payload.probabilidade !== 0) payload.probabilidade = 0
     
     if (isEdit.value) {
       await api.put(`/oportunidades/${payload.id}/`, payload)
@@ -630,7 +885,7 @@ async function handleSubmit() {
     resetForm()
   } catch (err) {
     console.error(err)
-    alert('Erro ao salvar oportunidade')
+    alert('Erro ao salvar oportunidade: ' + (err.response?.data?.detail || err.message))
   } finally { loading.value = false }
 }
 

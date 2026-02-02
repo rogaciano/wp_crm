@@ -15,12 +15,12 @@ from django_filters.rest_framework import DjangoFilterBackend
 logger = logging.getLogger(__name__)
 
 from .models import (
-    Canal, User, Conta, Contato, TipoContato, TipoRedeSocial, Funil, EstagioFunil, FunilEstagio, Oportunidade, OportunidadeAnexo, Atividade,
+    Canal, User, Conta, Contato, TipoContato, TipoRedeSocial, Funil, EstagioFunil, FunilEstagio, Oportunidade, OportunidadeAnexo, Atividade, Origem,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
     Plano, PlanoAdicional, WhatsappMessage, Log
 )
 from .serializers import (
-    CanalSerializer, UserSerializer, ContaSerializer,
+    CanalSerializer, UserSerializer, ContaSerializer, OrigemSerializer,
     ContatoSerializer, TipoContatoSerializer, TipoRedeSocialSerializer, EstagioFunilSerializer, FunilEstagioSerializer, OportunidadeSerializer,
     OportunidadeKanbanSerializer, AtividadeSerializer, OportunidadeAnexoSerializer,
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
@@ -244,6 +244,27 @@ class CanalViewSet(viewsets.ModelViewSet):
             canal.save()
         
         return Response(result)
+
+
+class OrigemViewSet(viewsets.ModelViewSet):
+    """ViewSet para Origens (Fontes de Oportunidades)"""
+    queryset = Origem.objects.filter(ativo=True)
+    serializer_class = OrigemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nome']
+    ordering_fields = ['nome']
+
+    def get_queryset(self):
+        # Show all for reading, but admin can manage all including inactive
+        if self.request.user.perfil == 'ADMIN':
+            return Origem.objects.all()
+        return Origem.objects.filter(ativo=True)
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -2544,4 +2565,122 @@ class OrganogramaViewSet(viewsets.ViewSet):
                 'total_responsaveis': total_responsaveis,
                 'total_vendedores': total_vendedores
             }
+        })
+
+class TimelineViewSet(viewsets.ViewSet):
+    """
+    ViewSet unificado para a Timeline (Feed)
+    Agrega Atividades, Mensagens do WhatsApp e Logs em uma única lista cronológica.
+    Endpoint: /api/timeline/?model=oportunidade&id=1
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        model_name = request.query_params.get('model')
+        model_id = request.query_params.get('id')
+        
+        if not model_name or not model_id:
+            return Response(
+                {'error': 'Parâmetros "model" e "id" são obrigatórios'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 1. Identificar a entidade
+        entity = None
+        if model_name == 'oportunidade':
+            entity = Oportunidade.objects.filter(id=model_id).first()
+        elif model_name == 'contato':
+            entity = Contato.objects.filter(id=model_id).first()
+        elif model_name == 'conta':
+            entity = Conta.objects.filter(id=model_id).first()
+        
+        if not entity:
+            return Response({'error': 'Objeto não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        # 2. Buscar Dados
+        timeline_items = []
+
+        # A. Atividades (Padrão Django ContentType)
+        # Precisamos descobrir o ContentType do modelo
+        from django.contrib.contenttypes.models import ContentType
+        ct = ContentType.objects.get_for_model(entity)
+        atividades = Atividade.objects.filter(content_type=ct, object_id=entity.id).select_related('proprietario')
+        
+        for item in atividades:
+            timeline_items.append({
+                'id': f"atividade_{item.id}",
+                'db_id': item.id,
+                'type': 'atividade',
+                'subtype': item.tipo, # TAREFA, LIGACAO, NOTA, etc
+                'timestamp': item.data_criacao,
+                'author': item.proprietario.get_full_name() if item.proprietario else 'Sistema',
+                'content': item.descricao or item.titulo,
+                'title': item.titulo,
+                'status': item.status,
+                'data': AtividadeSerializer(item).data
+            })
+
+        # B. WhatsApp Messages
+        # Lógica de vínculo varia por modelo
+        msgs = []
+        if model_name == 'oportunidade':
+            # Mensagens vinculadas diretamente à oportunidade
+            # OU mensagens do contato principal da oportunidade (opcional, pode ser complexo filtrar data)
+            msgs = WhatsappMessage.objects.filter(oportunidade=entity)
+        elif model_name == 'contato':
+            # Mensagens onde o telefone é do contato
+            telefones = [t.numero for t in entity.telefones.all()] 
+            # Normalizar telefones pode ser necessário.
+            # Por simplicidade, vamos buscar mensagens vinculadas a oportunidades DESTE contato 
+            # OU tentar bater numero (complexo sem normalização)
+            # Vamos assumir vínculo direto se existir campo ou através das oportunidades
+            # POR ORA: Buscamos mensagens vinculadas a oportunidades deste contato
+            msgs = WhatsappMessage.objects.filter(oportunidade__contato_principal=entity)
+            
+            # TODO: Melhorar busca por número de telefone direto
+        
+        for item in msgs:
+            timeline_items.append({
+                'id': f"whatsapp_{item.id}",
+                'db_id': item.id,
+                'type': 'whatsapp',
+                'subtype': item.tipo_mensagem, # text, image, audio
+                'timestamp': item.timestamp,
+                'author': 'Eu' if item.de_mim else (item.numero_remetente or 'Cliente'),
+                'direction': 'outbound' if item.de_mim else 'inbound',
+                'content': item.texto,
+                'status': 'read' if item.lida else 'delivered',
+                'data': WhatsappMessageSerializer(item).data
+            })
+
+        # C. Logs (Audit)
+        logs = Log.objects.filter(modelo=entity.__class__.__name__, objeto_id=entity.id)
+        for item in logs:
+             timeline_items.append({
+                'id': f"log_{item.id}",
+                'db_id': item.id,
+                'type': 'log',
+                'subtype': item.acao,
+                'timestamp': item.timestamp,
+                'author': item.usuario.get_full_name() if item.usuario else 'Sistema',
+                'content': f"{item.get_acao_display()}: {item.observacao or ''}",
+                'data': LogSerializer(item).data
+            })
+
+        # 3. Ordenação (Do mais recente para o mais antigo)
+        timeline_items.sort(key=lambda x: x['timestamp'], reverse=True)
+
+        # 4. Paginação Manual
+        page = int(request.query_params.get('page', 1))
+        page_size = 20
+        start = (page - 1) * page_size
+        end = start + page_size
+        
+        paginated_items = timeline_items[start:end]
+        
+        return Response({
+            'count': len(timeline_items),
+            'results': paginated_items,
+            'page': page,
+            'pages': (len(timeline_items) // page_size) + 1
         })

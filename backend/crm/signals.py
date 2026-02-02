@@ -1,16 +1,16 @@
 """
 Signals para capturar ações e criar logs automaticamente
 """
-from django.db.models.signals import post_save, post_delete, pre_save
+from django.db.models.signals import post_save, post_delete, pre_save, m2m_changed
 from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in, user_logged_out
-from .models import Log, Conta, Contato, Oportunidade, Atividade, TipoRedeSocial, ContatoRedeSocial
+from .models import Log, Conta, Contato, Oportunidade, Atividade, TipoRedeSocial, ContatoRedeSocial, OportunidadeAdicional
 from .middleware import get_current_request, get_current_user
 import json
 
 
 # Lista de modelos que queremos auditar
-MODELOS_AUDITADOS = [Conta, Contato, Oportunidade, Atividade, ContatoRedeSocial]
+MODELOS_AUDITADOS = [Conta, Contato, Oportunidade, Atividade, ContatoRedeSocial, OportunidadeAdicional]
 
 
 @receiver(pre_save)
@@ -210,3 +210,65 @@ def log_user_logout(sender, request, user, **kwargs):
             user_agent=get_user_agent(request),
             observacao="Logout realizado"
         )
+
+
+@receiver(m2m_changed)
+def log_m2m_changes(sender, instance, action, reverse, model, pk_set, **kwargs):
+    """
+    Captura alterações em campos ManyToMany (Contatos e Empresas na Oportunidade)
+    """
+    if action not in ['post_add', 'post_remove', 'post_clear']:
+        return
+
+    # Se instancia não é Oportunidade, pode ser o reverso (ex: adicionando oportunidade no contato)
+    # Vamos focar apenas quando o alvo é Oportunidade para simplificar o log na timeline da Oportunidade
+    if not isinstance(instance, Oportunidade):
+        return
+
+    # Verifica qual campo mudou
+    campo = None
+    if sender == Oportunidade.contatos.through:
+        campo = 'Contatos'
+        NomeModel = Contato
+    elif sender == Oportunidade.empresas.through:
+        campo = 'Empresas'
+        NomeModel = Conta
+    else:
+        return
+
+    user = get_current_user()
+    request = get_current_request()
+    
+    # Busca nomes dos objetos afetados
+    nomes = []
+    if pk_set:
+        objs = NomeModel.objects.filter(pk__in=pk_set)
+        if NomeModel == Contato:
+            nomes = [o.nome for o in objs]
+        else:
+            nomes = [o.nome_empresa for o in objs]
+    
+    nomes_str = ", ".join(nomes)
+    
+    acao_verbose = ""
+    if action == 'post_add':
+        acao_verbose = "Adicionou"
+    elif action == 'post_remove':
+        acao_verbose = "Removeu"
+    elif action == 'post_clear':
+        acao_verbose = "Removeu todos"
+        nomes_str = f"os {campo.lower()}"
+
+    observacao = f"{acao_verbose} {campo}: {nomes_str}"
+
+    Log.objects.create(
+        usuario=user,
+        acao=Log.ACAO_UPDATE,
+        modelo='Oportunidade',
+        objeto_id=instance.pk,
+        objeto_repr=str(instance),
+        alteracoes={campo: {'antes': None, 'depois': observacao}},
+        ip_address=get_client_ip(request),
+        user_agent=get_user_agent(request),
+        observacao=observacao
+    )

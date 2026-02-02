@@ -210,6 +210,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useOportunidadesStore } from '@/stores/oportunidades'
 import { useAuthStore } from '@/stores/auth'
 import { useWhatsappStore } from '@/stores/whatsapp'
@@ -344,6 +345,10 @@ function formatDate(dateString) {
   return date.toLocaleDateString('pt-BR')
 }
 
+const router = useRouter()
+
+// ...
+
 function openCreateModal(estagioId = null) {
   selectedOportunidade.value = null
   activeContextEstagioId.value = typeof estagioId === 'number' ? estagioId : null
@@ -351,8 +356,7 @@ function openCreateModal(estagioId = null) {
 }
 
 function editItem(item) {
-  selectedOportunidade.value = item
-  showModal.value = true
+  router.push({ name: 'oportunidade-detail', params: { id: item.id } })
 }
 
 function closeModal() {

@@ -97,7 +97,25 @@ Contato ←→ Empresa (Conta)
   - [x] Coluna Tags
   - [x] Filtros por empresa, tags, responsável
 
----
+
+## Fase 6: Timeline Unificada (Estilo KOMMO) ✅ COMPLETA
+
+### Backend
+- [x] Criar endpoint unificado `/api/timeline/`
+  - Deve agregar: `Atividades` (Notas, Tarefas), `WhatsappMessage`, `Logs`
+  - Ordenação cronológica decrescente
+  - Paginação eficiente
+- [x] Garantir que `WhatsappMessages` estejam vinculadas a Oportunidades/Contatos
+
+### Frontend
+- [x] Criar componente `TimelineFeed.vue`
+- [x] Estilização visual distinta para cada tipo de item:
+  - 📞 Ligação (ícone telefone)
+  - 📝 Nota (fundo amarelo suave ou cinza)
+  - 💬 WhatsApp (balões de chat verde/branco)
+  - ✅ Tarefa (checkbox checkável)
+- [x] Integrar em `OportunidadeModal` e `ContatoDetailView`
+
 
 ## Melhorias Futuras
 - [ ] Histórico de atividades completo
