@@ -30,7 +30,7 @@
           
           <div class="h-6 w-px bg-gray-200 mx-2"></div>
           
-          <button class="btn btn-white border-gray-200 text-gray-600 shadow-sm">
+          <button @click="goBack" class="btn btn-white border-gray-200 text-gray-600 shadow-sm">
             Cancelar
           </button>
           <button @click="saveChanges" class="btn btn-primary shadow-lg shadow-primary-200">
