@@ -8,7 +8,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crm', '0037_remove_lead_canal_remove_lead_estagio_and_more'),
+        ('crm', '0041_origem_model'),
     ]
 
     operations = [
