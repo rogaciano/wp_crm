@@ -20,8 +20,17 @@ def migrar_leads_para_oportunidades(apps, schema_editor):
 
     # 1. Atualizar tipos de Funil
     Funil.objects.filter(tipo='LEAD').update(tipo='OPORTUNIDADE')
+    
+    # 2. Obter ou criar um estágio padrão para Leads sem estágio
+    estagio_padrao = EstagioFunil.objects.first()
+    if not estagio_padrao:
+        estagio_padrao = EstagioFunil.objects.create(
+            nome='Novo',
+            tipo='ABERTO',
+            cor='#3B82F6'
+        )
 
-    # 2. Migrar cada Lead
+    # 3. Migrar cada Lead
     for lead in Lead.objects.all():
         # Criar ou buscar Conta
         conta = None
@@ -45,6 +54,9 @@ def migrar_leads_para_oportunidades(apps, schema_editor):
             canal=lead.canal
         )
         
+        # Usar estágio do lead ou o padrão se não existir
+        estagio_lead = lead.estagio if lead.estagio else estagio_padrao
+        
         # Criar Oportunidade
         opp = Oportunidade.objects.create(
             nome=f"Oportunidade - {lead.nome}",
@@ -53,7 +65,7 @@ def migrar_leads_para_oportunidades(apps, schema_editor):
             proprietario=lead.proprietario,
             canal=lead.canal,
             funil=lead.funil,
-            estagio=lead.estagio,
+            estagio=estagio_lead,
             fonte=lead.fonte or 'Lead Migrado',
             descricao=lead.notas,
             data_criacao=lead.data_criacao
