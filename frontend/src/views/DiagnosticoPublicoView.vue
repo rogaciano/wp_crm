@@ -122,7 +122,7 @@
       </div>
 
       <!-- Pergunta Atual -->
-      <div v-if="perguntaAtual" class="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 mb-6">
+      <div v-if="perguntaAtual && !mostrarFormularioDados" class="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 mb-6">
         <h2 class="text-xl md:text-2xl font-semibold text-white mb-2">
           {{ perguntaAtual.texto }}
         </h2>
