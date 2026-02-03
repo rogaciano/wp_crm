@@ -43,6 +43,41 @@
         </select>
         <p class="mt-1 text-xs text-gray-500 italic">O responsável terá acesso a todos os dados deste canal.</p>
       </div>
+
+      <!-- Funil e Estágio Padrão -->
+      <div class="border-t pt-4 mt-4">
+        <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Destino das Novas Oportunidades
+        </h4>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Funil Padrão</label>
+            <select v-model="form.funil_padrao" @change="onFunilChange" class="input">
+              <option value="">Sistema decide</option>
+              <option v-for="funil in funis" :key="funil.id" :value="funil.id">
+                {{ funil.nome }}
+              </option>
+            </select>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Estágio Inicial</label>
+            <select v-model="form.estagio_inicial" class="input" :disabled="!form.funil_padrao">
+              <option value="">Primeiro do funil</option>
+              <option v-for="estagio in estagiosDoFunil" :key="estagio.estagio_id" :value="estagio.estagio_id">
+                {{ estagio.estagio_nome }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <p class="mt-2 text-xs text-gray-500 italic">
+          Oportunidades via diagnóstico ou cadastro serão direcionadas para este funil/estágio.
+        </p>
+      </div>
     </form>
   </BaseModal>
 </template>
@@ -62,11 +97,15 @@ const emit = defineEmits(['close', 'saved'])
 const loading = ref(false)
 const isEdit = ref(false)
 const users = ref([])
+const funis = ref([])
+const estagiosDoFunil = ref([])
 
 const form = ref({
   nome: '',
   slug: '',
-  responsavel: ''
+  responsavel: '',
+  funil_padrao: '',
+  estagio_inicial: ''
 })
 
 // URL base para mostrar no preview
@@ -87,6 +126,7 @@ const slugSugerido = computed(() => {
 
 onMounted(() => {
   loadUsers()
+  loadFunis()
 })
 
 async function loadUsers() {
@@ -95,6 +135,29 @@ async function loadUsers() {
     users.value = response.data.results || response.data
   } catch (error) {
     console.error('Erro ao carregar usuários:', error)
+  }
+}
+
+async function loadFunis() {
+  try {
+    const response = await api.get('/funis/')
+    funis.value = response.data.results || response.data
+  } catch (error) {
+    console.error('Erro ao carregar funis:', error)
+  }
+}
+
+async function onFunilChange() {
+  form.value.estagio_inicial = ''
+  estagiosDoFunil.value = []
+  
+  if (form.value.funil_padrao) {
+    try {
+      const response = await api.get(`/funis/${form.value.funil_padrao}/`)
+      estagiosDoFunil.value = response.data.estagios || []
+    } catch (error) {
+      console.error('Erro ao carregar estágios:', error)
+    }
   }
 }
 
@@ -110,12 +173,20 @@ function generateSlug() {
   }
 }
 
-watch(() => props.canal, (newCanal) => {
+watch(() => props.canal, async (newCanal) => {
   if (newCanal) {
     isEdit.value = true
     form.value = { 
       ...newCanal,
-      slug: newCanal.slug || ''
+      slug: newCanal.slug || '',
+      funil_padrao: newCanal.funil_padrao || '',
+      estagio_inicial: newCanal.estagio_inicial || ''
+    }
+    // Carrega estágios se tem funil
+    if (newCanal.funil_padrao) {
+      await onFunilChange()
+      // Redefine o estágio após carregar
+      form.value.estagio_inicial = newCanal.estagio_inicial || ''
     }
   } else {
     isEdit.value = false
@@ -127,8 +198,11 @@ function resetForm() {
   form.value = {
     nome: '',
     slug: '',
-    responsavel: ''
+    responsavel: '',
+    funil_padrao: '',
+    estagio_inicial: ''
   }
+  estagiosDoFunil.value = []
 }
 
 async function handleSubmit() {
@@ -138,7 +212,9 @@ async function handleSubmit() {
   try {
     const data = { 
       ...form.value,
-      slug: form.value.slug || null
+      slug: form.value.slug || null,
+      funil_padrao: form.value.funil_padrao || null,
+      estagio_inicial: form.value.estagio_inicial || null
     }
     if (!data.responsavel) data.responsavel = null
 

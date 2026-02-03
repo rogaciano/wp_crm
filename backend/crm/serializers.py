@@ -134,14 +134,23 @@ def format_phone_display(phone: str) -> str:
 class CanalSerializer(serializers.ModelSerializer):
     responsavel_nome = serializers.SerializerMethodField()
     total_vendedores = serializers.SerializerMethodField()
+    funil_padrao_nome = serializers.SerializerMethodField()
+    estagio_inicial_nome = serializers.SerializerMethodField()
     
     def get_responsavel_nome(self, obj):
         return obj.responsavel.get_full_name() if obj.responsavel else "N/A"
+    
+    def get_funil_padrao_nome(self, obj):
+        return obj.funil_padrao.nome if obj.funil_padrao else None
+    
+    def get_estagio_inicial_nome(self, obj):
+        return obj.estagio_inicial.nome if obj.estagio_inicial else None
     
     class Meta:
         model = Canal
         fields = [
             'id', 'nome', 'slug', 'responsavel', 'responsavel_nome', 'total_vendedores',
+            'funil_padrao', 'funil_padrao_nome', 'estagio_inicial', 'estagio_inicial_nome',
             'evolution_instance_name', 'evolution_is_connected', 'evolution_last_status',
             'evolution_phone_number', 'data_criacao'
         ]

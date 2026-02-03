@@ -25,6 +25,25 @@ class Canal(models.Model):
         blank=True,
         related_name='canal_responsavel'
     )
+    
+    # Funil e estágio padrão para novas oportunidades (diagnóstico, cadastro, etc)
+    funil_padrao = models.ForeignKey(
+        'Funil',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='canais_funil_padrao',
+        help_text="Funil para onde vão as novas oportunidades deste canal"
+    )
+    estagio_inicial = models.ForeignKey(
+        'EstagioFunil',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='canais_estagio_inicial',
+        help_text="Estágio inicial das novas oportunidades"
+    )
+    
     data_criacao = models.DateTimeField(auto_now_add=True)
     data_atualizacao = models.DateTimeField(auto_now=True)
     

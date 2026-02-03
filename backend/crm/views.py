@@ -1526,8 +1526,14 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                         contato.save()
                 
                 # 6. Cria a Oportunidade
-                # Busca funil padrão (primeiro do tipo OPORTUNIDADE)
-                funil = Funil.objects.filter(tipo=Funil.TIPO_OPORTUNIDADE, is_active=True).first()
+                # Usa funil/estágio do canal se configurado, senão usa padrão do sistema
+                if canal and canal.funil_padrao:
+                    funil = canal.funil_padrao
+                    estagio = canal.estagio_inicial
+                else:
+                    # Fallback: primeiro funil ativo do tipo OPORTUNIDADE
+                    funil = Funil.objects.filter(tipo=Funil.TIPO_OPORTUNIDADE, is_active=True).first()
+                    estagio = None
                 
                 if not funil:
                     return Response(
@@ -1535,11 +1541,11 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR
                     )
                 
-                # Busca estágio inicial
-                vinculo_estagio = FunilEstagio.objects.filter(funil=funil, is_padrao=True).first() or \
-                                 FunilEstagio.objects.filter(funil=funil).order_by('ordem').first()
-                
-                estagio = vinculo_estagio.estagio if vinculo_estagio else None
+                # Se não tem estágio definido, busca o padrão ou primeiro do funil
+                if not estagio:
+                    vinculo_estagio = FunilEstagio.objects.filter(funil=funil, is_padrao=True).first() or \
+                                     FunilEstagio.objects.filter(funil=funil).order_by('ordem').first()
+                    estagio = vinculo_estagio.estagio if vinculo_estagio else None
                 
                 oportunidade = Oportunidade.objects.create(
                     nome=f"Diagnóstico - {nome}",
