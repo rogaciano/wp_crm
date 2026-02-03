@@ -69,7 +69,7 @@
             <select v-model="form.estagio_inicial" class="input" :disabled="!form.funil_padrao">
               <option value="">Primeiro do funil</option>
               <option v-for="estagio in estagiosDoFunil" :key="estagio.estagio_id" :value="estagio.estagio_id">
-                {{ estagio.estagio_nome }}
+                {{ estagio.nome }}
               </option>
             </select>
           </div>
@@ -154,7 +154,7 @@ async function onFunilChange() {
   if (form.value.funil_padrao) {
     try {
       const response = await api.get(`/funis/${form.value.funil_padrao}/`)
-      estagiosDoFunil.value = response.data.estagios || []
+      estagiosDoFunil.value = response.data.estagios_detalhe || []
     } catch (error) {
       console.error('Erro ao carregar estágios:', error)
     }

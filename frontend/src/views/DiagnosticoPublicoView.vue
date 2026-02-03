@@ -85,7 +85,7 @@
             </svg>
             Análise Estratégica
           </h3>
-          <div class="text-purple-100 whitespace-pre-line">{{ analiseIa }}</div>
+          <div class="prose prose-invert prose-purple max-w-none text-purple-100" v-html="renderMarkdown(analiseIa)"></div>
         </div>
 
         <div class="text-center mt-8">
@@ -303,6 +303,28 @@ const progresso = computed(() => {
 })
 
 const podeVoltar = computed(() => perguntaAtualIndex.value > 0 || mostrarFormularioDados.value)
+
+// Função para converter markdown simples em HTML
+function renderMarkdown(text) {
+  if (!text) return ''
+  
+  return text
+    // Headers
+    .replace(/^#### (.+)$/gm, '<h4 class="text-lg font-semibold text-purple-200 mt-4 mb-2">$1</h4>')
+    .replace(/^### (.+)$/gm, '<h3 class="text-xl font-bold text-white mt-5 mb-3">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 class="text-2xl font-bold text-white mt-6 mb-3">$1</h2>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+    // Italic
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Lists
+    .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
+    // Line breaks
+    .replace(/\n\n/g, '</p><p class="mb-3">')
+    .replace(/\n/g, '<br>')
+    // Wrap in paragraph
+    .replace(/^(.+)$/, '<p class="mb-3">$1</p>')
+}
 
 // Métodos
 async function carregarPerguntas() {
