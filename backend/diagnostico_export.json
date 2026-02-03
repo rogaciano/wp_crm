@@ -1,0 +1,175 @@
+﻿{
+    "value":  [
+                  {
+                      "id":  1,
+                      "nome":  "Engenharia \u0026 ProduÃ§Ã£o",
+                      "slug":  "producao",
+                      "descricao":  "Foco em fichas tÃ©cnicas, controle de chÃ£o de fÃ¡brica e eficiÃªncia.",
+                      "ordem":  1,
+                      "cor":  "#EF4444",
+                      "perguntas":  [
+                                        {
+                                            "id":  1,
+                                            "texto":  "Como vocÃª gerencia a ficha tÃ©cnica dos seus produtos?",
+                                            "ordem":  1,
+                                            "ajuda":  "A ficha tÃ©cnica Ã© a base para o controle de custos e estoque.",
+                                            "respostas":  [
+                                                              {
+                                                                  "id":  1,
+                                                                  "texto":  "NÃ£o temos ficha tÃ©cnica formalizada.",
+                                                                  "pontuacao":  0,
+                                                                  "feedback":  "Alerta: Sem ficha tÃ©cnica, seu custo Ã© uma estimativa e o desperdÃ­cio Ã© invisÃ­vel."
+                                                              },
+                                                              {
+                                                                  "id":  2,
+                                                                  "texto":  "Temos fichas em papel ou Excel separadas.",
+                                                                  "pontuacao":  5,
+                                                                  "feedback":  "Melhoria: VocÃª tem os dados, mas a falta de integraÃ§Ã£o causa retrabalho."
+                                                              },
+                                                              {
+                                                                  "id":  3,
+                                                                  "texto":  "Fichas completas integradas no ERP (Dapic).",
+                                                                  "pontuacao":  10,
+                                                                  "feedback":  "Excelente: VocÃª tem a base para uma gestÃ£o industrial eficiente."
+                                                              }
+                                                          ]
+                                        },
+                                        {
+                                            "id":  2,
+                                            "texto":  "Qual o seu nÃ­vel de controle sobre as facÃ§Ãµes/costureiras externas?",
+                                            "ordem":  2,
+                                            "ajuda":  null,
+                                            "respostas":  [
+                                                              {
+                                                                  "id":  4,
+                                                                  "texto":  "NÃ£o sei exatamente o que estÃ¡ com cada uma.",
+                                                                  "pontuacao":  0,
+                                                                  "feedback":  null
+                                                              },
+                                                              {
+                                                                  "id":  5,
+                                                                  "texto":  "Controlo por cadernos ou planilhas.",
+                                                                  "pontuacao":  5,
+                                                                  "feedback":  null
+                                                              },
+                                                              {
+                                                                  "id":  6,
+                                                                  "texto":  "Controle total de remessa e retorno no sistema.",
+                                                                  "pontuacao":  10,
+                                                                  "feedback":  null
+                                                              }
+                                                          ]
+                                        }
+                                    ]
+                  },
+                  {
+                      "id":  2,
+                      "nome":  "Estoques \u0026 Grade",
+                      "slug":  "estoque",
+                      "descricao":  "GestÃ£o de matÃ©rias-primas e produtos acabados por cor/tamanho.",
+                      "ordem":  2,
+                      "cor":  "#F59E0B",
+                      "perguntas":  [
+                                        {
+                                            "id":  3,
+                                            "texto":  "Como Ã© feito o controle de estoque por grade (tamanho/cor)?",
+                                            "ordem":  1,
+                                            "ajuda":  null,
+                                            "respostas":  [
+                                                              {
+                                                                  "id":  7,
+                                                                  "texto":  "Controlamos apenas o saldo total do modelo.",
+                                                                  "pontuacao":  0,
+                                                                  "feedback":  "CrÃ­tico: Isso gera vendas de itens que nÃ£o existem fisicamente."
+                                                              },
+                                                              {
+                                                                  "id":  8,
+                                                                  "texto":  "Controle por grade, mas com furos frequentes.",
+                                                                  "pontuacao":  6,
+                                                                  "feedback":  null
+                                                              },
+                                                              {
+                                                                  "id":  9,
+                                                                  "texto":  "Controle total integrado com alta acuracidade.",
+                                                                  "pontuacao":  10,
+                                                                  "feedback":  null
+                                                              }
+                                                          ]
+                                        }
+                                    ]
+                  },
+                  {
+                      "id":  3,
+                      "nome":  "Comercial \u0026 Omnichannel",
+                      "slug":  "comercial",
+                      "descricao":  "IntegraÃ§Ã£o entre atacado, varejo fÃ­sico e e-commerce.",
+                      "ordem":  3,
+                      "cor":  "#10B981",
+                      "perguntas":  [
+                                        {
+                                            "id":  4,
+                                            "texto":  "Como suas vendas online se comunicam com suas lojas fÃ­sicas?",
+                                            "ordem":  1,
+                                            "ajuda":  null,
+                                            "respostas":  [
+                                                              {
+                                                                  "id":  10,
+                                                                  "texto":  "SÃ£o operaÃ§Ãµes totalmente separadas.",
+                                                                  "pontuacao":  0,
+                                                                  "feedback":  null
+                                                              },
+                                                              {
+                                                                  "id":  11,
+                                                                  "texto":  "Estoque unificado, mas baixa manual.",
+                                                                  "pontuacao":  5,
+                                                                  "feedback":  null
+                                                              },
+                                                              {
+                                                                  "id":  12,
+                                                                  "texto":  "Tudo integrado em tempo real no ERP.",
+                                                                  "pontuacao":  10,
+                                                                  "feedback":  null
+                                                              }
+                                                          ]
+                                        }
+                                    ]
+                  },
+                  {
+                      "id":  4,
+                      "nome":  "GestÃ£o Financeira",
+                      "slug":  "financeiro",
+                      "descricao":  "Rentabilidade, custos e fluxo de caixa.",
+                      "ordem":  4,
+                      "cor":  "#3B82F6",
+                      "perguntas":  [
+                                        {
+                                            "id":  5,
+                                            "texto":  "Sabe exatamente o lucro lÃ­quido de cada peÃ§a vendida?",
+                                            "ordem":  1,
+                                            "ajuda":  null,
+                                            "respostas":  [
+                                                              {
+                                                                  "id":  13,
+                                                                  "texto":  "Temos apenas uma ideia (mark-up).",
+                                                                  "pontuacao":  0,
+                                                                  "feedback":  null
+                                                              },
+                                                              {
+                                                                  "id":  14,
+                                                                  "texto":  "Calculamos custos, mas sem rateio fixo real.",
+                                                                  "pontuacao":  6,
+                                                                  "feedback":  null
+                                                              },
+                                                              {
+                                                                  "id":  15,
+                                                                  "texto":  "DRE exato por produto gerado pelo sistema.",
+                                                                  "pontuacao":  10,
+                                                                  "feedback":  null
+                                                              }
+                                                          ]
+                                        }
+                                    ]
+                  }
+              ],
+    "Count":  4
+}

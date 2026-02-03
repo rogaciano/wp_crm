@@ -786,6 +786,11 @@ watch(() => props.show, async (newVal) => {
         , null)
         if (cheapest) form.value.plano = cheapest.id
       }
+      
+      // Garantir que proprietário é o usuário logado
+      if (!form.value.proprietario) {
+        form.value.proprietario = authStore.user?.id || null
+      }
     }
   }
 })
