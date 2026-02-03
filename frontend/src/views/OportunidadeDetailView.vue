@@ -20,6 +20,20 @@
         </div>
         
         <div class="flex items-center gap-3">
+          <!-- Botão Cancelar -->
+          <button 
+            @click="goBack" 
+            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1"
+            title="Cancelar e voltar ao Kanban"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span class="text-sm font-medium hidden sm:inline">Cancelar</span>
+          </button>
+          
+          <div class="h-6 w-px bg-gray-200"></div>
+          
           <button 
             @click="handleDelete" 
             class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -28,37 +42,57 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
           </button>
           
-          <div class="h-6 w-px bg-gray-200 mx-2"></div>
+          <div class="h-6 w-px bg-gray-200"></div>
           
-          <button @click="goBack" class="btn btn-white border-gray-200 text-gray-600 shadow-sm">
-            Cancelar
-          </button>
           <button @click="saveChanges" class="btn btn-primary shadow-lg shadow-primary-200">
             Salvar
           </button>
         </div>
       </div>
       
-      <!-- Barra de Estágios -->
-      <div class="mt-6 flex items-center gap-1 overflow-x-auto pb-2 no-scrollbar">
+      <!-- Barra de Estágios (Pipeline Visual) -->
+      <div class="mt-6 flex items-stretch gap-1 overflow-x-auto pb-2 no-scrollbar">
         <div 
-          v-for="estagio in estagios" 
+          v-for="(estagio, index) in estagios" 
           :key="estagio.id"
           @click="updateEstagio(estagio.id)"
-          class="h-2 flex-1 rounded-full cursor-pointer transition-all relative group"
-          :class="getEstagioClass(estagio)"
-          :style="{ backgroundColor: getEstagioColor(estagio) }"
+          @mouseenter="hoveredEstagioId = estagio.id"
+          @mouseleave="hoveredEstagioId = null"
+          :title="estagio.id === oportunidade?.estagio 
+            ? `${estagio.nome} (Estágio atual)` 
+            : `Clique para mover para: ${estagio.nome}`"
+          class="flex-1 min-w-[80px] py-2 px-3 rounded-lg cursor-pointer transition-all duration-200 relative group text-center"
+          :class="[
+            estagio.id === oportunidade?.estagio 
+              ? 'ring-2 ring-offset-1 ring-primary-500 shadow-md scale-105 z-10' 
+              : 'hover:scale-102 hover:shadow-md'
+          ]"
+          :style="{ 
+            backgroundColor: (estagio.id === oportunidade?.estagio || hoveredEstagioId === estagio.id) 
+              ? estagio.cor 
+              : '#e5e7eb',
+            color: (estagio.id === oportunidade?.estagio || hoveredEstagioId === estagio.id) 
+              ? 'white' 
+              : '#6b7280',
+            opacity: (estagio.id === oportunidade?.estagio || hoveredEstagioId === estagio.id) ? 1 : 0.7
+          }"
         >
-          <div class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity text-gray-500">
+          <span class="text-[10px] font-bold uppercase tracking-wide truncate block">
             {{ estagio.nome }}
-          </div>
+          </span>
+          <!-- Indicador de atual -->
+          <div 
+            v-if="estagio.id === oportunidade?.estagio" 
+            class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-white border-2"
+            :style="{ borderColor: estagio.cor }"
+          ></div>
         </div>
       </div>
     </header>
 
-    <div class="flex-1 max-w-[1600px] w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div class="flex-1 w-full px-4 lg:px-6 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
       
-      <div class="lg:col-span-4 flex flex-col gap-0 bg-white border-r border-gray-200 h-[calc(100vh-80px)] overflow-y-auto custom-scrollbar">
+      <div class="lg:col-span-5 xl:col-span-5 flex flex-col gap-0 bg-white border-r border-gray-200 h-[calc(100vh-140px)] overflow-y-auto custom-scrollbar rounded-xl shadow-sm">
         
         <!-- Sidebar Tabs -->
         <div class="flex items-center gap-4 px-6 border-b border-gray-100 text-[11px] font-bold text-gray-400 uppercase tracking-widest bg-white sticky top-0 z-10 transition-colors">
@@ -90,7 +124,6 @@
                   <div class="w-2/3">
                      <select 
                         v-model="oportunidadeForm.proprietario"
-                        @change="saveChanges"
                         class="w-full py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none appearance-none cursor-pointer"
                      >
                         <option :value="null">Selecione</option>
@@ -108,7 +141,6 @@
                      <span class="absolute left-0 top-1/2 -translate-y-1/2 text-gray-400 text-sm">R$</span>
                      <input 
                         v-model="oportunidadeForm.valor_estimado"
-                        @blur="saveChanges" 
                         type="number"
                         class="w-full pl-6 py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 font-bold focus:outline-none transition-colors text-right"
                         placeholder="0,00"
@@ -122,7 +154,6 @@
                   <div class="w-2/3">
                      <select 
                         v-model="oportunidadeForm.plano"
-                        @change="saveChanges"
                         class="w-full py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none appearance-none cursor-pointer"
                      >
                         <option :value="null">Selecione...</option>
@@ -423,12 +454,12 @@
       </div>
 
       <!-- Coluna Direita: Feed e Atividades -->
-      <div class="lg:col-span-8 bg-white rounded-xl shadow-sm border border-gray-200 min-h-[600px] flex flex-col overflow-hidden">
+      <div class="lg:col-span-7 xl:col-span-7 bg-white rounded-xl shadow-sm border border-gray-200 h-[calc(100vh-140px)] flex flex-col overflow-hidden">
         <div class="flex-1 bg-gray-50/50">
            <TimelineFeed 
              model="oportunidade"
              :id="oportunidade.id"
-             class="h-full max-w-4xl mx-auto"
+             class="h-full"
            />
         </div>
       </div>
@@ -479,6 +510,7 @@ const oportunidadesStore = useOportunidadesStore()
 const loading = ref(true)
 const oportunidade = ref(null)
 const estagios = ref([])
+const hoveredEstagioId = ref(null)
 
 // Listas de Opções
 const usuarios = ref([])
@@ -553,7 +585,7 @@ function toggleAdicional(adicionalId, checked) {
     } else {
         oportunidadeForm.value.adicionais_itens = oportunidadeForm.value.adicionais_itens.filter(item => item.adicional !== adicionalId);
     }
-    saveChanges(); // Auto-save ao clicar checkbox
+    // Não faz auto-save - usuário precisa clicar em Salvar
 }
 
 const showAdicionaisDropdown = ref(false)
@@ -662,18 +694,34 @@ async function loadData() {
 
 // Ações
 function goBack() {
-  router.push('/kanban')
+  if (confirm('Deseja sair? As alterações não salvas serão perdidas.')) {
+    router.push('/kanban')
+  }
 }
 
 async function saveChanges() {
   try {
-     await api.patch(`/oportunidades/${oportunidade.value.id}/`, oportunidadeForm.value)
-     // Não precisa loadData em tudo para performance, mas para garantir consistência ok
-     // await loadData() 
-     // Atualizar apenas o local 'oportunidade' com os dados novos se necessário, mas o form já tá atualizado
+     // Prepara payload com apenas os campos editáveis e no formato correto
+     const payload = {
+       valor_estimado: oportunidadeForm.value.valor_estimado,
+       data_fechamento_esperada: oportunidadeForm.value.data_fechamento_esperada || null,
+       probabilidade: oportunidadeForm.value.probabilidade,
+       proprietario: typeof oportunidadeForm.value.proprietario === 'object' 
+         ? oportunidadeForm.value.proprietario?.id 
+         : oportunidadeForm.value.proprietario,
+       plano: typeof oportunidadeForm.value.plano === 'object'
+         ? oportunidadeForm.value.plano?.id
+         : oportunidadeForm.value.plano,
+       adicionais: oportunidadeForm.value.adicionais_itens || []
+     }
+     
+     await api.patch(`/oportunidades/${oportunidade.value.id}/`, payload)
+     
+     // Sucesso - volta para o Kanban
+     router.push('/kanban')
   } catch (error) {
     console.error('Erro ao salvar:', error)
-    alert('Erro ao salvar alterações.')
+    alert('Erro ao salvar alterações: ' + (error.response?.data?.detail || error.message))
   }
 }
 

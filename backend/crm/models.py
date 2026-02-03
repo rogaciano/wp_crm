@@ -11,6 +11,13 @@ from django.core.validators import EmailValidator
 class Canal(models.Model):
     """Representa um Canal de Vendas"""
     nome = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(
+        max_length=100, 
+        unique=True, 
+        blank=True, 
+        null=True,
+        help_text="Slug para URLs públicas (ex: pernambuco)"
+    )
     responsavel = models.OneToOneField(
         'User',
         on_delete=models.SET_NULL,

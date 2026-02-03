@@ -1400,6 +1400,189 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=False, methods=['post'], url_path='submeter-publico/(?P<canal_slug>[^/.]+)')
+    def submeter_publico(self, request, canal_slug=None):
+        """
+        Endpoint PÚBLICO para submeter diagnóstico via link compartilhado pelo canal.
+        
+        URL: /api/diagnosticos/submeter-publico/<canal_slug>/
+        
+        O diagnóstico cria automaticamente:
+        - Contato com os dados do cliente
+        - Conta/Empresa
+        - Oportunidade vinculada ao canal (ou matriz se canal não encontrado)
+        """
+        # 1. Busca o canal pelo slug (case-insensitive)
+        canal = Canal.objects.filter(slug__iexact=canal_slug).first()
+        
+        # Define o proprietário: responsável do canal ou primeiro admin
+        if canal and canal.responsavel:
+            proprietario = canal.responsavel
+        else:
+            proprietario = User.objects.filter(perfil='ADMIN', is_active=True).first()
+            canal = None  # Vai para matriz (sem canal)
+        
+        if not proprietario:
+            return Response(
+                {'error': 'Nenhum usuário disponível para receber a oportunidade'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        # 2. Valida os dados
+        required_fields = ['nome', 'email', 'telefone', 'empresa', 'respostas_ids']
+        for field in required_fields:
+            if not request.data.get(field):
+                return Response(
+                    {'error': f'Campo obrigatório: {field}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        nome = request.data['nome']
+        email = request.data['email']
+        telefone = request.data['telefone']
+        empresa = request.data['empresa']
+        respostas_ids = request.data['respostas_ids']
+        
+        # Valida email
+        from django.core.validators import validate_email
+        from django.core.exceptions import ValidationError
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response(
+                {'error': 'Email inválido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 3. Busca as respostas e calcula pontuação
+        respostas_objs = DiagnosticoResposta.objects.filter(
+            id__in=respostas_ids
+        ).select_related('pergunta__pilar')
+        
+        if not respostas_objs.exists():
+            return Response(
+                {'error': 'Nenhuma resposta válida encontrada'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Processa pontuações por pilar
+        pontuacao_por_pilar = {}
+        respostas_detalhadas = []
+        
+        for r in respostas_objs:
+            pilar_nome = r.pergunta.pilar.nome
+            if pilar_nome not in pontuacao_por_pilar:
+                pontuacao_por_pilar[pilar_nome] = {
+                    'soma': 0,
+                    'total_perguntas': 0,
+                    'cor': r.pergunta.pilar.cor
+                }
+            
+            pontuacao_por_pilar[pilar_nome]['soma'] += r.pontuacao
+            pontuacao_por_pilar[pilar_nome]['total_perguntas'] += 1
+            
+            respostas_detalhadas.append({
+                'pergunta': r.pergunta.texto,
+                'pilar': pilar_nome,
+                'resposta': r.texto,
+                'pontos': r.pontuacao,
+                'feedback': r.feedback
+            })
+        
+        # Calcula a média (0-10) por pilar
+        resultado_final = {}
+        for pilar, dados in pontuacao_por_pilar.items():
+            resultado_final[pilar] = {
+                'score': round(dados['soma'] / dados['total_perguntas'], 1),
+                'cor': dados['cor']
+            }
+        
+        try:
+            with transaction.atomic():
+                # 4. Cria ou busca a Conta (Empresa)
+                conta = Conta.objects.filter(nome_empresa__iexact=empresa).first()
+                if not conta:
+                    conta = Conta.objects.create(
+                        nome_empresa=empresa,
+                        canal=canal,
+                        proprietario=proprietario
+                    )
+                
+                # 5. Verifica se já existe contato com esse email
+                contato = Contato.objects.filter(email__iexact=email).first()
+                if not contato:
+                    contato = Contato.objects.create(
+                        nome=nome,
+                        email=email,
+                        telefone=telefone,
+                        conta=conta,
+                        canal=canal,
+                        proprietario=proprietario
+                    )
+                else:
+                    # Atualiza dados se necessário
+                    if not contato.telefone:
+                        contato.telefone = telefone
+                        contato.save()
+                
+                # 6. Cria a Oportunidade
+                # Busca funil padrão (primeiro do tipo OPORTUNIDADE)
+                funil = Funil.objects.filter(tipo=Funil.TIPO_OPORTUNIDADE, is_active=True).first()
+                
+                if not funil:
+                    return Response(
+                        {'error': 'Nenhum funil de oportunidades configurado'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+                
+                # Busca estágio inicial
+                vinculo_estagio = FunilEstagio.objects.filter(funil=funil, is_padrao=True).first() or \
+                                 FunilEstagio.objects.filter(funil=funil).order_by('ordem').first()
+                
+                estagio = vinculo_estagio.estagio if vinculo_estagio else None
+                
+                oportunidade = Oportunidade.objects.create(
+                    nome=f"Diagnóstico - {nome}",
+                    contato_principal=contato,
+                    conta=conta,
+                    funil=funil,
+                    estagio=estagio,
+                    proprietario=proprietario,
+                    fonte='Diagnóstico de Maturidade',
+                    descricao=f"Oportunidade gerada via diagnóstico público.\nCanal: {canal.nome if canal else 'Matriz'}"
+                )
+                
+                # 7. Salva o resultado do diagnóstico
+                diagnostico = DiagnosticoResultado.objects.create(
+                    conta=conta,
+                    oportunidade=oportunidade,
+                    respostas_detalhadas=respostas_detalhadas,
+                    pontuacao_por_pilar=resultado_final
+                )
+                
+                # 8. Gera Análise de IA (se disponível)
+                try:
+                    diagnostico.analise_ia = gerar_analise_diagnostico(diagnostico)
+                    diagnostico.save()
+                except Exception as e:
+                    print(f"Erro ao gerar análise IA: {e}")
+                
+                return Response({
+                    'success': True,
+                    'message': 'Diagnóstico enviado com sucesso!',
+                    'oportunidade_id': oportunidade.id,
+                    'resultado': resultado_final,
+                    'analise_ia': diagnostico.analise_ia
+                }, status=status.HTTP_201_CREATED)
+                
+        except Exception as e:
+            print(f"Erro ao submeter diagnóstico público: {e}")
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {'error': 'Erro ao processar diagnóstico. Tente novamente.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class WhatsappViewSet(viewsets.ModelViewSet):
     """ViewSet para histórico e envio de mensagens WhatsApp"""

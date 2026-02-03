@@ -1,44 +1,51 @@
 <template>
   <div>
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-      <div>
-        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 font-outfit">
-          Pipeline de Vendas
-        </h1>
-        <p class="text-gray-500 mt-1 font-medium">
-          {{ selectedFunil?.nome || 'Gerencie seu processo comercial' }}
-        </p>
-      </div>
-      
-      <div class="flex flex-col sm:flex-row gap-2">
-        <!-- Funnel Selector -->
-        <select 
-          v-model="activeFunilId" 
-          @change="onFunilChange"
-          class="bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-bold shadow-sm focus:outline-none focus:ring-4 focus:ring-primary-50 transition-all cursor-pointer"
-        >
-          <option v-for="funil in funis" :key="funil.id" :value="funil.id">
-            {{ funil.nome }}
-          </option>
-        </select>
+    <!-- Header Simples -->
+    <div class="mb-6">
+      <h1 class="text-2xl md:text-3xl font-bold text-gray-900 font-outfit">
+        Pipeline de Vendas
+      </h1>
+      <p class="text-gray-500 mt-1 font-medium">
+        {{ selectedFunil?.nome || 'Gerencie seu processo comercial' }}
+      </p>
+    </div>
 
-        <!-- Canal Selector (For Admin) -->
-        <select 
-          v-if="authStore.isAdmin"
-          v-model="activeCanalId" 
-          @change="onCanalChange"
-          class="bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-bold shadow-sm focus:outline-none focus:ring-4 focus:ring-primary-50 transition-all cursor-pointer"
-        >
-          <option :value="null">Todos os Canais</option>
-          <option v-for="canal in canais" :key="canal.id" :value="canal.id">
-            {{ canal.nome }}
-          </option>
-        </select>
+    <!-- Floating Toolbar (canto superior direito) -->
+    <div class="fixed top-4 right-4 z-50 flex items-center gap-2 bg-white/95 backdrop-blur-sm rounded-2xl p-2 shadow-xl border border-gray-100">
+      <!-- Funnel Selector -->
+      <select 
+        v-model="activeFunilId" 
+        @change="onFunilChange"
+        class="bg-gray-50 border-0 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all cursor-pointer"
+      >
+        <option v-for="funil in funis" :key="funil.id" :value="funil.id">
+          {{ funil.nome }}
+        </option>
+      </select>
 
-        <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-lg shadow-primary-200">
-          + Nova Oportunidade
-        </button>
-      </div>
+      <!-- Canal Selector (For Admin) -->
+      <select 
+        v-if="authStore.isAdmin"
+        v-model="activeCanalId" 
+        @change="onCanalChange"
+        class="bg-gray-50 border-0 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all cursor-pointer"
+      >
+        <option :value="null">Todos os Canais</option>
+        <option v-for="canal in canais" :key="canal.id" :value="canal.id">
+          {{ canal.nome }}
+        </option>
+      </select>
+
+      <!-- Botão Nova Oportunidade -->
+      <button 
+        @click="openCreateModal" 
+        class="bg-primary-600 hover:bg-primary-700 text-white rounded-xl px-4 py-2 text-sm font-bold shadow-lg shadow-primary-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        <span class="hidden sm:inline">Nova</span>
+      </button>
     </div>
 
     <!-- Mobile Stage Selector -->
@@ -205,6 +212,8 @@
       @close="showFaturamentoModal = false"
       @saved="handleSaved"
     />
+
+
   </div>
 </template>
 
@@ -295,8 +304,25 @@ async function fetchFunnels() {
   // Filtramos apenas funis do tipo OPORTUNIDADE para o Kanban (limpeza técnica)
   const list = await oportunidadesStore.fetchFunis()
   const oppFunis = list.filter(f => f.tipo === 'OPORTUNIDADE')
+  
   if (oppFunis.length > 0) {
-    activeFunilId.value = oppFunis[0].id
+    // Verifica se o usuário tem funis_acesso definidos
+    const userFunisIds = authStore.user?.funis_acesso || []
+    
+    if (userFunisIds.length > 0) {
+      // Tenta encontrar um funil que o usuário tem acesso direto
+      const userFunil = oppFunis.find(f => userFunisIds.includes(f.id))
+      if (userFunil) {
+        activeFunilId.value = userFunil.id
+      } else {
+        // Fallback: usa o primeiro da lista
+        activeFunilId.value = oppFunis[0].id
+      }
+    } else {
+      // Se não tem funis_acesso definido, usa o primeiro
+      activeFunilId.value = oppFunis[0].id
+    }
+    
     await loadKanban()
   }
 }

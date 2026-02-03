@@ -176,8 +176,8 @@
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 lg:ml-72 min-h-screen transition-all duration-300 pt-16 lg:pt-0">
-      <div class="p-6 max-w-7xl mx-auto">
+    <main class="flex-1 min-h-screen transition-all duration-300 pt-16 lg:pt-0 overflow-visible">
+      <div class="p-4 lg:p-6">
         <router-view />
       </div>
     </main>

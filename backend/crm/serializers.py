@@ -166,6 +166,7 @@ class UserSerializer(serializers.ModelSerializer):
     canal_nome = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
     avatar_url = serializers.SerializerMethodField()
+    funis_acesso = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     
     def get_canal_nome(self, obj):
         return obj.canal.nome if obj.canal else "N/A"
@@ -188,9 +189,9 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'perfil', 'canal', 'canal_nome', 'telefone', 'avatar', 'avatar_url',
-            'password', 'is_active', 'date_joined'
+            'password', 'is_active', 'date_joined', 'funis_acesso'
         ]
-        read_only_fields = ['date_joined']
+        read_only_fields = ['date_joined', 'funis_acesso']
         extra_kwargs = {
             'password': {'write_only': True}
         }

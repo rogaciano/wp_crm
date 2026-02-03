@@ -23,6 +23,12 @@ const router = createRouter({
       meta: { requiresAuth: false }
     },
     {
+      path: '/d/:canalSlug',
+      name: 'diagnostico-publico',
+      component: () => import('@/views/DiagnosticoPublicoView.vue'),
+      meta: { requiresAuth: false }
+    },
+    {
       path: '/',
       component: () => import('@/layouts/MainLayout.vue'),
       meta: { requiresAuth: true },
