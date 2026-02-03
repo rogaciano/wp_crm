@@ -1230,7 +1230,7 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         """Define permissões: perguntas e submeter são públicos"""
-        if self.action in ['perguntas', 'submeter']:
+        if self.action in ['perguntas', 'submeter', 'submeter_publico']:
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated(), HierarchyPermission()]
 

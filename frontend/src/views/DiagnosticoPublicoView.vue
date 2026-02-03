@@ -189,7 +189,9 @@
             <label class="block text-sm font-medium text-purple-200 mb-2">Telefone/WhatsApp *</label>
             <input 
               v-model="dadosCliente.telefone"
+              @input="formatarTelefone"
               type="tel"
+              maxlength="15"
               class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               placeholder="(00) 00000-0000"
             />
@@ -345,6 +347,29 @@ function voltarPergunta() {
     perguntaAtualIndex.value--
     respostaSelecionada.value = respostas.value[perguntaAtual.value?.id] || null
   }
+}
+
+// Formata telefone no padrão (00) 00000-0000
+function formatarTelefone(event) {
+  let value = event.target.value.replace(/\D/g, '')
+  
+  if (value.length > 11) {
+    value = value.slice(0, 11)
+  }
+  
+  if (value.length > 0) {
+    // Adiciona parênteses no DDD
+    value = '(' + value
+    if (value.length > 3) {
+      value = value.slice(0, 3) + ') ' + value.slice(3)
+    }
+    // Adiciona hífen
+    if (value.length > 10) {
+      value = value.slice(0, 10) + '-' + value.slice(10)
+    }
+  }
+  
+  dadosCliente.value.telefone = value
 }
 
 async function enviarDiagnostico() {
