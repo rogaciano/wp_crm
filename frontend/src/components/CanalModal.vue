@@ -24,12 +24,12 @@
             v-model="form.slug" 
             type="text" 
             class="input flex-1" 
-            placeholder="ex: pernambuco"
+            :placeholder="slugSugerido || 'ex: nome-do-canal'"
             pattern="[a-z0-9-]+"
           />
         </div>
         <p class="mt-1 text-xs text-gray-500 italic">
-          Link: <code class="bg-gray-100 px-1 rounded">{{ baseUrl }}/d/{{ form.slug || 'slug-do-canal' }}</code>
+          Link: <code class="bg-gray-100 px-1 rounded">{{ baseUrl }}/d/{{ form.slug || slugSugerido || 'slug-do-canal' }}</code>
         </p>
       </div>
 
@@ -72,6 +72,17 @@ const form = ref({
 // URL base para mostrar no preview
 const baseUrl = computed(() => {
   return window.location.origin
+})
+
+// Slug sugerido baseado no nome (para placeholder e preview)
+const slugSugerido = computed(() => {
+  if (!form.value.nome) return ''
+  return form.value.nome
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 })
 
 onMounted(() => {
