@@ -465,15 +465,19 @@ class ContatoRedeSocial(models.Model):
         return self.valor
 
 class Funil(models.Model):
-    """Representa um Funil de Vendas (SDR, Vendas, etc)"""
-    TIPO_OPORTUNIDADE = 'OPORTUNIDADE'
+    """Representa um Funil de Vendas, Pós-Venda ou Suporte"""
+    TIPO_VENDAS = 'VENDAS'
+    TIPO_POS_VENDA = 'POS_VENDA'
+    TIPO_SUPORTE = 'SUPORTE'
     
     TIPO_CHOICES = [
-        (TIPO_OPORTUNIDADE, 'Oportunidades'),
+        (TIPO_VENDAS, 'Vendas'),
+        (TIPO_POS_VENDA, 'Pós-Venda'),
+        (TIPO_SUPORTE, 'Suporte'),
     ]
     
     nome = models.CharField(max_length=100)
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default=TIPO_OPORTUNIDADE)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default=TIPO_VENDAS)
     is_active = models.BooleanField(default=True)
     usuarios = models.ManyToManyField(
         'User', 

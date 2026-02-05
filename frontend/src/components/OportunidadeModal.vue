@@ -450,6 +450,7 @@
     <ContatoModal
       :show="showNovoContatoModal"
       :fixed-conta-id="form.conta"
+      :initial-telefone="telefoneContato"
       @close="showNovoContatoModal = false"
       @saved="handleNovoContatoSaved"
     />
@@ -521,6 +522,8 @@ function toggleAdicional(adicionalId, checked) {
 
 // ...
 
+const isEdit = ref(false)
+
 watch(() => props.oportunidade, async (newOp) => {
   if (newOp) {
     isEdit.value = true
@@ -538,11 +541,10 @@ watch(() => props.oportunidade, async (newOp) => {
     isEdit.value = false
     resetForm()
   }
-}, { immediate: true })
+})
 
 async function loadOptions() {
   try {
-    console.log('[loadOptions] Starting...')
     const [cRes, ctRes, fnRes, cnRes, uRes, pRes, adcRes, orRes] = await Promise.all([
       api.get('/contas/'),
       api.get('/contatos/'),
@@ -553,9 +555,7 @@ async function loadOptions() {
       api.get('/adicionais-plano/'),
       api.get('/origens/')
     ])
-    console.log('[loadOptions] pRes:', pRes.data)
-    console.log('[loadOptions] orRes:', orRes.data)
-    
+
     contas.value = cRes.data.results || cRes.data
     contatos.value = ctRes.data.results || ctRes.data
     funis.value = (fnRes.data.results || fnRes.data).filter(f => f.tipo === 'OPORTUNIDADE')
@@ -564,9 +564,6 @@ async function loadOptions() {
     planos.value = pRes.data.results || pRes.data
     adicionais_opcoes.value = adcRes.data.results || adcRes.data
     origens.value = orRes.data.results || orRes.data
-    
-    console.log('[loadOptions] planos.value:', planos.value)
-    console.log('[loadOptions] origens.value:', origens.value)
   } catch (err) { console.error('[loadOptions] ERROR:', err) }
 }
 
@@ -595,7 +592,6 @@ function resetForm() {
 }
 
 const loading = ref(false)
-const isEdit = ref(false)
 const contas = ref([])
 const contatos = ref([])
 const estagios = ref([])
@@ -797,6 +793,16 @@ watch(() => props.show, async (newVal) => {
 
 watch(() => form.value.funil, async (newFunil) => {
     await updateEstagios(newFunil)
+})
+
+// Atualizar valor_estimado quando plano mudar
+watch(() => form.value.plano, (newPlanoId) => {
+  if (newPlanoId && planos.value.length > 0) {
+    const plano = planos.value.find(p => p.id === newPlanoId)
+    if (plano) {
+      form.value.valor_estimado = Number(plano.preco_mensal) || 0
+    }
+  }
 })
 
 

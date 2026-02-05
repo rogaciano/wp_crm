@@ -262,8 +262,15 @@
                   <div class="flex-1 min-w-0">
                      <div class="flex justify-between items-start">
                         <!-- Nome com link para modal se quiser full detail -->
-                        <h3 class="font-bold text-gray-900 truncate cursor-pointer hover:text-primary-600 hover:underline" @click="openContactModal">
-                           {{ oportunidade.contato_nome || 'Sem Contato' }}
+                        <h3
+                           v-if="oportunidade.contato_principal"
+                           class="font-bold text-gray-900 truncate cursor-pointer hover:text-primary-600 hover:underline"
+                           @click="goToContactDetail"
+                        >
+                           {{ oportunidade.contato_nome }}
+                        </h3>
+                        <h3 v-else class="font-bold text-gray-400 truncate">
+                           Sem Contato
                         </h3>
                         <button class="text-gray-400 hover:text-gray-600">•••</button>
                      </div>
@@ -788,6 +795,13 @@ function getEstagioClass(estagio) {
 function formatPhone(phone) {
   if (!phone) return ''
   return phone.replace(/(\d{2})(\d{1})(\d{4})(\d{4})/, '($1) $2 $3-$4')
+}
+
+// Navegar para detalhe do contato
+function goToContactDetail() {
+  if (oportunidade.value.contato_principal) {
+    router.push(`/contatos/${oportunidade.value.contato_principal}`)
+  }
 }
 
 // Modais Contato/Empresa

@@ -421,7 +421,8 @@ const authStore = useAuthStore()
 const props = defineProps({
   show: Boolean,
   contato: Object,
-  fixedContaId: [Number, String] // Permite fixar uma conta (quando vindo do detalhe da conta)
+  fixedContaId: [Number, String], // Permite fixar uma conta (quando vindo do detalhe da conta)
+  initialTelefone: String // Telefone inicial (quando vindo da oportunidade)
 })
 
 const emit = defineEmits(['close', 'saved'])
@@ -467,9 +468,18 @@ watch(() => props.show, async (newVal) => {
     await loadCanais()
     await loadTiposRedeSocial()
     await loadTags()
-    
+
     if (props.fixedContaId) {
       form.value.conta = props.fixedContaId
+    }
+
+    // Se tem telefone inicial (vindo da oportunidade), adicionar automaticamente
+    if (props.initialTelefone && !isEdit.value) {
+      form.value.telefones_input = [{
+        numero: props.initialTelefone,
+        tipo: 'CELULAR',
+        principal: true
+      }]
     }
   } else {
     // Limpar preview da foto quando fechar modal

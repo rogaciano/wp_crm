@@ -500,16 +500,26 @@ class EvolutionService:
         # logger.debug(f"[Evolution] Variações geradas para {remote_number}: {variations}")
         
         # Tenta Oportunidade (via contatos vinculados)
-        # Primeiro busca por contato principal (se houver esse campo ou via M2M)
         q_opp = Q()
         for v in variations:
             if len(v) >= 8:
                 q_opp |= Q(contatos__telefone__icontains=v) | \
                          Q(contatos__celular__icontains=v)
             
-        opp = Oportunidade.objects.filter(q_opp).distinct().first()
-        if opp:
-            message_obj.oportunidade = opp
+        # Refinando: busca por todas as oportunidades do número
+        queryset = Oportunidade.objects.filter(q_opp).distinct()
+        
+        if queryset.exists():
+            # Tenta pegar uma que não esteja encerrada (GANHA/PERDIDA) e seja a mais recente
+            opp_aberta = queryset.exclude(
+                estagio__tipo__in=['GANHO', 'PERDIDO']
+            ).order_by('-data_atualizacao').first()
+            
+            if opp_aberta:
+                message_obj.oportunidade = opp_aberta
+            else:
+                # Se não houver aberta, pega a mais recente mesmo que encerrada
+                message_obj.oportunidade = queryset.order_by('-data_atualizacao').first()
             
         message_obj.save()
 

@@ -1,13 +1,28 @@
 <template>
   <div>
     <!-- Header Simples -->
-    <div class="mb-6">
-      <h1 class="text-2xl md:text-3xl font-bold text-gray-900 font-outfit">
-        Pipeline de Vendas
-      </h1>
-      <p class="text-gray-500 mt-1 font-medium">
-        {{ selectedFunil?.nome || 'Gerencie seu processo comercial' }}
-      </p>
+    <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 font-outfit">
+          {{ activeTipoFunil === 'VENDAS' ? 'Pipeline de Vendas' : (activeTipoFunil === 'POS_VENDA' ? 'Pós-Venda' : 'Suporte Técninco') }}
+        </h1>
+        <p class="text-gray-500 mt-1 font-medium">
+          {{ selectedFunil?.nome || 'Gerencie seu processo comercial' }}
+        </p>
+      </div>
+      
+      <!-- Abas de Tipo de Funil -->
+      <div class="flex bg-gray-100 p-1 rounded-2xl w-fit border border-gray-200 shadow-sm">
+        <button 
+          v-for="tipo in tiposFunil" 
+          :key="tipo.id"
+          @click="changeTipoFunil(tipo.id)"
+          :class="['px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
+                   activeTipoFunil === tipo.id ? 'bg-white text-primary-600 shadow-md' : 'text-gray-400 hover:text-gray-600']"
+        >
+          {{ tipo.label }}
+        </button>
+      </div>
     </div>
 
     <!-- Floating Toolbar (canto superior direito) -->
@@ -18,7 +33,7 @@
         @change="onFunilChange"
         class="bg-gray-50 border-0 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all cursor-pointer"
       >
-        <option v-for="funil in funis" :key="funil.id" :value="funil.id">
+        <option v-for="funil in filteredFunis" :key="funil.id" :value="funil.id">
           {{ funil.nome }}
         </option>
       </select>
@@ -243,6 +258,20 @@ const selectedOportunidade = ref(null)
 const draggedItem = ref(null)
 const activeContextEstagioId = ref(null)
 
+const activeTipoFunil = ref('VENDAS')
+const tiposFunil = [
+  { id: 'VENDAS', label: 'Vendas' },
+  { id: 'POS_VENDA', label: 'Pós-Venda' },
+  { id: 'SUPORTE', label: 'Suporte' }
+]
+
+const filteredFunis = computed(() => {
+  return funis.value.filter(f => f.tipo === activeTipoFunil.value)
+})
+
+const activeStage = ref(null)
+const kanbanContainer = ref(null)
+
 const showWhatsapp = ref(false)
 const whatsappData = ref({
   number: '',
@@ -252,9 +281,6 @@ const whatsappData = ref({
 
 const showFaturamentoModal = ref(false)
 const selectedFaturamento = ref(null)
-
-const activeStage = ref(null)
-const kanbanContainer = ref(null)
 
 const selectedFunil = computed(() => {
   return funis.value.find(f => f.id === activeFunilId.value) || funis.value[0]
@@ -301,30 +327,27 @@ async function fetchCanais() {
 }
 
 async function fetchFunnels() {
-  // Filtramos apenas funis do tipo OPORTUNIDADE para o Kanban (limpeza técnica)
-  const list = await oportunidadesStore.fetchFunis()
-  const oppFunis = list.filter(f => f.tipo === 'OPORTUNIDADE')
-  
-  if (oppFunis.length > 0) {
-    // Verifica se o usuário tem funis_acesso definidos
+  await oportunidadesStore.fetchFunis()
+  await setInitialFunil()
+}
+
+function setInitialFunil() {
+  if (filteredFunis.value.length > 0) {
+    // Tenta encontrar um funil que o usuário tem acesso direto dentro do tipo filtrado
     const userFunisIds = authStore.user?.funis_acesso || []
+    const userFunil = filteredFunis.value.find(f => userFunisIds.includes(f.id))
     
-    if (userFunisIds.length > 0) {
-      // Tenta encontrar um funil que o usuário tem acesso direto
-      const userFunil = oppFunis.find(f => userFunisIds.includes(f.id))
-      if (userFunil) {
-        activeFunilId.value = userFunil.id
-      } else {
-        // Fallback: usa o primeiro da lista
-        activeFunilId.value = oppFunis[0].id
-      }
-    } else {
-      // Se não tem funis_acesso definido, usa o primeiro
-      activeFunilId.value = oppFunis[0].id
-    }
-    
-    await loadKanban()
+    activeFunilId.value = userFunil ? userFunil.id : filteredFunis.value[0].id
+    loadKanban()
+  } else {
+    activeFunilId.value = null
+    oportunidadesStore.kanbanData = []
   }
+}
+
+async function changeTipoFunil(tipo) {
+  activeTipoFunil.value = tipo
+  setInitialFunil()
 }
 
 async function loadKanban() {

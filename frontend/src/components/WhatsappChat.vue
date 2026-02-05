@@ -41,6 +41,47 @@
           </button>
         </div>
       </div>
+      
+      <!-- Seletor de Contexto (Novidade) -->
+      <div v-if="oportunidadesAtivas.length > 1" class="bg-gray-100 p-2 border-b flex items-center justify-between shadow-inner">
+        <div class="flex items-center space-x-2 overflow-hidden">
+          <div :class="['w-2 h-2 rounded-full shadow-sm', getTipoCor(currentOportunidade?.funil_tipo)]"></div>
+          <span class="text-[10px] font-bold text-gray-600 truncate">
+            {{ currentOportunidade?.nome }} 
+            <span class="font-normal opacity-60">({{ currentOportunidade?.estagio_nome }})</span>
+          </span>
+        </div>
+        <button 
+          @click="showContextSelector = !showContextSelector" 
+          class="text-[10px] bg-white border border-gray-200 px-2 py-0.5 rounded shadow-sm hover:bg-gray-50 text-emerald-600 font-bold transition-all"
+        >
+          {{ showContextSelector ? 'FECHAR' : 'TROCAR' }}
+        </button>
+      </div>
+
+      <!-- Lista de Oportunidades para Troca -->
+      <div v-if="showContextSelector" class="bg-white border-b max-h-48 overflow-y-auto shadow-lg z-10 animate-fade-in">
+        <div 
+          v-for="opp in oportunidadesAtivas" 
+          :key="opp.id"
+          @click="switchOportunidade(opp)"
+          :class="['p-3 border-b last:border-0 cursor-pointer hover:bg-emerald-50 transition-colors flex items-center justify-between',
+                   currentOportunidadeId == opp.id ? 'bg-emerald-50 border-l-4 border-l-emerald-500' : '']"
+        >
+          <div>
+            <div class="text-xs font-bold text-gray-800">{{ opp.nome }}</div>
+            <div class="text-[10px] text-gray-500 flex items-center space-x-1">
+              <span>{{ opp.funil_nome }}</span>
+              <span>•</span>
+              <span :style="{ color: opp.estagio_cor }" class="font-medium">{{ opp.estagio_nome }}</span>
+            </div>
+          </div>
+          <div v-if="currentOportunidadeId == opp.id" class="text-emerald-600">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          </div>
+        </div>
+      </div>
+
 
       <!-- Messages Area -->
       <div 
@@ -207,8 +248,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, watch, nextTick, computed } from 'vue'
 import { whatsappService } from '@/services/whatsapp'
+import api from '@/services/api'
 
 const props = defineProps({
   show: Boolean,
@@ -227,6 +269,15 @@ const newMessage = ref('')
 const messageContainer = ref(null)
 const inputRef = ref(null)
 const isAtBottom = ref(true)
+
+// Multicontexto
+const currentOportunidadeId = ref(props.oportunidade)
+const oportunidadesAtivas = ref([])
+const showContextSelector = ref(false)
+
+const currentOportunidade = computed(() => {
+  return oportunidadesAtivas.value.find(o => o.id == currentOportunidadeId.value)
+})
 
 // Controle de áudios
 const transcribingId = ref(null)
@@ -318,7 +369,7 @@ const syncMessages = async () => {
   try {
     const response = await whatsappService.syncMessages({
       number: props.number,
-      oportunidade: props.oportunidade,
+      oportunidade: currentOportunidadeId.value,
       limit: 50
     })
 
@@ -343,7 +394,7 @@ const markAsRead = async () => {
   try {
     const response = await whatsappService.marcarLidas({
       number: props.number,
-      oportunidade: props.oportunidade
+      oportunidade: currentOportunidadeId.value
     })
     // Se marcou mensagens novas como lidas, avisa o layout para atualizar o contador
     if (response.data.updated_count > 0) {
@@ -465,7 +516,7 @@ const send = async () => {
       response = await whatsappService.sendMessage({
         number: props.number,
         text: newMessage.value,
-        oportunidade: props.oportunidade
+        oportunidade: currentOportunidadeId.value
       })
     }
     
@@ -619,8 +670,53 @@ const handleTranscribeAudio = async (msg) => {
   }
 }
 
+const getTipoCor = (tipo) => {
+  switch (tipo) {
+    case 'VENDAS': return 'bg-blue-500'
+    case 'POS_VENDA': return 'bg-purple-500'
+    case 'SUPORTE': return 'bg-orange-500'
+    default: return 'bg-gray-400'
+  }
+}
+
+const switchOportunidade = async (opp) => {
+  currentOportunidadeId.value = opp.id
+  showContextSelector.value = false
+  messages.value = []
+  await loadMessages()
+  await syncMessages()
+}
+
+const loadOportunidades = async () => {
+  if (!props.number) return
+  try {
+    // Busca oportunidades vinculadas ao número do contato
+    const response = await api.get('/oportunidades/', { 
+      params: { 
+        search: props.number,
+        page_size: 10
+      } 
+    })
+    oportunidadesAtivas.value = response.data.results || []
+    
+    // Se não tiver ID atual, pega a primeira
+    if (!currentOportunidadeId.value && oportunidadesAtivas.value.length > 0) {
+      currentOportunidadeId.value = oportunidadesAtivas.value[0].id
+    }
+  } catch (error) {
+    console.error('[WhatsappChat] Erro ao carregar processos:', error)
+  }
+}
+
 watch(() => props.show, async (newVal) => {
   if (newVal) {
+    // Reset state
+    currentOportunidadeId.value = props.oportunidade
+    showContextSelector.value = false
+    
+    // Carrega opções de contexto
+    await loadOportunidades()
+
     // Primeiro sincroniza da Evolution API, depois carrega do banco local
     await syncMessages()
     

@@ -268,16 +268,21 @@ class OrigemViewSet(viewsets.ModelViewSet):
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    """ViewSet para Usuários (apenas Admin)"""
+    """ViewSet para Usuários"""
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAdminUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['perfil', 'canal', 'is_active']
     search_fields = ['username', 'email', 'first_name', 'last_name']
     ordering_fields = ['username', 'date_joined']
-    
-    @action(detail=False, methods=['get'], permission_classes=[HierarchyPermission])
+
+    def get_permissions(self):
+        # Permitir listagem e 'me' para usuários autenticados
+        if self.action in ['list', 'retrieve', 'me']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
+
+    @action(detail=False, methods=['get'])
     def me(self, request):
         """Retorna informações do usuário logado"""
         serializer = self.get_serializer(request.user)

@@ -272,3 +272,89 @@ def log_m2m_changes(sender, instance, action, reverse, model, pk_set, **kwargs):
         user_agent=get_user_agent(request),
         observacao=observacao
     )
+@receiver(post_save, sender=Oportunidade)
+def automatizar_pos_venda_suporte(sender, instance, created, **kwargs):
+    """
+    Quando uma oportunidade é marcada como GANHA, cria automaticamente 
+    registros nos funis de Pós-Venda e Suporte.
+    """
+    from .models import Funil, EstagioFunil, FunilEstagio
+    # Verifica se o estágio atual é do tipo GANHO
+    if instance.estagio.tipo == 'GANHO':
+        # Verifica se já era GANHO antes para evitar duplicidade (usando o cache do sinal capture_old_values)
+        if hasattr(instance, '_old_values'):
+            # O capture_old_values armazena o objeto completo para campos ForeignKey
+            old_estagio = instance._old_values.get('estagio')
+            if old_estagio and getattr(old_estagio, 'tipo', None) == 'GANHO':
+                return # Já era ganho, ignora
+
+        # 1. Buscar ou Criar Funil de Pós-Venda
+        funil_pos = Funil.objects.filter(tipo=Funil.TIPO_POS_VENDA).first()
+        if not funil_pos:
+            funil_pos = Funil.objects.create(
+                tipo=Funil.TIPO_POS_VENDA,
+                nome='Esteira de Pós-Venda'
+            )
+            # Cria estágio inicial padrão
+            est_pos = EstagioFunil.objects.get_or_create(nome='Aguardando Onboarding', defaults={'tipo': 'ABERTO'})[0]
+            FunilEstagio.objects.create(funil=funil_pos, estagio=est_pos, ordem=0, is_padrao=True)
+        
+        # 2. Buscar ou Criar Funil de Suporte
+        funil_suporte = Funil.objects.filter(tipo=Funil.TIPO_SUPORTE).first()
+        if not funil_suporte:
+            funil_suporte = Funil.objects.create(
+                tipo=Funil.TIPO_SUPORTE,
+                nome='Tickets de Suporte'
+            )
+            # Cria estágio inicial padrão
+            est_sup = EstagioFunil.objects.get_or_create(nome='Triagem de Suporte', defaults={'tipo': 'ABERTO'})[0]
+            FunilEstagio.objects.create(funil=funil_suporte, estagio=est_sup, ordem=0, is_padrao=True)
+        
+        # Garantir estágios iniciais para esses funis
+        def get_estagio_inicial(funil):
+            fe = FunilEstagio.objects.filter(funil=funil, is_padrao=True).first()
+            if not fe:
+                fe = FunilEstagio.objects.filter(funil=funil).order_by('ordem').first()
+            if fe:
+                return fe.estagio
+            return None
+
+        estagio_pos = get_estagio_inicial(funil_pos)
+        estagio_sup = get_estagio_inicial(funil_suporte)
+        
+        # Se não tiver estágios, o sistema pode dar erro ao criar a oportunidade
+        # Idealmente esses funis já devem ter sido configurados via Admin
+        
+        if estagio_pos:
+            # Verifica se já existe pós-venda para esta oportunidade (evitar loops)
+            if not Oportunidade.objects.filter(
+                conta=instance.conta, 
+                funil=funil_pos,
+                nome__icontains=f"Pós-Venda: {instance.nome}"
+            ).exists():
+                Oportunidade.objects.create(
+                    nome=f"Pós-Venda: {instance.nome}",
+                    conta=instance.conta,
+                    funil=funil_pos,
+                    estagio=estagio_pos,
+                    proprietario=instance.proprietario, # Vendedor
+                    valor_estimado=instance.valor_estimado,
+                    canal=instance.canal
+                )
+
+        if estagio_sup:
+            # Verifica se já existe suporte para esta oportunidade
+            if not Oportunidade.objects.filter(
+                conta=instance.conta, 
+                funil=funil_suporte,
+                nome__icontains=f"Suporte: {instance.nome}"
+            ).exists():
+                Oportunidade.objects.create(
+                    nome=f"Suporte: {instance.nome}",
+                    conta=instance.conta,
+                    funil=funil_suporte,
+                    estagio=estagio_sup,
+                    proprietario=instance.proprietario, # Ajustar para técnico se houver campo
+                    valor_estimado=0,
+                    canal=instance.canal
+                )

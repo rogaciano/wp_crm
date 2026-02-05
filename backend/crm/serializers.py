@@ -908,8 +908,9 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     estagio_cor = serializers.SerializerMethodField()
     estagio_tipo = serializers.SerializerMethodField()
     plano_nome = serializers.SerializerMethodField()
-    indicador_nome = serializers.SerializerMethodField()
     canal_nome = serializers.SerializerMethodField()
+    funil_nome = serializers.SerializerMethodField()
+    funil_tipo = serializers.SerializerMethodField()
     contato_telefone = serializers.SerializerMethodField()
     whatsapp_nao_lidas = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
@@ -935,7 +936,7 @@ class OportunidadeSerializer(serializers.ModelSerializer):
             'data_fechamento_real', 'plano', 'plano_nome', 'periodo_pagamento',
             'adicionais_detalhes', 'cortesia', 'anexos', 'diagnosticos',
             'cupom_desconto', 'forma_pagamento', 'indicador_comissao', 'indicador_nome', 
-            'canal', 'canal_nome', 'contato_telefone', 'whatsapp_nao_lidas', 'fonte', 'origem',
+            'canal', 'canal_nome', 'funil_nome', 'funil_tipo', 'contato_telefone', 'whatsapp_nao_lidas', 'fonte', 'origem',
             'contatos', 'empresas', 'contatos_detalhe', 'empresas_detalhe',
             'contato_principal_dados', 'conta_dados',
             'data_criacao', 'data_atualizacao', 'proxima_atividade'
@@ -990,6 +991,12 @@ class OportunidadeSerializer(serializers.ModelSerializer):
 
     def get_canal_nome(self, obj):
         return obj.canal.nome if obj.canal else "N/A"
+
+    def get_funil_nome(self, obj):
+        return obj.funil.nome if obj.funil else "N/A"
+
+    def get_funil_tipo(self, obj):
+        return obj.funil.tipo if obj.funil else "VENDAS"
 
     def create(self, validated_data):
         adicionais_data = self.context['request'].data.get('adicionais_itens', [])
