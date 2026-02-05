@@ -6,7 +6,7 @@ import pymysql
 # Configurar pymysql como substituto do mysqlclient
 pymysql.install_as_MySQLdb()
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings'
 django.setup()
 
 from crm.models import Plano, PlanoAdicional

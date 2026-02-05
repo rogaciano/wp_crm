@@ -6,9 +6,8 @@ import os
 import re
 import django
 
-if 'DJANGO_SETTINGS_MODULE' not in os.environ:
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-    django.setup()
+os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings'
+django.setup()
 
 from crm.models import Lead, Contato
 
