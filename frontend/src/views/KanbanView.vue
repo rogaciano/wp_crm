@@ -4,7 +4,7 @@
     <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
         <h1 class="text-2xl md:text-3xl font-bold text-gray-900 font-outfit">
-          {{ activeTipoFunil === 'VENDAS' ? 'Pipeline de Vendas' : (activeTipoFunil === 'POS_VENDA' ? 'Pós-Venda' : 'Suporte Técninco') }}
+          {{ activeTipoFunil === 'VENDAS' ? 'Pipeline de Vendas' : (activeTipoFunil === 'POS_VENDA' ? 'Pós-Venda' : 'Suporte Técnico') }}
         </h1>
         <p class="text-gray-500 mt-1 font-medium">
           {{ selectedFunil?.nome || 'Gerencie seu processo comercial' }}
@@ -51,6 +51,18 @@
         </option>
       </select>
 
+      <!-- Status Selector -->
+      <select 
+        v-model="activeStatus" 
+        @change="loadKanban"
+        class="bg-gray-50 border-0 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all cursor-pointer"
+      >
+        <option value="ABERTO">Em aberto</option>
+        <option value="GANHO">Concluídos (Ganho)</option>
+        <option value="PERDIDO">Cancelados (Perdido)</option>
+        <option value="">Todos os status</option>
+      </select>
+
       <!-- Botão Nova Oportunidade -->
       <button 
         @click="openCreateModal" 
@@ -90,6 +102,17 @@
       <span class="font-bold text-sm">{{ error }}</span>
     </div>
 
+    <!-- Empty State -->
+    <div v-if="!loading && !kanbanData.length && !error" class="text-center py-24">
+      <div class="bg-gray-50 rounded-2xl p-8 max-w-md mx-auto border border-dashed border-gray-200">
+        <svg class="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <p class="text-gray-500 font-medium">Nenhum funil ou oportunidade encontrada para esta categoria.</p>
+        <p class="text-gray-400 text-xs mt-2">Certifique-se de que os funis estão configurados e ativos no painel administrativo.</p>
+      </div>
+    </div>
+
     <div v-else 
       ref="kanbanContainer"
       class="flex gap-4 overflow-x-auto pb-8 snap-x snap-mandatory custom-scrollbar min-h-[calc(100vh-250px)]"
@@ -113,7 +136,7 @@
                 {{ coluna.items.length }}
               </span>
             </div>
-            <p class="text-[10px] text-primary-600 font-black uppercase tracking-widest mt-2">
+            <p v-if="activeTipoFunil === 'VENDAS'" class="text-[10px] text-primary-600 font-black uppercase tracking-widest mt-2">
                Vol: R$ {{ calcularTotalColuna(coluna.items).toLocaleString() }}
             </p>
           </div>
@@ -135,8 +158,11 @@
               class="bg-white border border-gray-100 rounded-2xl p-4 cursor-grab active:cursor-grabbing hover:shadow-xl hover:shadow-gray-100 hover:border-primary-100 transition-all duration-300 group relative"
             >
               <!-- Badge de tipo -->
-              <span class="absolute top-4 right-4 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
-                OPORTUNIDADE
+              <span 
+                class="absolute top-4 right-4 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border"
+                :class="activeTipoFunil === 'VENDAS' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'"
+              >
+                {{ activeTipoFunil === 'VENDAS' ? 'OPORTUNIDADE' : 'ATENDIMENTO' }}
               </span>
               
               <h4 class="font-black text-gray-800 mb-3 leading-tight group-hover:text-primary-600 transition-colors pr-20">{{ item.nome }}</h4>
@@ -144,16 +170,20 @@
               <div class="text-[11px] text-gray-500 space-y-2.5">
                 <p class="flex items-center font-bold text-gray-400">
                   <svg class="w-3.5 h-3.5 mr-2 opacity-50 font-black" fill="currentColor" viewBox="0 0 24 24"><path d="M21 13v10h-6v-6h-6v6h-6v-10l9-9z"/></svg>
-                  <span class="truncate">{{ item.conta_nome || 'Particular' }}</span>
+                  <span class="truncate">{{ (item.conta_nome && item.conta_nome !== 'N/A') ? item.conta_nome : 'Empresa não vinculada' }}</span>
+                </p>
+                <p v-if="item.origem_nome || item.fonte" class="flex items-center font-bold text-blue-400/80">
+                  <svg class="w-3.5 h-3.5 mr-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 015.656 0l4-4a4 4 0 01-5.656-5.656l-1.102 1.101" /></svg>
+                  <span class="truncate">{{ item.origem_nome || item.fonte }}</span>
                 </p>
                 <p v-if="item.contato_nome" class="flex items-center font-bold text-gray-400">
                   <svg class="w-3.5 h-3.5 mr-2 opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a5 5 0 105 5 5 5 0 00-5-5zm0 12c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z"/></svg>
                   <span class="truncate">{{ item.contato_nome }}</span>
                 </p>
                 
-                <div class="mt-4 pt-4 border-t border-gray-50 flex justify-between items-end">
+                <div v-if="activeTipoFunil === 'VENDAS'" class="mt-4 pt-4 border-t border-gray-50 flex justify-between items-end">
                   <div>
-                    <p v-if="item.valor_estimado" class="text-sm font-black text-green-600">
+                    <p v-if="item.valor_estimado && activeTipoFunil === 'VENDAS'" class="text-sm font-black text-green-600">
                       R$ {{ Number(item.valor_estimado).toLocaleString('pt-BR') }}
                     </p>
                     <p v-if="item.data_fechamento_esperada" class="text-[9px] font-black text-gray-300 uppercase tracking-tighter mt-1">
@@ -175,27 +205,35 @@
 
               <!-- Ações flutuantes -->
               <div class="absolute -top-3 left-1/2 -translate-x-1/2 flex scale-90 space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 pointer-events-none group-hover:pointer-events-auto">
-                 <button @click.stop="openFaturamentoModal(item)" class="action-btn text-emerald-600 bg-white border border-emerald-100 shadow-lg" title="Faturamento">
-                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                 </button>
-                 <button v-if="item.plano" @click.stop="copyBillingInfo(item.id)" class="action-btn text-indigo-600 bg-white border border-indigo-100 shadow-lg" title="Copiar Faturamento">
-                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
-                 </button>
-                 <button v-if="item.plano" @click.stop="openPropostaPreview(item.id)" class="action-btn text-purple-600 bg-white border border-purple-100 shadow-lg" title="Gerar Proposta">
-                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1.01.293.707V19a2 2 0 01-2 2z" /></svg>
-                 </button>
                  <button @click.stop="openWhatsapp(item)" class="action-btn text-green-600 bg-white border border-green-100 shadow-lg relative" title="WhatsApp">
                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
                    <span v-if="item.whatsapp_nao_lidas > 0" class="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-black text-white ring-2 ring-white">
                      {{ item.whatsapp_nao_lidas }}
                    </span>
                  </button>
+                 <button @click.stop="openFaturamentoModal(item)" class="action-btn text-emerald-600 bg-white border border-emerald-100 shadow-lg" title="Faturamento">
+                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                 </button>
+                 <button v-if="item.plano" @click.stop="openPropostaPreview(item.id)" class="action-btn text-purple-600 bg-white border border-purple-100 shadow-lg" title="Gerar Proposta">
+                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1.01.293.707V19a2 2 0 01-2 2z" /></svg>
+                 </button>
+                 <button v-if="item.plano" @click.stop="copyBillingInfo(item.id)" class="action-btn text-indigo-600 bg-white border border-indigo-100 shadow-lg" title="Copiar Faturamento">
+                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
+                 </button>
+                 <button @click.stop="openEditModal(item)" class="action-btn text-primary-600 bg-white border border-primary-100 shadow-lg" title="Editar">
+                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                 </button>
+                 <button @click.stop="deleteOportunidade(item.id)" class="action-btn text-red-600 bg-white border border-red-100 shadow-lg" title="Excluir">
+                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                 </button>
               </div>
             </div>
             
             <!-- Empty column hint -->
             <div v-if="coluna.items.length === 0" class="h-32 border-2 border-dashed border-gray-100 rounded-3xl flex items-center justify-center bg-white/30 group-hover/col:border-primary-100 transition-colors">
-               <p class="text-[10px] text-gray-300 font-black uppercase tracking-widest italic tracking-tighter">Pronto para novos negócios</p>
+               <p class="text-[10px] text-gray-300 font-black uppercase tracking-widest italic tracking-tighter">
+                 {{ activeTipoFunil === 'VENDAS' ? 'Pronto para novos negócios' : 'Tudo em dia por aqui' }}
+               </p>
             </div>
           </div>
         </div>
@@ -233,8 +271,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useOportunidadesStore } from '@/stores/oportunidades'
 import { useAuthStore } from '@/stores/auth'
 import { useWhatsappStore } from '@/stores/whatsapp'
@@ -244,6 +282,8 @@ import WhatsappChat from '@/components/WhatsappChat.vue'
 import FaturamentoModal from '@/components/FaturamentoModal.vue'
 import api from '@/services/api'
 
+const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const whatsappStore = useWhatsappStore()
 
@@ -257,13 +297,22 @@ const showModal = ref(false)
 const selectedOportunidade = ref(null)
 const draggedItem = ref(null)
 const activeContextEstagioId = ref(null)
+const activeStatus = ref('ABERTO')
 
-const activeTipoFunil = ref('VENDAS')
+const activeTipoFunil = ref(route.query.tipo || 'VENDAS')
 const tiposFunil = [
   { id: 'VENDAS', label: 'Vendas' },
   { id: 'POS_VENDA', label: 'Pós-Venda' },
   { id: 'SUPORTE', label: 'Suporte' }
 ]
+
+// Monitora mudanças na URL para trocar o tipo de funil (ex: vindo do menu lateral)
+watch(() => route.query.tipo, (newTipo) => {
+  if (newTipo && newTipo !== activeTipoFunil.value) {
+    activeTipoFunil.value = newTipo
+    setInitialFunil()
+  }
+})
 
 const filteredFunis = computed(() => {
   return funis.value.filter(f => f.tipo === activeTipoFunil.value)
@@ -283,7 +332,7 @@ const showFaturamentoModal = ref(false)
 const selectedFaturamento = ref(null)
 
 const selectedFunil = computed(() => {
-  return funis.value.find(f => f.id === activeFunilId.value) || funis.value[0]
+  return funis.value.find(f => f.id === activeFunilId.value) || filteredFunis.value[0]
 })
 
 function calcularTotalColuna(oportunidades) {
@@ -351,7 +400,7 @@ async function changeTipoFunil(tipo) {
 }
 
 async function loadKanban() {
-  await oportunidadesStore.fetchKanban(activeFunilId.value, activeCanalId.value)
+  await oportunidadesStore.fetchKanban(activeFunilId.value, activeCanalId.value, activeStatus.value)
   if (kanbanData.value?.length) {
     activeStage.value = kanbanData.value[0].estagio.id
   }
@@ -381,6 +430,7 @@ async function onDrop(event, novoEstagioId) {
   
   try {
     await oportunidadesStore.mudarEstagio(itemId, novoEstagioId)
+    await loadKanban()
   } catch (error) {
     console.error('Erro ao mover item:', error)
   }
@@ -394,7 +444,7 @@ function formatDate(dateString) {
   return date.toLocaleDateString('pt-BR')
 }
 
-const router = useRouter()
+
 
 // ...
 
@@ -402,6 +452,23 @@ function openCreateModal(estagioId = null) {
   selectedOportunidade.value = null
   activeContextEstagioId.value = typeof estagioId === 'number' ? estagioId : null
   showModal.value = true
+}
+
+function openEditModal(item) {
+  selectedOportunidade.value = item
+  showModal.value = true
+}
+
+async function deleteOportunidade(id) {
+  if (!confirm('Tem certeza que deseja excluir esta oportunidade?')) return
+  
+  try {
+    await api.delete(`/oportunidades/${id}/`)
+    await loadKanban()
+  } catch (error) {
+    console.error('Erro ao excluir oportunidade:', error)
+    alert('Erro ao excluir oportunidade')
+  }
 }
 
 function editItem(item) {

@@ -328,15 +328,16 @@ class FunilViewSet(viewsets.ModelViewSet):
                 funis_canal_ids = []
             
             # Combina os dois conjuntos
+            # Busca funis vinculados ao usuário OU funis sem restrição (globais)
             all_funil_ids = list(set(funis_acesso_ids + funis_canal_ids))
-            print(f"[FunilViewSet] Total IDs combinados: {all_funil_ids}", file=sys.stderr)
             
+            from django.db.models import Q
+            q_filter = Q(usuarios__isnull=True)
             if all_funil_ids:
-                qs = Funil.objects.filter(id__in=all_funil_ids, is_active=True)
-            else:
-                # Fallback: funis sem restrição de usuário (globais)
-                qs = Funil.objects.filter(is_active=True)
-                print(f"[FunilViewSet] Fallback - todos os funis ativos", file=sys.stderr)
+                q_filter |= Q(id__in=all_funil_ids)
+            
+            qs = Funil.objects.filter(q_filter, is_active=True).distinct()
+            print(f"[FunilViewSet] Queryset final filtrado: {qs.count()} funis", file=sys.stderr)
         
         # Filtra por tipo se especificado
         if tipo:
@@ -669,7 +670,15 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
     serializer_class = OportunidadeSerializer
     permission_classes = [HierarchyPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['estagio', 'conta', 'canal', 'funil', 'contatos', 'empresas']
+    filterset_fields = {
+        'estagio': ['exact'],
+        'estagio__tipo': ['exact', 'in'],
+        'conta': ['exact'],
+        'canal': ['exact'],
+        'funil': ['exact'],
+        'contatos': ['exact'],
+        'empresas': ['exact'],
+    }
     search_fields = ['nome', 'conta__nome_empresa', 'empresas__nome_empresa', 'contatos__nome']
     ordering_fields = ['nome', 'valor_estimado', 'data_fechamento_esperada', 'data_criacao']
     
@@ -679,24 +688,31 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         
         if user.perfil == 'ADMIN':
             queryset = Oportunidade.objects.all()
-        elif user.perfil == 'RESPONSAVEL':
-            # Vê do seu canal (vínculo direto ou via proprietário) AND funis que tem acesso
-            queryset = Oportunidade.objects.filter(
-                Q(canal=user.canal) | Q(proprietario__canal=user.canal)
-            ).filter(funil__in=user.funis_acesso.all()).distinct()
-        else: # VENDEDOR
-            # Vendedor vê todas as oportunidades do seu canal (não apenas as dele)
-            if user.canal:
+        else:
+            # Pega todos os funis aos quais o usuário tem acesso (direto, via canal ou globais)
+            funis_visiveis = Funil.objects.filter(
+                Q(usuarios=user) | 
+                Q(usuarios__canal=user.canal) |
+                Q(usuarios__isnull=True)
+            ).distinct()
+            
+            if user.perfil == 'RESPONSAVEL':
+                # Vê do seu canal (vínculo direto ou via proprietário) AND funis visíveis
                 queryset = Oportunidade.objects.filter(
-                    Q(canal=user.canal) | Q(proprietario__canal=user.canal),
-                    funil__in=user.funis_acesso.all()
-                ).distinct()
-            else:
-                # Fallback: se não tem canal, vê só as próprias
-                queryset = Oportunidade.objects.filter(
-                    proprietario=user,
-                    funil__in=user.funis_acesso.all()
-                )
+                    Q(canal=user.canal) | Q(proprietario__canal=user.canal)
+                ).filter(funil__in=funis_visiveis).distinct()
+            else: # VENDEDOR
+                if user.canal:
+                    queryset = Oportunidade.objects.filter(
+                        Q(canal=user.canal) | Q(proprietario__canal=user.canal),
+                        funil__in=funis_visiveis
+                    ).distinct()
+                else:
+                    # Fallback: se não tem canal, vê só as próprias
+                    queryset = Oportunidade.objects.filter(
+                        proprietario=user,
+                        funil__in=funis_visiveis
+                    )
             
         return queryset.select_related(
             'funil', 'estagio', 'conta', 'contato_principal', 'proprietario'
@@ -794,13 +810,19 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
     def kanban(self, request):
         """Retorna oportunidades agrupadas por estágio para visão Kanban"""
         funil_id = request.query_params.get('funil_id')
-        queryset = self.get_queryset()  # Removido filtro de tipo - mostra todos os estágios
+        estagio_tipo = request.query_params.get('estagio_tipo') # Novo filtro de status
         
+        queryset = self.get_queryset()
+        
+        # Filtro de status (opcional, se não informado mostra todos)
+        if estagio_tipo:
+            queryset = queryset.filter(estagio__tipo=estagio_tipo)
+            
         if funil_id:
             queryset = queryset.filter(funil_id=funil_id)
         else:
             # Se não informou, tenta o primeiro funil de oportunidades do usuário
-            user_funis = request.user.funis_acesso.filter(tipo=Funil.TIPO_OPORTUNIDADE) if request.user.perfil != 'ADMIN' else Funil.objects.filter(tipo=Funil.TIPO_OPORTUNIDADE)
+            user_funis = request.user.funis_acesso.filter(tipo=Funil.TIPO_VENDAS) if request.user.perfil != 'ADMIN' else Funil.objects.filter(tipo=Funil.TIPO_VENDAS)
             funil = user_funis.first()
             if funil:
                 queryset = queryset.filter(funil=funil)
@@ -1357,7 +1379,7 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                 if not oportunidade:
                     # Busca o funil "SDR" ou o primeiro do tipo OPORTUNIDADE
                     funil = Funil.objects.filter(nome__icontains='SDR').first() or \
-                            Funil.objects.filter(tipo=Funil.TIPO_OPORTUNIDADE).first() or \
+                            Funil.objects.filter(tipo=Funil.TIPO_VENDAS).first() or \
                             Funil.objects.first()
                     
                     if funil:
@@ -1537,7 +1559,7 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                     estagio = canal.estagio_inicial
                 else:
                     # Fallback: primeiro funil ativo do tipo OPORTUNIDADE
-                    funil = Funil.objects.filter(tipo=Funil.TIPO_OPORTUNIDADE, is_active=True).first()
+                    funil = Funil.objects.filter(tipo=Funil.TIPO_VENDAS, is_active=True).first()
                     estagio = None
                 
                 if not funil:

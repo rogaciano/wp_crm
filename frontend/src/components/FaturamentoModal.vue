@@ -4,7 +4,7 @@
     title="Faturamento da Oportunidade"
     size="lg"
     @close="$emit('close')"
-    @confirm="handleSubmit"
+    :showFooter="false"
     :loading="loading"
   >
     <div v-if="form.plano" class="mb-6 p-4 bg-primary-50 rounded-xl border border-primary-100 flex items-center justify-between transition-all animate-in fade-in slide-in-from-top-4">
@@ -22,7 +22,7 @@
       </button>
     </div>
 
-    <form @submit.prevent="handleSubmit" class="space-y-6">
+    <form @submit.prevent="handleSubmit()" class="space-y-6">
       <div class="bg-primary-50 px-4 py-6 rounded-2xl border border-primary-100">
         <h3 class="text-xs font-bold text-primary-600 uppercase tracking-widest mb-4 flex items-center">
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -167,6 +167,36 @@
           <textarea v-model="form.cortesia" rows="2" class="input" placeholder="Ex: Setup grátis, etc..."></textarea>
         </div>
       </div>
+
+      <!-- Footer Customizado -->
+      <div class="pt-6 border-t border-gray-100 flex flex-col sm:flex-row justify-end gap-3">
+        <button 
+          type="button" 
+          @click="$emit('close')" 
+          class="px-6 py-2.5 rounded-xl border border-gray-200 text-gray-500 font-bold text-sm hover:bg-gray-50 transition-all"
+        >
+          Cancelar
+        </button>
+        <button 
+          v-if="!isGanho"
+          type="button" 
+          @click="handleSubmit(true)" 
+          :disabled="loading || !form.plano"
+          class="px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          <svg v-if="loadingFinalizar" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          Finalizar e Ativar Cliente
+        </button>
+        <button 
+          type="button"
+          @click="handleSubmit(false)"
+          :disabled="loading"
+          class="px-6 py-2.5 rounded-xl bg-primary-600 text-white font-bold text-sm hover:bg-primary-700 transition-all shadow-lg shadow-primary-100 flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          <svg v-if="loading && !loadingFinalizar" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          Salvar Dados
+        </button>
+      </div>
     </form>
   </BaseModal>
 </template>
@@ -186,6 +216,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved'])
 
 const loading = ref(false)
+const loadingFinalizar = ref(false)
 const planos = ref([])
 const planoAdicionais = ref([])
 const contatos = ref([])
@@ -301,25 +332,57 @@ async function copyBillingText() {
     await navigator.clipboard.writeText(response.data.texto)
     alert('Texto de faturamento copiado! 📋')
   } catch (error) {
-    alert('Erro ao gerar texto. Verifique se o plano está selecionado.')
+    alert('Erro ao gerar text. Verifique se o plano está selecionado.')
   }
 }
 
-async function handleSubmit() {
+async function handleSubmit(finalizar = false) {
   loading.value = true
+  if (finalizar) loadingFinalizar.value = true
+  
   const store = useOportunidadesStore()
   try {
     const data = {
       ...form.value,
       adicionais_itens: adicionais_itens.value.filter(i => i.adicional)
     }
+
+    if (finalizar) {
+      // Busca o estágio "GANHO" para o funil atual desta oportunidade
+      try {
+        const funilId = props.oportunidade.funil || props.oportunidade.funil_id
+        if (!funilId) {
+          throw new Error('ID do funil não encontrado nesta oportunidade. Tente recarregar a página.')
+        }
+        const res = await api.get(`/funis/${funilId}/estagios/`)
+        const estagiosDoFunil = res.data.results || res.data
+        const estagioGanho = estagiosDoFunil.find(e => e.tipo === 'GANHO')
+        
+        if (estagioGanho) {
+          data.estagio = estagioGanho.estagio_id || estagioGanho.id
+          data.data_fechamento_real = new Date().toISOString().split('T')[0]
+        } else {
+          console.warn('Estágio GANHO não encontrado para este funil.')
+          alert('Aviso: Não encontramos um estágio do tipo "GANHO" neste funil. A oportunidade será salva mas não mudará de estágio.')
+        }
+      } catch (err) {
+        console.error('Erro ao buscar estágios do funil:', err)
+      }
+    }
+
     await store.updateOportunidade(props.oportunidade.id, data)
+    
+    if (finalizar) {
+      alert('Venda finalizada com sucesso! O sistema criou automaticamente os registros de Pós-Venda e Suporte. 🚀')
+    }
+
     emit('saved')
     emit('close')
   } catch (error) {
     alert('Erro ao salvar faturamento: ' + (error.response?.data?.detail || error.message))
   } finally {
     loading.value = false
+    loadingFinalizar.value = false
   }
 }
 </script>

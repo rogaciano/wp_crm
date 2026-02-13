@@ -199,18 +199,17 @@
                   </div>
                </div>
                
-               <!-- Fonte -->
-               <div class="group flex items-center justify-between">
-                  <label class="text-xs text-gray-400 font-medium w-1/3">Fonte</label>
-                  <div class="w-2/3">
-                     <div class="flex items-center justify-end w-full text-sm text-gray-600 font-medium py-1">
-                        {{ oportunidade.fonte || 'Tráfego Direto Site' }} 
-                        <span class="text-gray-400 text-xs ml-2" v-if="oportunidade.data_criacao">
-                           {{ formatDateShort(oportunidade.data_criacao) }}
-                        </span>
-                     </div>
-                  </div>
-               </div>
+                <div class="group flex items-center justify-between">
+                   <label class="text-xs text-gray-400 font-medium w-1/3">Fonte / Origem</label>
+                   <div class="w-2/3">
+                      <div class="flex items-center justify-end w-full text-sm text-gray-600 font-medium py-1">
+                         {{ oportunidade.origem_nome || oportunidade.fonte || 'Direto' }} 
+                         <span class="text-gray-400 text-xs ml-2" v-if="oportunidade.data_criacao">
+                            {{ formatDateShort(oportunidade.data_criacao) }}
+                         </span>
+                      </div>
+                   </div>
+                </div>
 
                <!-- Fechamento -->
                <div class="group flex items-center justify-between">
@@ -289,24 +288,39 @@
                            <span v-else class="text-gray-300">...</span>
                         </div>
 
-                        <!-- Telefone -->
-                        <div class="flex items-center text-sm group/field">
-                           <span class="text-gray-400 w-24 shrink-0">Tel. comercial</span>
-                           <div class="flex items-center gap-2 flex-1">
-                              <input 
-                                 v-if="oportunidade.contato_principal"
-                                 v-model="contactForm.telefone" 
-                                 @blur="saveContactField('telefone')"
-                                 class="w-full bg-transparent border-b border-transparent group-hover/field:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none"
-                                 placeholder="..."
-                              />
-                              <span v-else class="text-gray-300 flex-1">...</span>
-                              
-                              <button v-if="oportunidade.contato_telefone" @click="openWhatsapp" class="text-green-500 hover:text-green-600" title="Chamar no WhatsApp">
-                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
-                              </button>
-                           </div>
-                        </div>
+                         <!-- Telefone (Celular) -->
+                         <div class="flex items-center text-sm group/field">
+                            <span class="text-gray-400 w-24 shrink-0">Celular</span>
+                            <div class="flex items-center gap-2 flex-1">
+                               <input 
+                                  v-if="oportunidade.contato_principal"
+                                  v-model="contactForm.celular" 
+                                  @input="formatPhoneLocal('celular')"
+                                  @blur="saveContactField('celular')"
+                                  class="w-full bg-transparent border-b border-transparent group-hover/field:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none"
+                                  placeholder="(99) 99999-9999"
+                               />
+                               <span v-else class="text-gray-300 flex-1">...</span>
+                               
+                               <button v-if="oportunidade.contato_telefone || contactForm.celular" @click="openWhatsapp" class="text-green-500 hover:text-green-600" title="Chamar no WhatsApp">
+                                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
+                               </button>
+                            </div>
+                         </div>
+
+                         <!-- Telefone Fixo -->
+                         <div class="flex items-center text-sm group/field">
+                            <span class="text-gray-400 w-24 shrink-0">Tel. comercial</span>
+                            <input 
+                               v-if="oportunidade.contato_principal"
+                               v-model="contactForm.telefone" 
+                               @input="formatPhoneLocal('telefone')"
+                               @blur="saveContactField('telefone')"
+                               class="w-full bg-transparent border-b border-transparent group-hover/field:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none"
+                               placeholder="(99) 9999-9999"
+                            />
+                            <span v-else class="text-gray-300">...</span>
+                         </div>
 
                         <!-- Email -->
                         <div class="flex items-center text-sm group/field">
@@ -538,6 +552,7 @@ const oportunidadeForm = ref({
 const contactForm = ref({
     cargo: '',
     telefone: '',
+    celular: '',
     email: ''
 })
 
@@ -659,11 +674,15 @@ async function loadData() {
         const c = res.data.contato_principal_dados
         contactForm.value = {
             cargo: c.cargo,
-            telefone: c.telefone, 
+            telefone: c.telefone ? c.telefone.replace(/^55/, '') : '', 
+            celular: c.celular ? c.celular.replace(/^55/, '') : '',
             email: c.email
         }
+        // Force formatting on load
+        formatPhoneLocal('celular')
+        formatPhoneLocal('telefone')
     } else {
-        contactForm.value = { cargo: '', telefone: '', email: '' }
+        contactForm.value = { cargo: '', telefone: '', celular: '', email: '' }
     }
     
     if (res.data.conta_dados) {
@@ -790,6 +809,24 @@ function getEstagioColor(estagio) {
 function getEstagioClass(estagio) {
    if (estagio.id === oportunidade.value?.estagio) return 'opacity-100 scale-110 z-10'
    return 'opacity-60 hover:opacity-100'
+}
+
+function formatPhoneLocal(field) {
+  let val = contactForm.value[field] || ''
+  let digits = val.replace(/\D/g, '')
+  if (digits.length > 11) digits = digits.slice(0, 11)
+  
+  if (digits.length === 0) {
+    contactForm.value[field] = ''
+  } else if (digits.length <= 2) {
+    contactForm.value[field] = `(${digits}`
+  } else if (digits.length <= 6) {
+    contactForm.value[field] = `(${digits.slice(0,2)}) ${digits.slice(2)}`
+  } else if (digits.length <= 10) {
+    contactForm.value[field] = `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`
+  } else {
+    contactForm.value[field] = `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`
+  }
 }
 
 function formatPhone(phone) {

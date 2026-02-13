@@ -27,9 +27,9 @@
             Tipo Global <span class="text-red-500">*</span>
           </label>
           <select v-model="form.tipo" required class="input">
-            <option value="ABERTO">Aberto (Em andamento)</option>
-            <option value="GANHO">Ganho (Sucesso)</option>
-            <option value="PERDIDO">Perdido (Insucesso)</option>
+            <option value="ABERTO">Aberto (Em andamento / Em atendimento)</option>
+            <option value="GANHO">Ganho / Sucesso (Resolvido)</option>
+            <option value="PERDIDO">Perdido / Insucesso (Cancelado / Descartado)</option>
           </select>
         </div>
 

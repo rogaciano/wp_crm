@@ -23,6 +23,17 @@
           />
         </div>
 
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Tipo de Funil <span class="text-red-500">*</span>
+          </label>
+          <select v-model="form.tipo" class="input" required>
+            <option value="VENDAS">Vendas (Comercial)</option>
+            <option value="POS_VENDA">Pós-Venda (Onboarding)</option>
+            <option value="SUPORTE">Suporte Técnico (Tickets)</option>
+          </select>
+        </div>
+
 
         <div>
           <label class="flex items-center space-x-2 cursor-pointer">
@@ -179,7 +190,7 @@ const sortedEstagiosNoFunil = computed(() => {
 
 const form = ref({
   nome: '',
-  tipo: 'OPORTUNIDADE',
+  tipo: 'VENDAS',
   is_active: true,
   usuarios: []
 })
@@ -358,7 +369,7 @@ async function loadEstagiosFunil(funilId) {
 function resetForm() {
   form.value = {
     nome: '',
-    tipo: 'OPORTUNIDADE',
+    tipo: 'VENDAS',
     is_active: true,
     usuarios: []
   }

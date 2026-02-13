@@ -125,102 +125,106 @@
             Dados Comerciais
           </h3>
           
-          <div class="space-y-6">
-            
-            <!-- 1. Responsável -->
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1.5">Responsável</label>
-              <select v-model="form.proprietario" class="input">
-                 <option :value="null">Selecione...</option>
-                 <option v-for="u in usuarios" :key="u.id" :value="u.id">{{ u.first_name }} {{ u.last_name }}</option>
-              </select>
-            </div>
+            <div class="space-y-2">
+              
+              <!-- 1. Responsável -->
+              <div class="grid grid-cols-1 md:grid-cols-[160px_1fr] items-center gap-2">
+                <label class="text-sm font-bold text-gray-700">Responsável CRM</label>
+                <select v-model="form.proprietario" class="input !py-2">
+                   <option :value="null">Selecione...</option>
+                   <option v-for="u in usuarios" :key="u.id" :value="u.id">{{ u.first_name }} {{ u.last_name }}</option>
+                </select>
+              </div>
 
-            <!-- 2. Valor -->
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1.5">Valor Estimado (R$)</label>
-              <input v-model.number="form.valor_estimado" type="number" step="0.01" class="input" placeholder="0,00" />
-            </div>
+              <!-- 2. Valor -->
+              <div class="grid grid-cols-1 md:grid-cols-[160px_1fr] items-center gap-2">
+                <label class="text-sm font-bold text-gray-700">Valor Estimado (R$)</label>
+                <input v-model.number="form.valor_estimado" type="number" step="0.01" class="input !py-2" placeholder="0,00" />
+              </div>
 
-            <!-- 3. Produto (Plano) -->
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1.5">Produto (Plano)</label>
-              <select v-model="form.plano" class="input">
-                 <option :value="null">Selecione...</option>
-                 <option v-for="p in planos" :key="p.id" :value="p.id">{{ p.nome }} (R$ {{ p.preco_mensal }})</option>
-              </select>
-            </div>
+              <!-- 3. Produto (Plano) -->
+              <div class="grid grid-cols-1 md:grid-cols-[160px_1fr] items-center gap-2">
+                <label class="text-sm font-bold text-gray-700">Produto (Plano)</label>
+                <select v-model="form.plano" class="input !py-2">
+                   <option :value="null">Selecione...</option>
+                   <option v-for="p in planos" :key="p.id" :value="p.id">{{ p.nome }} (R$ {{ p.preco_mensal }})</option>
+                </select>
+              </div>
 
-            <!-- 4. Adicionais (Dropdown) -->
-            <div class="relative">
-               <label class="block text-sm font-bold text-gray-700 mb-1.5">Adicionais (Upgrade)</label>
-               <div class="relative">
-                  <!-- Trigger -->
-                  <button 
-                     type="button"
-                     @click="showAdicionaisDropdown = !showAdicionaisDropdown"
-                     class="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent flex justify-between items-center transition-shadow shadow-sm hover:border-gray-400"
-                  >
-                      <span class="text-sm text-gray-700 truncate pr-2">
-                          {{ formatSelectedAdicionais() || 'Selecione...' }}
-                      </span>
-                      <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                  </button>
+              <!-- 4. Adicionais (Dropdown) -->
+              <div class="grid grid-cols-1 md:grid-cols-[160px_1fr] items-center gap-2">
+                 <label class="text-sm font-bold text-gray-700">Adicionais (Upgrade)</label>
+                 <div class="relative">
+                    <!-- Trigger -->
+                    <button 
+                       type="button"
+                       @click="showAdicionaisDropdown = !showAdicionaisDropdown"
+                       class="w-full py-1.5 px-3 bg-white border border-gray-300 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent flex justify-between items-center transition-shadow shadow-sm hover:border-gray-400"
+                    >
+                        <span class="text-sm text-gray-700 truncate pr-2">
+                            {{ formatSelectedAdicionais() || 'Selecione...' }}
+                        </span>
+                        <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
 
-                  <!-- Dropdown Content -->
-                  <div v-if="showAdicionaisDropdown" class="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-lg z-50 p-2 max-h-60 overflow-y-auto">
-                     <div class="space-y-1">
-                        <div v-for="adc in adicionais_opcoes" :key="adc.id" class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors" @click.stop="toggleAdicional(adc.id, !hasAdicional(adc.id))">
-                           <input 
-                              type="checkbox" 
-                              :value="adc.id" 
-                              :checked="hasAdicional(adc.id)"
-                              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4 pointer-events-none"
-                           />
-                           <span class="text-sm text-gray-700 select-none">{{ adc.nome }}</span>
-                        </div>
-                     </div>
+                    <!-- Dropdown Content -->
+                    <div v-if="showAdicionaisDropdown" class="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-lg z-50 p-2 max-h-60 overflow-y-auto">
+                       <div class="space-y-1">
+                          <div v-for="adc in adicionais_opcoes" :key="adc.id" class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors" @click.stop="toggleAdicional(adc.id, !hasAdicional(adc.id))">
+                             <input 
+                                type="checkbox" 
+                                :value="adc.id" 
+                                :checked="hasAdicional(adc.id)"
+                                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4 pointer-events-none"
+                             />
+                             <span class="text-sm text-gray-700 select-none">{{ adc.nome }}</span>
+                          </div>
+                       </div>
+                    </div>
+                    
+                    <!-- Backdrop to close -->
+                    <div v-if="showAdicionaisDropdown" class="fixed inset-0 z-40 bg-transparent cursor-default" @click="showAdicionaisDropdown = false"></div>
+                 </div>
+              </div>
+
+              <div class="border-t border-gray-100 my-1"></div>
+
+              <!-- 5. Origem (Canal) -->
+              <div class="grid grid-cols-1 md:grid-cols-[160px_1fr] items-center gap-2">
+                   <label class="text-sm font-bold text-gray-700">Canal de Aquisição</label>
+                   <div class="space-y-1">
+                       <select v-model="form.canal" class="input !py-2" :class="{'border-orange-300 bg-orange-50': canalSemPadroes}">
+                          <option :value="null">Selecione...</option>
+                          <option v-for="c in canais" :key="c.id" :value="c.id">{{ c.nome }}</option>
+                       </select>
+                       <p v-if="canalSemPadroes" class="text-[10px] text-orange-600 font-medium">
+                         ⚠️ Este canal não possui Funil/Estágio padrão. Escolha outro ou configure no Admin.
+                       </p>
+                   </div>
+              </div>
+
+              <!-- 6. Previsão / Probabilidade (Side by side grid for these two) -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div class="grid grid-cols-1 md:grid-cols-[160px_1fr] items-center gap-2">
+                    <label class="text-sm font-bold text-gray-700">Previsão</label>
+                    <input v-model="form.data_fechamento_esperada" type="date" class="input !py-2" />
                   </div>
                   
-                  <!-- Backdrop to close -->
-                  <div v-if="showAdicionaisDropdown" class="fixed inset-0 z-40 bg-transparent cursor-default" @click="showAdicionaisDropdown = false"></div>
-               </div>
+                  <div class="grid grid-cols-1 md:grid-cols-[160px_1fr] items-center gap-2">
+                    <label class="text-sm font-bold text-gray-700 text-right pr-2">Prob. (%)</label>
+                    <input v-model.number="form.probabilidade" type="number" min="0" max="100" class="input !py-2" />
+                  </div>
+              </div>
+
+               <!-- 7. Indicador (Extra) -->
+              <div class="grid grid-cols-1 md:grid-cols-[160px_1fr] items-center gap-2">
+                   <label class="text-sm font-bold text-gray-700">Indicador</label>
+                   <select v-model="form.indicador_comissao" class="input !py-2">
+                       <option :value="null">Sem indicador...</option>
+                       <option v-for="c in indicadores" :key="c.id" :value="c.id">{{ c.nome }}</option>
+                   </select>
+              </div>
             </div>
-
-            <div class="border-t border-gray-200"></div>
-
-            <!-- 5. Origem (Canal) -->
-            <div>
-                 <label class="block text-sm font-bold text-gray-700 mb-1.5">Canal de Aquisição</label>
-                 <select v-model="form.canal" class="input">
-                    <option :value="null">Selecione...</option>
-                    <option v-for="c in canais" :key="c.id" :value="c.id">{{ c.nome }}</option>
-                 </select>
-            </div>
-
-            <!-- 6. Previsão -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label class="block text-sm font-bold text-gray-700 mb-1.5">Previsão Fechamento</label>
-                  <input v-model="form.data_fechamento_esperada" type="date" class="input" />
-                </div>
-                
-                <div>
-                  <label class="block text-sm font-bold text-gray-700 mb-1.5">Probabilidade (%)</label>
-                  <input v-model.number="form.probabilidade" type="number" min="0" max="100" class="input" />
-                </div>
-            </div>
-
-             <!-- 7. Indicador (Extra) -->
-            <div>
-                 <label class="block text-sm font-bold text-gray-700 mb-1.5">Indicador de Comissão</label>
-                 <select v-model="form.indicador_comissao" class="input">
-                     <option :value="null">Sem indicador...</option>
-                     <option v-for="u in usuarios" :key="u.id" :value="u.id">{{ u.first_name }} {{ u.last_name }}</option>
-                 </select>
-            </div>
-
-          </div>
         </section>
 
         <!-- 3. Entidades (Empresa/Contato) -->
@@ -232,12 +236,12 @@
           
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div class="relative">
-              <label class="text-sm font-bold text-gray-700 mb-1.5 flex justify-between">
-                <span>Empresa Principal <span class="text-red-500">*</span></span>
+               <label class="text-sm font-bold text-gray-700 mb-1.5 flex justify-between">
+                <span>Responsável (Cliente)</span>
                 <button type="button" @click="showNovaEmpresaModal = true" class="text-primary-600 hover:text-primary-700 text-[10px] font-black uppercase tracking-wider">+ Nova Empresa</button>
               </label>
               
-              <div class="relative group">
+              <div class="relative group" @click.stop>
                 <input 
                   v-model="searchContaPrincipal" 
                   type="text" 
@@ -558,12 +562,17 @@ async function loadOptions() {
 
     contas.value = cRes.data.results || cRes.data
     contatos.value = ctRes.data.results || ctRes.data
-    funis.value = (fnRes.data.results || fnRes.data).filter(f => f.tipo === 'OPORTUNIDADE')
+    funis.value = (fnRes.data.results || fnRes.data).filter(f => f.tipo === 'VENDAS')
     canais.value = cnRes.data.results || cnRes.data
     usuarios.value = uRes.data.results || uRes.data
     planos.value = pRes.data.results || pRes.data
     adicionais_opcoes.value = adcRes.data.results || adcRes.data
     origens.value = orRes.data.results || orRes.data
+
+    // Auto-select canal if only one exists
+    if (!isEdit.value && canais.value.length === 1 && !form.value.canal) {
+      form.value.canal = canais.value[0].id
+    }
   } catch (err) { console.error('[loadOptions] ERROR:', err) }
 }
 
@@ -601,6 +610,10 @@ const historico = ref([])
 const anexos = ref([])
 const diagnosticos = ref([])
 
+const indicadores = computed(() => {
+  return contatos.value.filter(c => c.tipo_contato_nome?.toUpperCase() === 'INDICADOR')
+})
+
 // Comercial Options
 const usuarios = ref([])
 const planos = ref([])
@@ -619,6 +632,25 @@ function formatSelectedAdicionais() {
 
 const showNovaEmpresaModal = ref(false)
 const showNovoContatoModal = ref(false)
+
+const canalSemPadroes = computed(() => {
+    if (!form.value.canal || isEdit.value) return false
+    const canal = canais.value.find(c => c.id === form.value.canal)
+    return canal && (!canal.funil_padrao || !canal.estagio_inicial)
+})
+
+function formatAxiosError(e) {
+  if (e.response && e.response.data) {
+    const data = e.response.data
+    if (typeof data === 'object' && !Array.isArray(data)) {
+        return Object.entries(data)
+            .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+            .join(' | ')
+    }
+    return data.detail || e.message
+  }
+  return e.message
+}
 
 // Autocomplete Logic
 const searchContaPrincipal = ref('')
@@ -795,6 +827,21 @@ watch(() => form.value.funil, async (newFunil) => {
     await updateEstagios(newFunil)
 })
 
+watch(() => form.value.canal, async (newCanalId) => {
+    if (!isEdit.value && newCanalId) {
+        const canal = canais.value.find(c => c.id === newCanalId)
+        if (canal) {
+            if (canal.funil_padrao) {
+                form.value.funil = canal.funil_padrao
+                // updateEstagios will be triggered by funil watch
+            }
+            if (canal.estagio_inicial) {
+                form.value.estagio = canal.estagio_inicial
+            }
+        }
+    }
+})
+
 // Atualizar valor_estimado quando plano mudar
 watch(() => form.value.plano, (newPlanoId) => {
   if (newPlanoId && planos.value.length > 0) {
@@ -821,9 +868,16 @@ async function handleSubmit() {
       alert('Obrigatório informar a Fonte.')
       return
   }
-  if (!telefoneContato.value.trim()) {
-      alert('Obrigatório informar o Telefone.')
-      return
+  if (!form.value.funil || !form.value.estagio) {
+      if (canalSemPadroes.value) {
+          alert('Não é possível salvar: Este canal não possui um Funil ou Estágio padrão configurado no sistema.')
+          return
+      }
+      // Se não for por causa do canal, talvez algo no watch falhou
+      if (!isEdit.value) {
+        alert('Erro: Funil ou Estágio não definidos. Verifique as configurações do canal.')
+        return
+      }
   }
 
   loading.value = true
@@ -834,14 +888,14 @@ async function handleSubmit() {
         const res = await api.post('/contas/', { 
           nome_empresa: searchContaPrincipal.value,
           email: '', // Optional defaults
-          telefone: ''
+          telefone: '',
+          canal: form.value.canal
         })
         form.value.conta = res.data.id
         contas.value.unshift(res.data) // Add to local list
       } catch (e) {
         console.error("Erro ao criar empresa automática:", e)
-        // Decide if we abort or continue. Let's alert and abort to be safe.
-        alert('Erro ao criar empresa automática: ' +  (e.response?.data?.detail || e.message))
+        alert('Erro ao criar empresa automática: ' + formatAxiosError(e))
         loading.value = false
         return
       }
@@ -855,7 +909,8 @@ async function handleSubmit() {
           email: null,
           telefone: null,
           celular: telefoneContato.value.trim() || null,
-          cargo: ''
+          cargo: '',
+          canal: form.value.canal
         }
         // Link to company if we have one (either selected or just created)
         if (form.value.conta) {
@@ -867,7 +922,7 @@ async function handleSubmit() {
         contatos.value.unshift(res.data)
       } catch (e) {
         console.error("Erro ao criar contato automático:", e)
-        alert('Erro ao criar contato automático: ' + (e.response?.data?.detail || e.message))
+        alert('Erro ao criar contato automático: ' + formatAxiosError(e))
         loading.value = false
         return
       }
@@ -878,7 +933,7 @@ async function handleSubmit() {
 
     // Sanitize fields to avoid 400 Bad Request
     if (!payload.data_fechamento_esperada) payload.data_fechamento_esperada = null
-    if (payload.valor_estimado === '') payload.valor_estimado = null
+    if (payload.valor_estimado === '' || payload.valor_estimado === undefined) payload.valor_estimado = null
     if (!payload.conta) payload.conta = null
     if (!payload.proprietario) payload.proprietario = null
     if (!payload.canal) payload.canal = null
@@ -896,7 +951,7 @@ async function handleSubmit() {
     resetForm()
   } catch (err) {
     console.error(err)
-    alert('Erro ao salvar oportunidade: ' + (err.response?.data?.detail || err.message))
+    alert('Erro ao salvar oportunidade: ' + formatAxiosError(err))
   } finally { loading.value = false }
 }
 

@@ -908,10 +908,13 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     estagio_cor = serializers.SerializerMethodField()
     estagio_tipo = serializers.SerializerMethodField()
     plano_nome = serializers.SerializerMethodField()
+    indicador_nome = serializers.SerializerMethodField()
+    origem_nome = serializers.SerializerMethodField()
     canal_nome = serializers.SerializerMethodField()
     funil_nome = serializers.SerializerMethodField()
     funil_tipo = serializers.SerializerMethodField()
     contato_telefone = serializers.SerializerMethodField()
+    contato_celular = serializers.SerializerMethodField()
     whatsapp_nao_lidas = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
     anexos = OportunidadeAnexoSerializer(many=True, read_only=True)
@@ -936,12 +939,16 @@ class OportunidadeSerializer(serializers.ModelSerializer):
             'data_fechamento_real', 'plano', 'plano_nome', 'periodo_pagamento',
             'adicionais_detalhes', 'cortesia', 'anexos', 'diagnosticos',
             'cupom_desconto', 'forma_pagamento', 'indicador_comissao', 'indicador_nome', 
-            'canal', 'canal_nome', 'funil_nome', 'funil_tipo', 'contato_telefone', 'whatsapp_nao_lidas', 'fonte', 'origem',
+            'canal', 'canal_nome', 'funil_nome', 'funil_tipo', 'contato_telefone', 'contato_celular', 'whatsapp_nao_lidas', 'fonte', 'origem', 'origem_nome',
             'contatos', 'empresas', 'contatos_detalhe', 'empresas_detalhe',
             'contato_principal_dados', 'conta_dados',
             'data_criacao', 'data_atualizacao', 'proxima_atividade'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'whatsapp_nao_lidas']
+        extra_kwargs = {
+            'funil': {'required': False, 'allow_null': True},
+            'estagio': {'required': False, 'allow_null': True},
+        }
     
     def get_proxima_atividade(self, obj):
         from django.utils import timezone
@@ -964,7 +971,7 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     def get_conta_nome(self, obj):
         if obj.empresas.exists():
             return ", ".join([e.nome_empresa for e in obj.empresas.all()])
-        return obj.conta.nome_empresa if obj.conta else "N/A"
+        return obj.conta.nome_empresa if obj.conta else None
 
     def get_estagio_nome(self, obj):
         return obj.estagio.nome if obj.estagio else "N/A"
@@ -981,13 +988,21 @@ class OportunidadeSerializer(serializers.ModelSerializer):
         return obj.contato_principal.nome if obj.contato_principal else None
 
     def get_contato_telefone(self, obj):
-        return obj.contato_principal.telefone if obj.contato_principal else None
+        if not obj.contato_principal: return None
+        return format_phone_display(obj.contato_principal.telefone) if obj.contato_principal.telefone else None
+
+    def get_contato_celular(self, obj):
+        if not obj.contato_principal: return None
+        return format_phone_display(obj.contato_principal.celular) if obj.contato_principal.celular else None
 
     def get_plano_nome(self, obj):
         return obj.plano.nome if obj.plano else None
     
     def get_indicador_nome(self, obj):
         return obj.indicador_comissao.nome if obj.indicador_comissao else "Direto"
+
+    def get_origem_nome(self, obj):
+        return obj.origem.nome if obj.origem else (obj.fonte or "N/A")
 
     def get_canal_nome(self, obj):
         return obj.canal.nome if obj.canal else "N/A"
@@ -1074,7 +1089,7 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
         model = Oportunidade
         fields = [
             'id', 'nome', 'valor_estimado', 'contato_nome', 'conta_nome', 
-            'proprietario_nome', 'estagio_id', 'contato_telefone', 
+            'proprietario_nome', 'estagio', 'estagio_id', 'funil', 'contato_telefone', 
             'whatsapp_nao_lidas', 'adicionais_detalhes', 'data_atualizacao'
         ]
 

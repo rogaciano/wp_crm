@@ -332,15 +332,19 @@ def automatizar_pos_venda_suporte(sender, instance, created, **kwargs):
                 funil=funil_pos,
                 nome__icontains=f"Pós-Venda: {instance.nome}"
             ).exists():
-                Oportunidade.objects.create(
+                nova_opp = Oportunidade.objects.create(
                     nome=f"Pós-Venda: {instance.nome}",
                     conta=instance.conta,
+                    contato_principal=instance.contato_principal,
                     funil=funil_pos,
                     estagio=estagio_pos,
                     proprietario=instance.proprietario, # Vendedor
                     valor_estimado=instance.valor_estimado,
                     canal=instance.canal
                 )
+                # Copia contatos secundários (M2M)
+                if instance.contatos.exists():
+                    nova_opp.contatos.set(instance.contatos.all())
 
         if estagio_sup:
             # Verifica se já existe suporte para esta oportunidade
@@ -349,12 +353,16 @@ def automatizar_pos_venda_suporte(sender, instance, created, **kwargs):
                 funil=funil_suporte,
                 nome__icontains=f"Suporte: {instance.nome}"
             ).exists():
-                Oportunidade.objects.create(
+                nova_sup = Oportunidade.objects.create(
                     nome=f"Suporte: {instance.nome}",
                     conta=instance.conta,
+                    contato_principal=instance.contato_principal,
                     funil=funil_suporte,
                     estagio=estagio_sup,
                     proprietario=instance.proprietario, # Ajustar para técnico se houver campo
                     valor_estimado=0,
                     canal=instance.canal
                 )
+                # Copia contatos secundários (M2M)
+                if instance.contatos.exists():
+                    nova_sup.contatos.set(instance.contatos.all())

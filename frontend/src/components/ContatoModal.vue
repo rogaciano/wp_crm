@@ -58,7 +58,7 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Empresa (Conta)
           </label>
-          <div class="flex gap-2">
+          <div class="flex gap-2" @click.stop>
             <select v-model="form.conta" class="input flex-1">
               <option value="">Selecione uma conta...</option>
               <option v-for="conta in contas" :key="conta.id" :value="conta.id">
@@ -559,6 +559,11 @@ async function loadCanais() {
   try {
     const response = await api.get('/canais/')
     canais.value = response.data.results || response.data
+    
+    // Auto-select canal if only one exists
+    if (!isEdit.value && canais.value.length === 1 && !form.value.canal) {
+      form.value.canal = canais.value[0].id
+    }
   } catch (error) {
     console.error('Erro ao carregar canais:', error)
   }

@@ -20,7 +20,7 @@ export const useOportunidadesStore = defineStore('oportunidades', () => {
     }
   }
 
-  async function fetchKanban(funilId = null, canalId = null) {
+  async function fetchKanban(funilId = null, canalId = null, status = null) {
     loading.value = true
     error.value = null
     try {
@@ -29,6 +29,7 @@ export const useOportunidadesStore = defineStore('oportunidades', () => {
 
       if (canalId) params.canal = canalId
       if (funilId) params.funil_id = funilId
+      if (status) params.estagio_tipo = status
 
       const response = await api.get(endpoint, { params })
 
@@ -50,7 +51,6 @@ export const useOportunidadesStore = defineStore('oportunidades', () => {
   async function createOportunidade(data) {
     try {
       const response = await api.post('/oportunidades/', data)
-      await fetchKanban()
       return response.data
     } catch (err) {
       error.value = err.message
@@ -61,7 +61,6 @@ export const useOportunidadesStore = defineStore('oportunidades', () => {
   async function updateOportunidade(id, data) {
     try {
       const response = await api.patch(`/oportunidades/${id}/`, data)
-      await fetchKanban()
       return response.data
     } catch (err) {
       error.value = err.message
@@ -74,7 +73,6 @@ export const useOportunidadesStore = defineStore('oportunidades', () => {
       const response = await api.patch(`/oportunidades/${id}/mudar_estagio/`, {
         estagio_id: estagioId
       })
-      await fetchKanban()
       return response.data
     } catch (err) {
       error.value = err.message
@@ -99,7 +97,6 @@ export const useOportunidadesStore = defineStore('oportunidades', () => {
   async function deleteOportunidade(id) {
     try {
       await api.delete(`/oportunidades/${id}/`)
-      await fetchKanban()
     } catch (err) {
       error.value = err.message
       throw err
