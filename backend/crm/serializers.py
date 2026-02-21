@@ -858,13 +858,24 @@ class FunilEstagioSerializer(serializers.ModelSerializer):
 
 class FunilSerializer(serializers.ModelSerializer):
     estagios_detalhe = FunilEstagioSerializer(source='funilestagio_set', many=True, read_only=True)
-    
+
     class Meta:
         model = Funil
         fields = ['id', 'nome', 'tipo', 'usuarios', 'is_active', 'estagios_detalhe']
-    
+
+    def validate(self, data):
+        tipo = data.get('tipo', getattr(self.instance, 'tipo', None))
+        if tipo in ('POS_VENDA', 'SUPORTE'):
+            qs = Funil.objects.filter(tipo=tipo)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    f"Já existe um funil do tipo {tipo}. Apenas 1 é permitido."
+                )
+        return data
+
     def update(self, instance, validated_data):
-        # Lógica para atualizar estágios se enviados (opcional, faremos via ação dedicada se preferir)
         return super().update(instance, validated_data)
 
 

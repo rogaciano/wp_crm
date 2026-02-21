@@ -35,6 +35,10 @@
         </div>
 
 
+        <div v-if="tipoConflito" class="p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-700 font-medium">Já existe um funil deste tipo. Apenas 1 é permitido por tipo Pós-Venda / Suporte.</p>
+        </div>
+
         <div>
           <label class="flex items-center space-x-2 cursor-pointer">
             <input type="checkbox" v-model="form.is_active" class="rounded text-primary-600 focus:ring-primary-500" />
@@ -171,7 +175,11 @@ import api from '@/services/api'
 
 const props = defineProps({
   show: Boolean,
-  funil: Object
+  funil: Object,
+  funisExistentes: {
+    type: Array,
+    default: () => []
+  }
 })
 
 const emit = defineEmits(['close', 'saved'])
@@ -187,6 +195,20 @@ const estagiosNoFunil = ref([]) // Estágios com metadados (ordem, is_padrao)
 const sortedEstagiosNoFunil = computed(() => {
   return [...estagiosNoFunil.value].sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
 })
+
+// Validação: só 1 funil POS_VENDA e 1 SUPORTE
+const tipoConflito = computed(() => {
+  const tipo = form.value.tipo
+  if (tipo !== 'POS_VENDA' && tipo !== 'SUPORTE') return false
+  const editId = isEdit.value ? form.value.id : null
+  return props.funisExistentes.some(f => f.tipo === tipo && f.id !== editId)
+})
+
+// Sugestões de estágios por tipo
+const SUGESTOES_ESTAGIOS = {
+  POS_VENDA: ['Aguardando Onboarding', 'Implantação', 'Acompanhamento', 'Cliente Ativo', 'Churn'],
+  SUPORTE: ['Triagem de Suporte', 'Em Atendimento', 'Atendimento Resolvido']
+}
 
 const form = ref({
   nome: '',
@@ -224,6 +246,34 @@ watch(() => props.funil, (newFunil) => {
     resetForm()
   }
 }, { immediate: true })
+
+// Sugerir estágios quando muda o tipo (só ao criar novo funil)
+watch(() => form.value.tipo, (novoTipo) => {
+  if (isEdit.value) return
+  const sugestoes = SUGESTOES_ESTAGIOS[novoTipo]
+  if (!sugestoes || estagiosDisponiveis.value.length === 0) return
+
+  // Limpar seleção atual
+  estagiosSelecionados.value = []
+  estagiosNoFunil.value = []
+
+  // Pré-selecionar estágios sugeridos
+  sugestoes.forEach((nome, index) => {
+    const estagio = estagiosDisponiveis.value.find(e => e.nome === nome)
+    if (estagio) {
+      estagiosSelecionados.value.push(estagio.id)
+      estagiosNoFunil.value.push({
+        id: estagio.id,
+        estagio_id: estagio.id,
+        nome: estagio.nome,
+        cor: estagio.cor,
+        tipo: estagio.tipo,
+        ordem: index + 1,
+        is_padrao: index === 0
+      })
+    }
+  })
+})
 
 async function loadInitialData() {
   loadingEstagios.value = true
@@ -446,6 +496,10 @@ function togglePadraoEstagio(estagioId) {
 }
 
 async function handleSubmit() {
+  if (tipoConflito.value) {
+    alert('Já existe um funil deste tipo. Apenas 1 é permitido.')
+    return
+  }
   if (estagiosSelecionados.value.length === 0) {
     alert('Selecione ao menos um estágio para o funil.')
     return

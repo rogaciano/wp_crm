@@ -1,16 +1,25 @@
 """
 Views da API do CRM
 """
-import sys
 import logging
 from rest_framework import viewsets, status, filters, permissions
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.throttling import AnonRateThrottle
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Q, Sum, Count, Avg
 from django_filters.rest_framework import DjangoFilterBackend
+
+
+class DiagnosticoPublicoThrottle(AnonRateThrottle):
+    scope = 'diagnostico_publico'
+
+
+class WebhookThrottle(AnonRateThrottle):
+    scope = 'webhook'
 
 logger = logging.getLogger(__name__)
 
@@ -299,51 +308,43 @@ class FunilViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
     
     def get_queryset(self):
-        import sys
         user = self.request.user
         tipo = self.request.query_params.get('tipo')
-        
-        print(f"[FunilViewSet] Usuario: {user.username}, Perfil: {user.perfil}, Canal: {user.canal}", file=sys.stderr)
-        
+
         # Admin vê todos para gestão
         if user.perfil == 'ADMIN':
             qs = Funil.objects.all()
-            print(f"[FunilViewSet] Admin - retornando todos os funis", file=sys.stderr)
         else:
             # Para outros perfis, busca funis vinculados ao usuário OU ao canal do usuário
             from django.db.models import Q
-            
+
             # Funis que o usuário tem acesso direto
             funis_acesso_ids = list(user.funis_acesso.filter(is_active=True).values_list('id', flat=True))
-            print(f"[FunilViewSet] Funis acesso direto: {funis_acesso_ids}", file=sys.stderr)
-            
+
             # Funis vinculados a usuários do mesmo canal
             if user.canal:
                 funis_canal_ids = list(Funil.objects.filter(
                     usuarios__canal=user.canal,
                     is_active=True
                 ).values_list('id', flat=True))
-                print(f"[FunilViewSet] Funis do canal {user.canal}: {funis_canal_ids}", file=sys.stderr)
             else:
                 funis_canal_ids = []
-            
+
             # Combina os dois conjuntos
             # Busca funis vinculados ao usuário OU funis sem restrição (globais)
             all_funil_ids = list(set(funis_acesso_ids + funis_canal_ids))
-            
+
             from django.db.models import Q
             q_filter = Q(usuarios__isnull=True)
             if all_funil_ids:
                 q_filter |= Q(id__in=all_funil_ids)
-            
+
             qs = Funil.objects.filter(q_filter, is_active=True).distinct()
-            print(f"[FunilViewSet] Queryset final filtrado: {qs.count()} funis", file=sys.stderr)
-        
+
         # Filtra por tipo se especificado
         if tipo:
             qs = qs.filter(tipo=tipo)
-            
-        print(f"[FunilViewSet] Retornando {qs.count()} funis (tipo={tipo})", file=sys.stderr)
+
         return qs
 
     @action(detail=True, methods=['get'])
@@ -554,6 +555,8 @@ class ContatoViewSet(viewsets.ModelViewSet):
             ).distinct()
         else:
             queryset = Contato.objects.filter(proprietario=user)
+
+        queryset = queryset.select_related('proprietario', 'canal', 'conta', 'tipo_contato')
 
         # Filtro customizado para tipo_contato (suporta string vazia = NULL)
         tipo_contato_param = self.request.query_params.get('tipo_contato', None)
@@ -1254,12 +1257,18 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
     """ViewSet para o Diagnóstico de Maturidade"""
     queryset = DiagnosticoResultado.objects.all()
     serializer_class = DiagnosticoResultadoSerializer
-    
+
     def get_permissions(self):
         """Define permissões: perguntas e submeter são públicos"""
         if self.action in ['perguntas', 'submeter', 'submeter_publico']:
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated(), HierarchyPermission()]
+
+    def get_throttles(self):
+        """Aplica rate limiting mais restrito nos endpoints públicos"""
+        if self.action in ['perguntas', 'submeter', 'submeter_publico']:
+            return [DiagnosticoPublicoThrottle()]
+        return super().get_throttles()
 
     def get_queryset(self):
         """Filtra resultados do diagnóstico baseado na hierarquia (após autenticado)"""
@@ -1419,11 +1428,9 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                 }, status=status.HTTP_201_CREATED)
                 
         except Exception as e:
-            print(f"Erro ao submeter diagnóstico: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception(f"Erro ao submeter diagnóstico: {e}")
             return Response(
-                {'error': str(e)},
+                {'error': 'Erro ao processar diagnóstico. Tente novamente.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -1598,8 +1605,8 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                     diagnostico.analise_ia = gerar_analise_diagnostico(diagnostico)
                     diagnostico.save()
                 except Exception as e:
-                    print(f"Erro ao gerar análise IA: {e}")
-                
+                    logger.error(f"Erro ao gerar análise IA: {e}")
+
                 return Response({
                     'success': True,
                     'message': 'Diagnóstico enviado com sucesso!',
@@ -1607,11 +1614,9 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                     'resultado': resultado_final,
                     'analise_ia': diagnostico.analise_ia
                 }, status=status.HTTP_201_CREATED)
-                
+
         except Exception as e:
-            print(f"Erro ao submeter diagnóstico público: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception(f"Erro ao submeter diagnóstico público: {e}")
             return Response(
                 {'error': 'Erro ao processar diagnóstico. Tente novamente.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -1656,9 +1661,8 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         return service, None, settings.EVOLUTION_INSTANCE_ID
 
     def get_queryset(self):
-        import sys
         from django.conf import settings
-        
+
         # Filtros de lead/oportunidade funcionam via DjangoFilterBackend
         # Mas o filtro de 'number' é customizado para pegar a conversa
         number = self.request.query_params.get('number')
@@ -1778,31 +1782,19 @@ class WhatsappViewSet(viewsets.ModelViewSet):
     def send(self, request):
         """Action para enviar mensagem através do CRM"""
         import uuid
-        import sys
-        
-        # Log para debug
-        print("=" * 50, file=sys.stderr)
-        print("WHATSAPP SEND REQUEST RECEIVED", file=sys.stderr)
-        print(f"request.data = {request.data}", file=sys.stderr)
-        print("=" * 50, file=sys.stderr)
-        
+
         number = request.data.get('number')
         text = request.data.get('text')
         opp_id = request.data.get('oportunidade')
-        
-        print(f"number={number}, text={text[:20] if text else None}..., opp_id={opp_id}", file=sys.stderr)
 
         if not number or not text:
             return Response({'error': 'Número e texto são obrigatórios'}, status=400)
 
         # Obtém o serviço Evolution do canal correto
         service, canal, instance_name = self._get_evolution_service_for_entity(opp_id)
-        print(f"[SEND] Usando instância: {instance_name} (canal: {canal.nome if canal else 'global'})", file=sys.stderr)
-        
+
         try:
-            print(f"Tentando enviar para {number} via {service.base_url}/{instance_name}", file=sys.stderr)
             result = service.send_text(number, text)
-            print(f"Sucesso na API: {result}", file=sys.stderr)
 
             # Extrai ID da mensagem da resposta da Evolution API
             # A estrutura pode variar bastante, vamos tentar todos os formatos possíveis
@@ -1821,18 +1813,14 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                     if 'key' in result['message'] and isinstance(result['message']['key'], dict):
                         msg_id = result['message']['key'].get('id')
 
-            # Log detalhado para debug
-            print(f"[SEND] Estrutura da resposta: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}", file=sys.stderr)
-            print(f"[SEND] ID extraído: {msg_id}", file=sys.stderr)
-
             # Se não conseguiu extrair, gera um ID único local
             if not msg_id:
                 msg_id = f"local_{uuid.uuid4().hex[:20]}"
-                print(f"[SEND] ID não encontrado na resposta, usando ID local: {msg_id}", file=sys.stderr)
-            
+                logger.debug(f"[SEND] ID não encontrado na resposta Evolution, usando ID local: {msg_id}")
+
             # Formata o número para armazenamento consistente
             formatted_number = service._format_number(number)
-            
+
             # Salva localmente usando a instância correta
             msg = WhatsappMessage.objects.create(
                 id_mensagem=msg_id,
@@ -1844,20 +1832,17 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                 timestamp=timezone.now(),
                 oportunidade_id=opp_id
             )
-            
+
             return Response(WhatsappMessageSerializer(msg).data)
         except Exception as e:
-            import traceback
-            print(f"ERRO NO VIEWSET: {str(e)}")
-            traceback.print_exc()
+            logger.exception(f"Erro ao enviar mensagem WhatsApp: {e}")
             return Response({'error': str(e)}, status=500)
 
     @action(detail=False, methods=['post'])
     def send_media(self, request):
         """Action para enviar mídia (imagem) através do CRM"""
         import uuid
-        import sys
-        
+
         number = request.data.get('number')
         media = request.data.get('media')  # Base64
         media_type = request.data.get('mediaType', 'image')
@@ -1865,22 +1850,18 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         caption = request.data.get('caption', '')
         opp_id = request.data.get('oportunidade')
         
-        print(f"[SEND_MEDIA] number={number}, type={media_type}, caption={caption[:20] if caption else 'none'}...", file=sys.stderr)
-
         if not number or not media:
             return Response({'error': 'Número e mídia são obrigatórios'}, status=400)
 
         # Obtém o serviço Evolution do canal correto
         service, canal, instance_name = self._get_evolution_service_for_entity(opp_id)
-        print(f"[SEND_MEDIA] Usando instância: {instance_name}", file=sys.stderr)
-        
+
         try:
             # Remove prefixo data:image/xxx;base64, se existir
             if ';base64,' in media:
                 media = media.split(';base64,')[1]
-            
+
             result = service.send_media(number, media, media_type, file_name, caption)
-            print(f"[SEND_MEDIA] Sucesso: {result}", file=sys.stderr)
 
             # Extrai ID da mensagem
             msg_id = None
@@ -1920,9 +1901,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             
             return Response(WhatsappMessageSerializer(msg).data)
         except Exception as e:
-            import traceback
-            print(f"[SEND_MEDIA] ERRO: {str(e)}", file=sys.stderr)
-            traceback.print_exc()
+            logger.exception(f"Erro ao enviar mídia WhatsApp: {e}")
             return Response({'error': str(e)}, status=500)
 
     @action(detail=False, methods=['post'])
@@ -1931,27 +1910,20 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         Sincroniza mensagens da Evolution API para um número específico.
         Busca as mensagens mais recentes da API e importa as que ainda não existem.
         """
-        import sys
-        
         number = request.data.get('number')
         lead_id = request.data.get('lead')
         opp_id = request.data.get('oportunidade')
         limit = request.data.get('limit', 50)
-        
+
         if not number:
             return Response({'error': 'Número é obrigatório'}, status=400)
-        
+
         # Obtém o serviço Evolution do canal correto
         service, canal, instance_name = self._get_evolution_service_for_entity(lead_id, opp_id)
-        print(f"[SYNC] Usando instância: {instance_name} (canal: {canal.nome if canal else 'global'})", file=sys.stderr)
-        
+
         try:
-            print(f"[SYNC] Buscando mensagens para {number}...", file=sys.stderr)
-            
             # Busca mensagens da API Evolution
             api_messages = service.find_messages(number, limit=limit)
-            
-            print(f"[SYNC] Resposta da API: {type(api_messages)}, len={len(api_messages) if isinstance(api_messages, list) else 'N/A'}", file=sys.stderr)
             
             # Se a resposta for um dict com 'messages', extrai a lista
             if isinstance(api_messages, dict):
@@ -2032,18 +2004,14 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                 
                 imported_count += 1
             
-            print(f"[SYNC] Importadas: {imported_count}, Ignoradas (duplicatas): {skipped_count}", file=sys.stderr)
-            
             return Response({
                 'imported': imported_count,
                 'skipped': skipped_count,
                 'message': f'{imported_count} mensagens importadas, {skipped_count} já existiam'
             })
-            
+
         except Exception as e:
-            import traceback
-            print(f"[SYNC] ERRO: {str(e)}", file=sys.stderr)
-            traceback.print_exc()
+            logger.exception(f"Erro ao sincronizar mensagens WhatsApp: {e}")
             return Response({'error': str(e)}, status=500)
 
     @action(detail=False, methods=['post'])
@@ -2166,9 +2134,6 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             media_base64__isnull=True
         )
         
-        print(f"[ProcessMedia] Número: {number}, Variações: {variations}", file=sys.stderr)
-        print(f"[ProcessMedia] Áudios pendentes: {pending_audio.count()}, Imagens: {pending_images.count()}", file=sys.stderr)
-        
         processed_audio = 0
         processed_images = 0
         
@@ -2203,8 +2168,8 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                             processed_audio += 1
                             
                 except Exception as e:
-                    print(f"[ProcessMedia] Erro ao processar áudio {msg.id}: {e}", file=sys.stderr)
-        
+                    logger.error(f"[ProcessMedia] Erro ao processar áudio {msg.id}: {e}")
+
         # Processa imagens
         if pending_images.exists():
             from .services.evolution_api import EvolutionService
@@ -2234,7 +2199,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                         processed_images += 1
                         
                 except Exception as e:
-                    print(f"[ProcessMedia] Erro ao processar imagem {msg.id}: {e}", file=sys.stderr)
+                    logger.error(f"[ProcessMedia] Erro ao processar imagem {msg.id}: {e}")
         
         return Response({
             'processed_audio': processed_audio,
@@ -2294,17 +2259,13 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         Transcreve um áudio específico por ID.
         Retorna a transcrição e o base64 do áudio para reprodução.
         """
-        print(f"[TRANSCRIBE] Endpoint chamado!", file=sys.stderr, flush=True)
-
         message_id = request.data.get('message_id')
-        print(f"[TRANSCRIBE] message_id: {message_id}", file=sys.stderr, flush=True)
 
         if not message_id:
             return Response({'error': 'message_id required'}, status=400)
 
         try:
             msg = WhatsappMessage.objects.get(id=message_id)
-            print(f"[TRANSCRIBE] Mensagem encontrada: {msg.id}, tipo: {msg.tipo_mensagem}", file=sys.stderr, flush=True)
         except WhatsappMessage.DoesNotExist:
             return Response({'error': 'message not found'}, status=404)
 
@@ -2314,8 +2275,6 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         # Baixa o áudio da Evolution API usando a instância correta
         from .services.evolution_api import EvolutionService
         from .services.audio_transcription import transcribe_from_base64
-
-        print(f"[TRANSCRIBE] Baixando áudio...", file=sys.stderr, flush=True)
 
         # Obtém a instância Evolution do canal associado
         service, canal, instance_name = self._get_evolution_service_for_entity(msg.lead_id, msg.oportunidade_id)
@@ -2378,15 +2337,28 @@ class WhatsappViewSet(viewsets.ModelViewSet):
 class WhatsappWebhookView(APIView):
     """Recebe notificações da Evolution API (MESSAGES_UPSERT)"""
     permission_classes = [permissions.AllowAny]  # Evolution envia sem auth JWT
+    throttle_classes = [WebhookThrottle]
+
+    def _validate_webhook_token(self, request):
+        """Valida o token secreto do webhook se WEBHOOK_SECRET estiver configurado."""
+        webhook_secret = getattr(settings, 'WEBHOOK_SECRET', None) or ''
+        if not webhook_secret:
+            # Se não configurado, aceita sem validação (compatibilidade)
+            return True
+        incoming_token = request.headers.get('apikey', '') or request.headers.get('Authorization', '')
+        return incoming_token == webhook_secret
 
     def post(self, request):
-        import sys
         import json
 
+        if not self._validate_webhook_token(request):
+            logger.warning("[WEBHOOK] Requisição rejeitada: token inválido")
+            return Response({'error': 'Unauthorized'}, status=401)
+
         data = request.data
-        
+
         # Log para debug (ajuda muito a identificar mudanças na API Evolution)
-        # print(f"[WEBHOOK] Payload: {json.dumps(data)[:500]}...", file=sys.stderr)
+        # logger.debug(f"[WEBHOOK] Payload: {json.dumps(data)[:500]}...")
         
         event = data.get('event', '').lower()
         instance = data.get('instance', 'unknown')
@@ -2468,13 +2440,11 @@ class WhatsappWebhookView(APIView):
                                     if not text:
                                         text = "🎤 [Áudio]"
                                     needs_async_processing = True
-                                    print(f"[WEBHOOK] Áudio detectado, agendando transcrição assíncrona", file=sys.stderr)
-                                    
+
                                 elif media_type == 'imageMessage':
                                     if not text:
                                         text = "📷 [Imagem]"
                                     needs_async_processing = True
-                                    print(f"[WEBHOOK] Imagem detectada, agendando download assíncrono", file=sys.stderr)
                                     
                                 elif media_type == 'videoMessage':
                                     if not text:
@@ -2567,8 +2537,7 @@ class WhatsappWebhookView(APIView):
                                             base64_data = f"data:{mimetype};base64,{base64_data}"
                                         msg.media_base64 = base64_data
                                         msg.save(update_fields=['media_base64'])
-                                        print(f"[ASYNC] Imagem {msg_id} processada com sucesso", file=sys.stderr)
-                                        
+
                                     elif media_type == 'audio':
                                         # Transcreve áudio
                                         from .services.audio_transcription import transcribe_from_base64
@@ -2580,11 +2549,10 @@ class WhatsappWebhookView(APIView):
                                             duration = transcription.get('duration', 0)
                                             msg.texto = f"🎤 [Áudio {int(duration)}s]: {transcription['text']}"
                                             msg.save(update_fields=['texto'])
-                                            print(f"[ASYNC] Áudio {msg_id} transcrito com sucesso", file=sys.stderr)
-                                            
+
                             except Exception as e:
-                                print(f"[ASYNC] Erro ao processar mídia {msg_id}: {e}", file=sys.stderr)
-                        
+                                logger.error(f"[ASYNC] Erro ao processar mídia {msg_id}: {e}")
+
                         # Dispara thread
                         msg_key_for_thread = {
                             'id': id_msg,
@@ -2597,10 +2565,9 @@ class WhatsappWebhookView(APIView):
                         )
                         thread.daemon = True
                         thread.start()
-                        print(f"[WEBHOOK] Thread de processamento iniciada para {mtype} {id_msg}", file=sys.stderr)
-                    
+
                 except Exception as e:
-                    print(f"[WEBHOOK] Erro ao processar mensagem: {str(e)}", file=sys.stderr)
+                    logger.error(f"[WEBHOOK] Erro ao processar mensagem: {str(e)}")
                     continue
 
         return Response({'status': 'received'}, status=200)

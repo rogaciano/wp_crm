@@ -210,7 +210,7 @@
               target="_blank"
               class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <span class="text-2xl" v-html="rede.tipo_icone"></span>
+              <span class="text-2xl" v-html="sanitizeHtml(rede.tipo_icone)"></span>
               <span class="text-gray-700">{{ rede.valor }}</span>
             </a>
           </div>
@@ -259,6 +259,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import ContatoModal from '@/components/ContatoModal.vue'
 import TimelineFeed from '@/components/TimelineFeed.vue'
+import { sanitizeHtml } from '@/utils/sanitize'
 
 const route = useRoute()
 const router = useRouter()

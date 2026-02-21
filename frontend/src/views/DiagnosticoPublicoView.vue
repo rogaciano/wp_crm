@@ -258,6 +258,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
+import { sanitizeHtml } from '@/utils/sanitize'
 
 const route = useRoute()
 const canalSlug = computed(() => route.params.canalSlug || 'matriz')
@@ -307,8 +308,8 @@ const podeVoltar = computed(() => perguntaAtualIndex.value > 0 || mostrarFormula
 // Função para converter markdown simples em HTML
 function renderMarkdown(text) {
   if (!text) return ''
-  
-  return text
+
+  const html = text
     // Headers
     .replace(/^#### (.+)$/gm, '<h4 class="text-lg font-semibold text-purple-200 mt-4 mb-2">$1</h4>')
     .replace(/^### (.+)$/gm, '<h3 class="text-xl font-bold text-white mt-5 mb-3">$1</h3>')
@@ -324,6 +325,7 @@ function renderMarkdown(text) {
     .replace(/\n/g, '<br>')
     // Wrap in paragraph
     .replace(/^(.+)$/, '<p class="mb-3">$1</p>')
+  return sanitizeHtml(html)
 }
 
 // Métodos

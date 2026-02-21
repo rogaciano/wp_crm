@@ -49,7 +49,7 @@
     <!-- Dashboard Content -->
     <div v-else class="space-y-8">
       <!-- KPIs Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div v-for="kpi in kpiCards" :key="kpi.label" class="bg-white border border-zinc-200 p-5 rounded-md shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
           <div class="absolute top-0 left-0 w-1 h-full" :style="{ backgroundColor: kpi.color }"></div>
           <div class="flex justify-between items-start mb-2">
@@ -158,7 +158,7 @@
              <div v-for="(origem, idx) in dashboardData.origens.slice(0, 4)" :key="idx" class="flex justify-between items-center text-sm border-b border-zinc-50 pb-2 last:border-0 last:pb-0">
                 <div class="flex items-center gap-2">
                    <span class="w-2.5 h-2.5 rounded-sm" :style="{ backgroundColor: ['#F97316', '#10B981', '#64748B', '#F43F5E', '#8B5CF6'][idx] }"></span>
-                   <span class="text-zinc-600 truncate max-w-[140px]">{{ origem?.fonte || 'Direto/Outros' }}</span>
+                   <span class="text-zinc-600 truncate max-w-[100px] sm:max-w-[140px]">{{ origem?.fonte || 'Direto/Outros' }}</span>
                 </div>
                 <span class="font-bold text-zinc-900">{{ origem?.total || 0 }}</span>
              </div>

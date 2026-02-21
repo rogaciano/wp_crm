@@ -23,7 +23,7 @@
     <!-- Sidebar -->
     <aside 
       :class="[
-        'fixed lg:sticky top-0 h-screen w-72 bg-zinc-900 border-r border-zinc-800 z-50 transition-transform duration-300 flex flex-col',
+        'fixed lg:sticky top-0 h-screen w-64 sm:w-72 bg-zinc-900 border-r border-zinc-800 z-50 transition-transform duration-300 flex flex-col',
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       ]"
     >
@@ -200,7 +200,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWhatsappStore } from '@/stores/whatsapp'
@@ -227,17 +227,23 @@ const userInitials = computed(() => {
 const atrasadasCount = ref(0)
 const whatsappUnread = computed(() => whatsappStore.unreadCounts)
 
+const intervalIds = []
+
 onMounted(() => {
   fetchAtividadesStats()
   if (authStore.isAuthenticated) whatsappStore.fetchUnreadCounts()
-  
-  setInterval(() => {
-    if (authStore.isAuthenticated) fetchAtividadesStats()
-  }, 5 * 60 * 1000)
 
-  setInterval(() => {
+  intervalIds.push(setInterval(() => {
+    if (authStore.isAuthenticated) fetchAtividadesStats()
+  }, 5 * 60 * 1000))
+
+  intervalIds.push(setInterval(() => {
     if (authStore.isAuthenticated) whatsappStore.fetchUnreadCounts()
-  }, 30 * 1000)
+  }, 30 * 1000))
+})
+
+onUnmounted(() => {
+  intervalIds.forEach(id => clearInterval(id))
 })
 
 async function fetchAtividadesStats() {

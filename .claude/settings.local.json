@@ -5,7 +5,13 @@
       "Bash(where:*)",
       "Bash(python manage.py migrate:*)",
       "Bash(python manage.py shell:*)",
-      "Bash(python manage.py makemigrations:*)"
+      "Bash(python manage.py makemigrations:*)",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(npm install:*)",
+      "Bash(python manage.py:*)",
+      "Bash(python:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

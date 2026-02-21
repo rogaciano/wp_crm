@@ -274,11 +274,18 @@ async function desconectar() {
 async function reiniciar() {
   actionLoading.value = true
   error.value = ''
-  
+  qrBase64.value = null
+
   try {
     await api.post(`/canais/${meuCanal.value.id}/whatsapp/reiniciar/`)
-    success.value = 'Instância reiniciada!'
+    success.value = 'Instância reiniciando... aguarde.'
+    // Aguarda alguns segundos para a Evolution reiniciar antes de checar
+    await new Promise(resolve => setTimeout(resolve, 4000))
     await checkStatus()
+    // Se ainda não conectou, busca QR code e inicia polling
+    if (!status.value.connected) {
+      await gerarQRCode()
+    }
   } catch (err) {
     error.value = err.response?.data?.error || 'Erro ao reiniciar'
   } finally {

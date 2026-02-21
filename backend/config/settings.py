@@ -139,6 +139,16 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '60/hour',
+        'user': '1000/hour',
+        'diagnostico_publico': '20/hour',
+        'webhook': '200/min',
+    },
 }
 
 # JWT Configuration
@@ -163,6 +173,10 @@ SPECTACULAR_SETTINGS = {
 EVOLUTION_API_KEY = config('EVOLUTION_API_KEY', default='')
 EVOLUTION_INSTANCE_ID = config('EVOLUTION_INSTANCE_ID', default='')
 EVOLUTION_API_URL = config('EVOLUTION_API_URL', default='https://evo.matutec.com.br')
+
+# Webhook security: token secreto para validar requisições do webhook WhatsApp
+# Deve ser igual ao "apikey" configurado na Evolution API
+WEBHOOK_SECRET = config('WEBHOOK_SECRET', default='')
 
 # Whisper Audio Transcription Settings
 # Modelos disponíveis: tiny, base, small, medium, large-v2, large-v3

@@ -100,6 +100,7 @@ import {
   Legend
 } from 'chart.js'
 import { Radar } from 'vue-chartjs'
+import { sanitizeHtml } from '@/utils/sanitize'
 
 ChartJS.register(
   RadialLinearScale,
@@ -198,11 +199,12 @@ const chartOptions = {
 
 function formatAiText(text) {
   if (!text) return ''
-  return text
+  const html = text
     .replace(/^### (.*$)/gim, '<h3 class="font-bold text-lg mt-4 mb-2">$1</h3>')
     .replace(/^#### (.*$)/gim, '<h4 class="font-bold text-md mt-3 mb-1 text-indigo-700">$1</h4>')
     .replace(/\*\*(.*?)\*\*/g, '<strong class="text-indigo-900">$1</strong>')
     .replace(/^- (.*$)/gim, '<li class="ml-4 mb-1">$1</li>')
     .replace(/\n/g, '<br>')
+  return sanitizeHtml(html)
 }
 </script>

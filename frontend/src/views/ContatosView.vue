@@ -48,7 +48,7 @@
 
     <!-- Filtros Avançados -->
     <div class="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex flex-wrap items-end gap-4 shadow-xl shadow-gray-100/50">
-      <div class="flex-1 min-w-[200px]">
+      <div class="w-full sm:flex-1 sm:min-w-[200px]">
         <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Busca Rápida</label>
         <div class="relative">
           <input
@@ -66,7 +66,7 @@
         </div>
       </div>
 
-      <div class="w-full sm:w-44">
+      <div class="w-full sm:w-44 md:w-48">
         <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Empresa</label>
         <select v-model="selectedConta" class="input h-11" @change="loadContatos(1)">
           <option :value="undefined">Todas</option>
@@ -74,7 +74,7 @@
         </select>
       </div>
 
-      <div class="w-full sm:w-40">
+      <div class="w-full sm:w-40 md:w-44">
         <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Tag</label>
         <select v-model="selectedTag" class="input h-11" @change="loadContatos(1)">
           <option :value="undefined">Todas Tags</option>
@@ -82,7 +82,7 @@
         </select>
       </div>
 
-      <div class="w-full sm:w-40">
+      <div class="w-full sm:w-40 md:w-44">
         <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Responsável</label>
         <select v-model="selectedProprietario" class="input h-11" @change="loadContatos(1)">
           <option :value="undefined">Todos</option>
@@ -90,7 +90,7 @@
         </select>
       </div>
 
-      <div class="w-full sm:w-40">
+      <div class="w-full sm:w-40 md:w-44">
         <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Canal</label>
         <select v-model="selectedCanal" class="input h-11" @change="loadContatos(1)">
           <option :value="undefined">Todos Canais</option>
@@ -115,12 +115,12 @@
           <table class="table w-full">
             <thead class="bg-gray-50/50">
               <tr>
-                <th class="table-header w-56">Identificação</th>
-                <th class="table-header w-48">Contato</th>
-                <th class="table-header w-44">Empresa</th>
-                <th class="table-header w-40">Opp / Tags</th>
-                <th class="table-header w-32">Origem</th>
-                <th class="table-header text-right w-24">Ações</th>
+                <th class="table-header min-w-[200px]">Identificação</th>
+                <th class="table-header min-w-[160px]">Contato</th>
+                <th class="table-header min-w-[150px]">Empresa</th>
+                <th class="table-header min-w-[140px]">Opp / Tags</th>
+                <th class="table-header min-w-[100px]">Origem</th>
+                <th class="table-header text-right min-w-[80px]">Ações</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-50">

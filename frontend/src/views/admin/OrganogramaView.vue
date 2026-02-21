@@ -106,6 +106,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '@/services/api'
+import { sanitizeSvg } from '@/utils/sanitize'
 
 const loading = ref(false)
 const svgCode = ref('')
@@ -125,7 +126,7 @@ async function carregarOrganograma() {
   try {
     const response = await api.get('/organograma/')
     console.log('Dados recebidos:', response.data)
-    svgCode.value = response.data.svg
+    svgCode.value = sanitizeSvg(response.data.svg)
     estatisticas.value = response.data.estatisticas
   } catch (error) {
     console.error('Erro ao carregar organograma:', error)

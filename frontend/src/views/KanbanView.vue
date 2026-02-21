@@ -115,14 +115,14 @@
 
     <div v-else 
       ref="kanbanContainer"
-      class="flex gap-4 overflow-x-auto pb-8 snap-x snap-mandatory custom-scrollbar min-h-[calc(100vh-250px)]"
+      class="flex gap-3 lg:gap-4 overflow-x-auto pb-8 snap-x snap-mandatory custom-scrollbar min-h-[calc(100vh-250px)]"
       @scroll="updateActiveStage"
     >
       <div
         v-for="coluna in kanbanData"
         :key="coluna.estagio.id"
         :id="'stage-' + coluna.estagio.id"
-        class="flex-shrink-0 w-[280px] sm:w-[320px] snap-center"
+        class="flex-shrink-0 w-[260px] sm:w-[300px] lg:w-[320px] snap-center"
       >
         <div class="bg-white/50 rounded-3xl border border-gray-100 h-full flex flex-col group/col">
           <!-- Header da Coluna -->

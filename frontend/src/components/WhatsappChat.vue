@@ -1,6 +1,6 @@
 <template>
   <Transition name="slide">
-    <div v-if="show" class="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-[100] flex flex-col border-l border-gray-100">
+    <div v-if="show" class="fixed inset-y-0 right-0 w-full sm:w-80 md:w-96 lg:w-[28rem] bg-white shadow-2xl z-[100] flex flex-col border-l border-gray-100">
       <!-- Header -->
       <div class="p-4 bg-emerald-600 text-white flex items-center justify-between shadow-md">
         <div class="flex items-center space-x-3">
@@ -125,7 +125,7 @@
                   v-if="audioUrls[msg.id]"
                   :src="audioUrls[msg.id]"
                   controls
-                  class="w-full max-w-[250px] h-8"
+                  class="w-full max-w-[200px] sm:max-w-[250px] h-8"
                   aria-label="Player de áudio do WhatsApp"
                 ></audio>
 

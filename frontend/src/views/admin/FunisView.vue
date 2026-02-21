@@ -77,6 +77,7 @@
     <FunilModal
       :show="showModal"
       :funil="selectedFunil"
+      :funis-existentes="funis"
       @close="closeModal"
       @saved="loadFunis"
     />
