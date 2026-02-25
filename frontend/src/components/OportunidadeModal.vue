@@ -8,36 +8,36 @@
     :loading="loading"
   >
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <!-- Coluna Principal (Formulário) -->
-      <form @submit.prevent="handleSubmit" class="lg:col-span-2 space-y-8">
+      <form @submit.prevent="handleSubmit" class="lg:col-span-2 space-y-4">
         
         <!-- 1. Identificação (Kommo Style) -->
-        <section class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-          <h3 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-6 flex items-center">
+        <section class="bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+          <h3 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-3 flex items-center">
             <span class="w-8 h-px bg-gray-300 mr-3"></span>
             Definição
           </h3>
           
-          <div class="space-y-6">
-            <!-- Row 1: Contato, Telefone e Fonte -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="space-y-3">
+            <!-- Row 1: Contato Principal + Empresa -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <!-- Contato Principal -->
                 <div class="relative">
                   <label class="text-sm font-bold text-gray-700 mb-1.5 flex justify-between">
                     <span>Contato Principal <span class="text-red-500">*</span></span>
                     <button type="button" @click="showNovoContatoModal = true" class="text-primary-600 hover:text-primary-700 text-[10px] font-black uppercase tracking-wider">+ Novo</button>
                   </label>
-                  
+
                   <div class="relative group">
-                    <input 
-                      v-model="searchContatoPrincipal" 
-                      type="text" 
-                      class="input pr-16" 
+                    <input
+                      v-model="searchContatoPrincipal"
+                      type="text"
+                      class="input pr-10"
                       placeholder="Buscar ou criar contato..."
                       @focus="showContatosPrincipalDropdown = true"
                     >
-                    <div class="absolute inset-y-0 right-0 pr-10 flex items-center pointer-events-none" v-if="!form.contato_principal">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none" v-if="!form.contato_principal">
                       <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
@@ -49,7 +49,7 @@
                     </button>
 
                     <div v-if="showContatosPrincipalDropdown && filteredContatosPrincipal.length > 0" class="absolute z-50 mt-1 w-full bg-white shadow-2xl rounded-xl border border-gray-100 max-h-60 overflow-y-auto custom-scrollbar">
-                      <div 
+                      <div
                         v-for="c in filteredContatosPrincipal" :key="c.id"
                         @click="selectContatoPrincipal(c)"
                         class="p-3 hover:bg-primary-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
@@ -59,22 +59,66 @@
                       </div>
                     </div>
                   </div>
+                  <p class="text-[10px] text-gray-400 mt-1">Busque um contato existente ou digite o nome para criar ao salvar.</p>
                 </div>
 
-                <!-- Telefone (Mandatory) -->
+                <!-- Empresa -->
+                <div class="relative">
+                  <label class="text-sm font-bold text-gray-700 mb-1.5 flex justify-between">
+                    <span>Empresa</span>
+                    <button type="button" @click="showNovaEmpresaModal = true" class="text-primary-600 hover:text-primary-700 text-[10px] font-black uppercase tracking-wider">+ Nova</button>
+                  </label>
+
+                  <div class="relative group" @click.stop>
+                    <input
+                      v-model="searchContaPrincipal"
+                      type="text"
+                      class="input pl-10 pr-10"
+                      placeholder="Buscar ou criar empresa..."
+                      @focus="showContasPrincipalDropdown = true"
+                    >
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <button v-if="form.conta" @click="form.conta = null; searchContaPrincipal = ''" type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                      <svg class="h-4 w-4 text-gray-400 hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+
+                    <div v-if="showContasPrincipalDropdown && filteredContasPrincipal.length > 0" class="absolute z-50 mt-1 w-full bg-white shadow-2xl rounded-xl border border-gray-100 max-h-60 overflow-y-auto custom-scrollbar">
+                      <div
+                        v-for="c in filteredContasPrincipal" :key="c.id"
+                        @click="selectContaPrincipal(c)"
+                        class="p-3 hover:bg-primary-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
+                      >
+                        <div class="font-bold text-gray-900 text-sm">{{ c.nome_empresa }}</div>
+                        <div class="text-[10px] text-gray-500">{{ c.cnpj || 'Sem CNPJ' }}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <p class="text-[10px] text-gray-400 mt-1">Opcional. Busque ou digite o nome para criar ao salvar.</p>
+                </div>
+            </div>
+
+            <!-- Row 2: Telefone + Fonte -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <!-- Telefone -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1.5">Telefone <span class="text-red-500">*</span></label>
-                    <input 
-                      v-model="telefoneContato" 
-                      type="tel" 
-                      class="input" 
-                      placeholder="(XX) 9XXXX-XXXX" 
+                    <input
+                      v-model="telefoneContato"
+                      type="tel"
+                      class="input"
+                      placeholder="(XX) 9XXXX-XXXX"
                       required
                       @input="formatPhone"
                     />
                 </div>
 
-                <!-- Fonte (Select) -->
+                <!-- Fonte -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1.5">Fonte <span class="text-red-500">*</span></label>
                     <select v-model="form.origem" class="input" required>
@@ -99,7 +143,7 @@
             </div>
 
             <!-- Row 3: Funil e Estagio (Hidden on Create) -->
-            <div v-if="isEdit" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div v-if="isEdit" class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-bold text-gray-700 mb-1.5">Funil</label>
                 <select v-model="form.funil" required class="input">
@@ -119,8 +163,8 @@
         </section>
 
         <!-- 2. Comercial (Sidebar Matching Flow) -->
-        <section class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-          <h3 class="text-xs font-black text-primary-600 uppercase tracking-[0.2em] mb-6 flex items-center">
+        <section class="bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+          <h3 class="text-xs font-black text-primary-600 uppercase tracking-[0.2em] mb-3 flex items-center">
             <span class="w-8 h-px bg-primary-200 mr-3"></span>
             Dados Comerciais
           </h3>
@@ -227,67 +271,27 @@
             </div>
         </section>
 
-        <!-- 3. Entidades (Empresa/Contato) -->
-        <section class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-          <h3 class="text-xs font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center">
+        <!-- 3. Vínculos (somente na edição) -->
+        <section v-if="isEdit" class="bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+          <h3 class="text-xs font-black text-indigo-600 uppercase tracking-[0.2em] mb-3 flex items-center">
             <span class="w-8 h-px bg-indigo-200 mr-3"></span>
-             Cliente e Contatos
+            Vínculos
           </h3>
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div class="relative">
-               <label class="text-sm font-bold text-gray-700 mb-1.5 flex justify-between">
-                <span>Responsável (Cliente)</span>
-                <button type="button" @click="showNovaEmpresaModal = true" class="text-primary-600 hover:text-primary-700 text-[10px] font-black uppercase tracking-wider">+ Nova Empresa</button>
-              </label>
-              
-              <div class="relative group" @click.stop>
-                <input 
-                  v-model="searchContaPrincipal" 
-                  type="text" 
-                  class="input pl-10 pr-10" 
-                  placeholder="Buscar empresa..."
-                  @focus="showContasPrincipalDropdown = true"
-                >
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <button v-if="form.conta" @click="form.conta = null; searchContaPrincipal = ''" type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center">
-                  <svg class="h-4 w-4 text-gray-400 hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
 
-                <div v-if="showContasPrincipalDropdown && filteredContasPrincipal.length > 0" class="absolute z-50 mt-1 w-full bg-white shadow-2xl rounded-xl border border-gray-100 max-h-60 overflow-y-auto custom-scrollbar">
-                  <div 
-                    v-for="c in filteredContasPrincipal" :key="c.id"
-                    @click="selectContaPrincipal(c)"
-                    class="p-3 hover:bg-primary-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
-                  >
-                    <div class="font-bold text-gray-900 text-sm">{{ c.nome_empresa }}</div>
-                    <div class="text-[10px] text-gray-500">{{ c.cnpj || 'Sem CNPJ' }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-
-
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- M2M Contatos -->
             <div>
-              <label class="block text-sm font-bold text-gray-700 mb-3">Contatos Extras</label>
-              <div class="relative mb-4">
-                <input 
-                  v-model="searchM2MContato" 
-                  type="text" 
-                  class="input text-xs" 
+              <label class="block text-sm font-bold text-gray-700 mb-2">Contatos Vinculados</label>
+              <div class="relative mb-2">
+                <input
+                  v-model="searchM2MContato"
+                  type="text"
+                  class="input text-xs"
                   placeholder="Buscar contato para vincular..."
                   @focus="showM2MContatosDropdown = true"
                 >
                 <div v-if="showM2MContatosDropdown && filteredM2MContatos.length > 0" class="absolute z-50 mt-1 w-full bg-white shadow-2xl rounded-xl border border-gray-100 max-h-48 overflow-y-auto">
-                  <div 
+                  <div
                     v-for="c in filteredM2MContatos" :key="c.id"
                     @click="addContatoM2M(c)"
                     class="p-2 hover:bg-primary-50 cursor-pointer border-b border-gray-50 text-xs"
@@ -297,7 +301,7 @@
                 </div>
               </div>
               <div class="flex flex-wrap gap-2">
-                <span 
+                <span
                   v-for="cId in form.contatos" :key="cId"
                   class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-white border border-gray-100 text-xs font-bold text-gray-700 shadow-sm"
                 >
@@ -311,17 +315,17 @@
 
             <!-- M2M Empresas -->
             <div>
-              <label class="block text-sm font-bold text-gray-700 mb-3">Empresas Extras</label>
-              <div class="relative mb-4">
-                <input 
-                  v-model="searchM2MEmpresa" 
-                  type="text" 
-                  class="input text-xs" 
+              <label class="block text-sm font-bold text-gray-700 mb-2">Empresas Vinculadas</label>
+              <div class="relative mb-2">
+                <input
+                  v-model="searchM2MEmpresa"
+                  type="text"
+                  class="input text-xs"
                   placeholder="Buscar empresa para vincular..."
                   @focus="showM2MEmpresasDropdown = true"
                 >
                 <div v-if="showM2MEmpresasDropdown && filteredM2MEmpresas.length > 0" class="absolute z-50 mt-1 w-full bg-white shadow-2xl rounded-xl border border-gray-100 max-h-48 overflow-y-auto">
-                  <div 
+                  <div
                     v-for="c in filteredM2MEmpresas" :key="c.id"
                     @click="addEmpresaM2M(c)"
                     class="p-2 hover:bg-primary-50 cursor-pointer border-b border-gray-50 text-xs"
@@ -331,7 +335,7 @@
                 </div>
               </div>
               <div class="flex flex-wrap gap-2">
-                <span 
+                <span
                   v-for="eId in form.empresas" :key="eId"
                   class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-white border border-gray-100 text-xs font-bold text-gray-700 shadow-sm"
                 >
@@ -353,9 +357,9 @@
       </form>
 
       <!-- Coluna Lateral (Informações Rápidas, Anexos e Diagnósticos) -->
-      <aside class="space-y-6">
+      <aside class="space-y-4">
         <!-- Status Card -->
-        <div v-if="isEdit" class="bg-primary-600 rounded-2xl p-6 text-white shadow-xl shadow-primary-100">
+        <div v-if="isEdit" class="bg-primary-600 rounded-2xl p-4 text-white shadow-xl shadow-primary-100">
           <div class="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-2">Responsável</div>
           <div class="flex items-center gap-3">
              <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold">{{ props.oportunidade?.proprietario_nome?.charAt(0) }}</div>
@@ -367,8 +371,8 @@
         </div>
 
         <!-- Seção de Anexos -->
-        <div class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-          <h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex justify-between items-center">
+        <div class="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+          <h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 flex justify-between items-center">
             Anexos
             <label class="cursor-pointer text-primary-600 hover:text-primary-700 font-black tracking-normal">
               <input type="file" class="hidden" @change="handleFileUpload" multiple>
@@ -399,8 +403,8 @@
         </div>
 
         <!-- Diagnósticos de Maturidade -->
-        <div v-if="diagnosticos.length > 0" class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-          <h4 class="text-xs font-black text-indigo-400 uppercase tracking-widest mb-4">Maturidade (Diagnóstico)</h4>
+        <div v-if="diagnosticos.length > 0" class="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+          <h4 class="text-xs font-black text-indigo-400 uppercase tracking-widest mb-3">Maturidade (Diagnóstico)</h4>
           <div class="space-y-4">
             <div v-for="diag in diagnosticos" :key="diag.id" class="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 relative group overflow-hidden">
                <div class="flex justify-between items-center mb-3">
