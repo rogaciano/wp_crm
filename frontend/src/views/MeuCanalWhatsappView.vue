@@ -238,19 +238,20 @@ async function conectarWhatsApp() {
 async function gerarQRCode() {
   qrLoading.value = true
   error.value = ''
-  
+  success.value = ''
+
   try {
     const response = await api.get(`/canais/${meuCanal.value.id}/whatsapp/qrcode/`)
     if (response.data.qr_base64) {
-      qrBase64.value = response.data.qr_base64.startsWith('data:') 
-        ? response.data.qr_base64 
+      qrBase64.value = response.data.qr_base64.startsWith('data:')
+        ? response.data.qr_base64
         : `data:image/png;base64,${response.data.qr_base64}`
       startPolling()
     } else {
-      error.value = 'QR Code não disponível. Tente reiniciar a instância.'
+      error.value = 'QR Code não disponível. A instância pode ainda estar reiniciando — aguarde alguns segundos e tente novamente.'
     }
   } catch (err) {
-    error.value = err.response?.data?.error || 'Erro ao gerar QR Code'
+    error.value = err.response?.data?.error || 'Erro ao gerar QR Code. Tente reiniciar a instância.'
   } finally {
     qrLoading.value = false
   }
@@ -274,17 +275,26 @@ async function desconectar() {
 async function reiniciar() {
   actionLoading.value = true
   error.value = ''
+  success.value = ''
   qrBase64.value = null
 
   try {
-    await api.post(`/canais/${meuCanal.value.id}/whatsapp/reiniciar/`)
+    const response = await api.post(`/canais/${meuCanal.value.id}/whatsapp/reiniciar/`)
+
+    if (response.data.success === false) {
+      error.value = response.data.error || 'Falha ao reiniciar a instância.'
+      return
+    }
+
     success.value = 'Instância reiniciando... aguarde.'
-    // Aguarda alguns segundos para a Evolution reiniciar antes de checar
-    await new Promise(resolve => setTimeout(resolve, 4000))
+    // Aguarda a Evolution reiniciar (6s é mais seguro que 4s)
+    await new Promise(resolve => setTimeout(resolve, 6000))
     await checkStatus()
-    // Se ainda não conectou, busca QR code e inicia polling
-    if (!status.value.connected) {
-      await gerarQRCode()
+
+    if (status.value.connected) {
+      success.value = 'WhatsApp reconectado com sucesso!'
+    } else {
+      success.value = 'Reiniciado! Clique em "Gerar QR Code" para reconectar.'
     }
   } catch (err) {
     error.value = err.response?.data?.error || 'Erro ao reiniciar'
