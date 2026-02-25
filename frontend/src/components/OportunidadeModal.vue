@@ -824,17 +824,15 @@ watch(() => props.show, async (newVal) => {
         form.value.proprietario = authStore.user?.id || null
       }
     } else {
-      // Modo edição: restaurar campos de exibição após loadOptions()
-      if (form.value.contato_principal) {
-        const c = contatos.value.find(x => x.id === form.value.contato_principal)
-        if (c) {
-          searchContatoPrincipal.value = c.nome
-          telefoneContato.value = c.celular || c.telefone || ''
-        }
+      // Modo edição: usar dados aninhados da oportunidade (evita dependência de paginação)
+      const dadosContato = props.oportunidade?.contato_principal_dados
+      if (dadosContato) {
+        searchContatoPrincipal.value = dadosContato.nome
+        telefoneContato.value = dadosContato.celular || dadosContato.telefone || ''
       }
-      if (form.value.conta) {
-        const ct = contas.value.find(x => x.id === form.value.conta)
-        if (ct) searchContaPrincipal.value = ct.nome_empresa
+      const dadosConta = props.oportunidade?.conta_dados
+      if (dadosConta) {
+        searchContaPrincipal.value = dadosConta.nome_empresa
       }
     }
   }
@@ -919,6 +917,7 @@ async function handleSubmit() {
     }
 
     // 2. Auto-create Contact if typed but not selected
+    let contatoRecemCriado = false
     if (!form.value.contato_principal && searchContatoPrincipal.value.trim()) {
       try {
         const payload = {
@@ -937,11 +936,24 @@ async function handleSubmit() {
         const res = await api.post('/contatos/', payload)
         form.value.contato_principal = res.data.id
         contatos.value.unshift(res.data)
+        contatoRecemCriado = true
       } catch (e) {
         console.error("Erro ao criar contato automático:", e)
         alert('Erro ao criar contato automático: ' + formatAxiosError(e))
         loading.value = false
         return
+      }
+    }
+
+    // 2.5. Atualiza o telefone do contato existente (celular = telefone principal da oportunidade)
+    if (!contatoRecemCriado && form.value.contato_principal && telefoneContato.value.trim()) {
+      try {
+        await api.patch(`/contatos/${form.value.contato_principal}/`, {
+          celular: telefoneContato.value.trim()
+        })
+      } catch (e) {
+        console.error("Erro ao atualizar telefone do contato:", e)
+        // Não bloqueia o salvamento da oportunidade
       }
     }
 
