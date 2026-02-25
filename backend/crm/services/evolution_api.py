@@ -170,15 +170,25 @@ class EvolutionService:
     def get_connection_status(self):
         """Verifica o status da conexão da instância"""
         url = f"{self.base_url}/instance/connectionState/{self.instance}"
-        
+
         try:
             response = requests.get(url, headers=self.headers, timeout=10)
+
+            # Instância não existe na Evolution API
+            if response.status_code == 404:
+                logger.warning(f"[Evolution] Instância '{self.instance}' não encontrada (404).")
+                return {
+                    'connected': False,
+                    'state': 'not_found',
+                    'instance': self.instance
+                }
+
             response.raise_for_status()
             data = response.json()
-            
+
             # A resposta pode variar, mas geralmente tem 'state' ou 'instance.state'
             state = data.get('state') or data.get('instance', {}).get('state', 'unknown')
-            
+
             return {
                 'connected': state == 'open',
                 'state': state,

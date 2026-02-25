@@ -163,6 +163,21 @@ class CanalViewSet(viewsets.ModelViewSet):
             canal.evolution_last_status = new_status
             canal.save()
         
+        # Se a instância não existe na Evolution API, limpa o registro do banco
+        instance_exists = new_status != 'not_found'
+        if not instance_exists:
+            canal.evolution_instance_name = None
+            canal.evolution_token = None
+            canal.evolution_is_connected = False
+            canal.evolution_last_status = None
+            canal.save()
+            return Response({
+                'connected': False,
+                'state': 'not_found',
+                'has_instance': False,
+                'message': 'A instância não foi encontrada na Evolution API. Reconecte o WhatsApp.'
+            })
+
         return Response({
             'connected': new_connected,
             'state': new_status,

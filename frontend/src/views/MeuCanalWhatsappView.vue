@@ -110,7 +110,7 @@
 
           <!-- Ações -->
           <div class="flex flex-wrap gap-3 justify-center" v-if="status.has_instance">
-            <button 
+            <button
               v-if="status.connected"
               @click="desconectar"
               :disabled="actionLoading"
@@ -121,7 +121,7 @@
               <span>Desconectar</span>
             </button>
 
-            <button 
+            <button
               @click="reiniciar"
               :disabled="actionLoading"
               class="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50">
@@ -129,6 +129,19 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               <span>Reiniciar</span>
+            </button>
+
+            <!-- Botão visível apenas quando há erro persistente -->
+            <button
+              v-if="status.state === 'error'"
+              @click="recriarInstancia"
+              :disabled="actionLoading"
+              class="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50"
+              title="Use quando Reiniciar não resolver — recria a instância do zero">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>{{ actionLoading ? 'Recriando...' : 'Recriar Instância' }}</span>
             </button>
           </div>
 
@@ -298,6 +311,43 @@ async function reiniciar() {
     }
   } catch (err) {
     error.value = err.response?.data?.error || 'Erro ao reiniciar'
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+async function recriarInstancia() {
+  actionLoading.value = true
+  error.value = ''
+  success.value = ''
+  qrBase64.value = null
+  stopPolling()
+
+  try {
+    // Tenta deletar a instância existente (ignora erro caso não exista mais na Evolution)
+    try {
+      await api.delete(`/canais/${meuCanal.value.id}/whatsapp/deletar-instancia/`)
+    } catch {
+      // Instância pode já não existir — continua para recriar
+    }
+
+    // Recria a instância
+    const response = await api.post(`/canais/${meuCanal.value.id}/conectar-whatsapp/`)
+
+    if (response.data.success) {
+      success.value = 'Instância recriada! Escaneie o QR Code para conectar.'
+      if (response.data.qr_base64) {
+        qrBase64.value = response.data.qr_base64.startsWith('data:')
+          ? response.data.qr_base64
+          : `data:image/png;base64,${response.data.qr_base64}`
+        startPolling()
+      }
+      await checkStatus()
+    } else {
+      error.value = response.data.error || 'Erro ao recriar a instância.'
+    }
+  } catch (err) {
+    error.value = err.response?.data?.error || 'Erro ao recriar a instância.'
   } finally {
     actionLoading.value = false
   }
