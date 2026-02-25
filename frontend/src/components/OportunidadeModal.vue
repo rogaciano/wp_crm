@@ -823,6 +823,19 @@ watch(() => props.show, async (newVal) => {
       if (!form.value.proprietario) {
         form.value.proprietario = authStore.user?.id || null
       }
+    } else {
+      // Modo edição: restaurar campos de exibição após loadOptions()
+      if (form.value.contato_principal) {
+        const c = contatos.value.find(x => x.id === form.value.contato_principal)
+        if (c) {
+          searchContatoPrincipal.value = c.nome
+          telefoneContato.value = c.celular || c.telefone || ''
+        }
+      }
+      if (form.value.conta) {
+        const ct = contas.value.find(x => x.id === form.value.conta)
+        if (ct) searchContaPrincipal.value = ct.nome_empresa
+      }
     }
   }
 })

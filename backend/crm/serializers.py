@@ -1000,11 +1000,15 @@ class OportunidadeSerializer(serializers.ModelSerializer):
 
     def get_contato_telefone(self, obj):
         if not obj.contato_principal: return None
-        return format_phone_display(obj.contato_principal.telefone) if obj.contato_principal.telefone else None
+        c = obj.contato_principal
+        phone = c.celular or c.telefone
+        return format_phone_display(phone) if phone else None
 
     def get_contato_celular(self, obj):
         if not obj.contato_principal: return None
-        return format_phone_display(obj.contato_principal.celular) if obj.contato_principal.celular else None
+        c = obj.contato_principal
+        phone = c.celular or c.telefone
+        return format_phone_display(phone) if phone else None
 
     def get_plano_nome(self, obj):
         return obj.plano.nome if obj.plano else None
@@ -1118,7 +1122,10 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
         return obj.contato_principal.nome if obj.contato_principal else None
 
     def get_contato_telefone(self, obj):
-        return obj.contato_principal.telefones.filter(principal=True).first().numero if obj.contato_principal and obj.contato_principal.telefones.filter(principal=True).exists() else (obj.contato_principal.telefones.first().numero if obj.contato_principal and obj.contato_principal.telefones.exists() else None)
+        if not obj.contato_principal: return None
+        c = obj.contato_principal
+        phone = c.celular or c.telefone
+        return format_phone_display(phone) if phone else None
 
 
 class AtividadeSerializer(serializers.ModelSerializer):
