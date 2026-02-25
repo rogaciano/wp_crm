@@ -101,7 +101,8 @@ const props = defineProps({
   show: Boolean,
   atividade: Object,
   associationFixed: Boolean, // Se true, não permite trocar a associação (fixo via props parent)
-  initialAssociation: Object // { content_type: ID, object_id: ID }
+  initialAssociation: Object, // { content_type: ID, object_id: ID }
+  initialTipo: { type: String, default: 'TAREFA' }
 })
 
 const emit = defineEmits(['close', 'saved'])
@@ -150,6 +151,9 @@ watch(() => props.show, (newVal) => {
     } else {
       isEdit.value = false
       resetForm()
+      if (props.initialTipo) {
+        form.value.tipo = props.initialTipo
+      }
       if (props.initialAssociation) {
         form.value.content_type = props.initialAssociation.content_type
         form.value.object_id = props.initialAssociation.object_id

@@ -1,8 +1,8 @@
 <template>
   <div class="timeline-feed h-full flex flex-col">
     <!-- Header / Actions -->
-    <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-      <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-3">Timeline</h3>
+    <div class="p-4 border-b border-gray-200 bg-white">
+      <h3 class="text-lg font-semibold text-gray-800 mb-3">Timeline</h3>
       
       <div class="flex gap-2">
         <button 
@@ -27,7 +27,7 @@
     </div>
 
     <!-- Feed List -->
-    <div class="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900 space-y-4">
+    <div class="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4">
       
       <div v-if="loading" class="flex justify-center py-8">
         <i class="fas fa-spinner fa-spin text-2xl text-blue-500"></i>
@@ -47,7 +47,7 @@
           >
             <i :class="getIcon(item)"></i>
           </div>
-          <div class="w-0.5 h-full bg-gray-200 dark:bg-gray-700 -mt-2 group-last:hidden"></div>
+          <div class="w-0.5 h-full bg-gray-200 -mt-2 group-last:hidden"></div>
         </div>
 
         <!-- Content Body -->
@@ -182,16 +182,16 @@ const getIconClass = (item) => {
 
 const getCardClass = (item) => {
   if (item.type === 'whatsapp') {
-    return item.direction === 'outbound' 
-      ? 'bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-800'
-      : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+    return item.direction === 'outbound'
+      ? 'bg-green-50 border-green-100 text-gray-800'
+      : 'bg-white border-gray-200 text-gray-800'
   }
-  
-  if (item.type === 'log') return 'bg-gray-50 border-gray-100 text-gray-500 dark:bg-gray-800/50 dark:border-gray-700'
-  
-  if (item.subtype === 'NOTA') return 'bg-yellow-50 border-yellow-100 dark:bg-yellow-900/10 dark:border-yellow-800'
-  
-  return 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+
+  if (item.type === 'log') return 'bg-gray-50 border-gray-100 text-gray-500'
+
+  if (item.subtype === 'NOTA') return 'bg-yellow-50 border-yellow-100 text-gray-800'
+
+  return 'bg-white border-gray-200 text-gray-800'
 }
 
 defineExpose({ refresh: fetchTimeline })

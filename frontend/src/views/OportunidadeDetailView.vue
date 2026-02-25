@@ -237,7 +237,7 @@
                            {{ formatDateShort(oportunidade.proxima_atividade.data) }}
                         </div>
                      </div>
-                     <button v-else class="text-xs text-primary-600 hover:underline flex items-center gap-1">
+                     <button v-else @click="handleTimelineAction('task')" class="text-xs text-primary-600 hover:underline flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                         Agendar
                      </button>
@@ -477,10 +477,12 @@
       <!-- Coluna Direita: Feed e Atividades -->
       <div class="lg:col-span-7 xl:col-span-7 bg-white rounded-xl shadow-sm border border-gray-200 h-[calc(100vh-140px)] flex flex-col overflow-hidden">
         <div class="flex-1 bg-gray-50/50">
-           <TimelineFeed 
+           <TimelineFeed
+             ref="timelineFeedRef"
              model="oportunidade"
              :id="oportunidade.id"
              class="h-full"
+             @action="handleTimelineAction"
            />
         </div>
       </div>
@@ -510,6 +512,15 @@
       :oportunidade="oportunidade.id"
       @close="showWhatsappChat = false"
     />
+
+    <AtividadeModal
+      :show="showAtividadeModal"
+      :association-fixed="true"
+      :initial-association="oportunidadeContentTypeId ? { content_type: oportunidadeContentTypeId, object_id: oportunidade.id } : null"
+      :initial-tipo="initialTipoAtividade"
+      @close="showAtividadeModal = false"
+      @saved="handleAtividadeSaved"
+    />
     
   </div>
 </template>
@@ -523,6 +534,7 @@ import TimelineFeed from '@/components/TimelineFeed.vue'
 import ContatoModal from '@/components/ContatoModal.vue'
 import ContaModal from '@/components/ContaModal.vue'
 import WhatsappChat from '@/components/WhatsappChat.vue'
+import AtividadeModal from '@/components/AtividadeModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -573,6 +585,11 @@ const selectedCompany = ref(null)
 
 const showWhatsappChat = ref(false)
 const whatsappData = ref({})
+
+const showAtividadeModal = ref(false)
+const initialTipoAtividade = ref('TAREFA')
+const oportunidadeContentTypeId = ref(null)
+const timelineFeedRef = ref(null)
 
 // Computed
 const daysActive = computed(() => {
@@ -634,14 +651,17 @@ onMounted(async () => {
 
 async function loadAuxData() {
     try {
-        const [usersRes, planosRes, adicRes] = await Promise.all([
+        const [usersRes, planosRes, adicRes, ctRes] = await Promise.all([
             api.get('/usuarios/'),
             api.get('/planos/'),
-            api.get('/adicionais-plano/')
+            api.get('/adicionais-plano/'),
+            api.get('/atividades/content_types/')
         ])
         usuarios.value = usersRes.data.results || usersRes.data
         planos.value = planosRes.data.results || planosRes.data
         adicionais_opcoes.value = adicRes.data.results || adicRes.data
+        const ct = (ctRes.data || []).find(t => t.model === 'oportunidade')
+        if (ct) oportunidadeContentTypeId.value = ct.id
     } catch (err) {
         console.error("Erro carregando listas auxiliares", err)
     }
@@ -884,6 +904,21 @@ function openWhatsapp() {
 
 async function refreshData() {
   await loadData()
+}
+
+function handleTimelineAction(action) {
+  if (action === 'whatsapp') {
+    openWhatsapp()
+    return
+  }
+  initialTipoAtividade.value = action === 'note' ? 'NOTA' : 'TAREFA'
+  showAtividadeModal.value = true
+}
+
+function handleAtividadeSaved() {
+  showAtividadeModal.value = false
+  timelineFeedRef.value?.refresh()
+  refreshData()
 }
 </script>
 
