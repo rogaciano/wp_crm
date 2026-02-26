@@ -707,7 +707,7 @@ function selectContaPrincipal(c) {
 function selectContatoPrincipal(c) {
   form.value.contato_principal = c.id
   searchContatoPrincipal.value = c.nome
-  telefoneContato.value = c.celular || c.telefone || ''
+  telefoneContato.value = c.celular_formatado || c.telefone_formatado || c.celular || c.telefone || ''
   showContatosPrincipalDropdown.value = false
 }
 

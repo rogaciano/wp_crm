@@ -1013,8 +1013,8 @@ async function loadData() {
         const c = res.data.contato_principal_dados
         contactForm.value = {
             cargo: c.cargo,
-            telefone: c.telefone ? c.telefone.replace(/^55/, '') : '', 
-            celular: c.celular ? c.celular.replace(/^55/, '') : '',
+            telefone: c.telefone_formatado || (c.telefone ? c.telefone.replace(/^55/, '') : ''), 
+            celular: c.celular_formatado || (c.celular ? c.celular.replace(/^55/, '') : ''),
             email: c.email
         }
         // Force formatting on load

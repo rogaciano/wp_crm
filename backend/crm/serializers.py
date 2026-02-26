@@ -488,10 +488,20 @@ class ContatoSerializer(serializers.ModelSerializer):
         return None
     
     def get_telefone_formatado(self, obj):
-        return format_phone_display(obj.telefone) if obj.telefone else ''
+        phone = obj.telefone
+        if not phone:
+            tel = obj.telefones.filter(principal=True).first() or obj.telefones.first()
+            if tel:
+                phone = tel.numero
+        return format_phone_display(phone) if phone else ''
     
     def get_celular_formatado(self, obj):
-        return format_phone_display(obj.celular) if obj.celular else ''
+        phone = obj.celular
+        if not phone:
+            tel = obj.telefones.filter(principal=True).first() or obj.telefones.first()
+            if tel:
+                phone = tel.numero
+        return format_phone_display(phone) if phone else ''
     
     def get_oportunidades(self, obj):
         """Retorna as oportunidades vinculadas a este contato"""
@@ -1002,12 +1012,20 @@ class OportunidadeSerializer(serializers.ModelSerializer):
         if not obj.contato_principal: return None
         c = obj.contato_principal
         phone = c.celular or c.telefone
+        if not phone:
+            tel = c.telefones.filter(principal=True).first() or c.telefones.first()
+            if tel:
+                phone = tel.numero
         return format_phone_display(phone) if phone else None
 
     def get_contato_celular(self, obj):
         if not obj.contato_principal: return None
         c = obj.contato_principal
         phone = c.celular or c.telefone
+        if not phone:
+            tel = c.telefones.filter(principal=True).first() or c.telefones.first()
+            if tel:
+                phone = tel.numero
         return format_phone_display(phone) if phone else None
 
     def get_plano_nome(self, obj):
