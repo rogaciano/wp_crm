@@ -297,7 +297,7 @@ const showModal = ref(false)
 const selectedOportunidade = ref(null)
 const draggedItem = ref(null)
 const activeContextEstagioId = ref(null)
-const activeStatus = ref('ABERTO')
+const activeStatus = ref('')
 
 const activeTipoFunil = ref(route.query.tipo || 'VENDAS')
 const tiposFunil = [
