@@ -220,7 +220,7 @@
                  <button v-if="item.plano" @click.stop="copyBillingInfo(item.id)" class="action-btn text-indigo-600 bg-white border border-indigo-100 shadow-lg" title="Copiar Faturamento">
                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
                  </button>
-                 <button @click.stop="openEditModal(item)" class="action-btn text-primary-600 bg-white border border-primary-100 shadow-lg" title="Editar">
+                 <button @click.stop="editItem(item)" class="action-btn text-primary-600 bg-white border border-primary-100 shadow-lg" title="Editar">
                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                  </button>
                  <button @click.stop="deleteOportunidade(item.id)" class="action-btn text-red-600 bg-white border border-red-100 shadow-lg" title="Excluir">

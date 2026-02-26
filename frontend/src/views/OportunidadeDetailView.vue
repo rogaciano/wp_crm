@@ -104,6 +104,13 @@
              Principal
            </button>
            <button 
+             @click="activeSidebarTab = 'complementos'"
+             class="py-3 border-b-2 transition-colors duration-200"
+             :class="activeSidebarTab === 'complementos' ? 'text-primary-600 border-primary-600' : 'border-transparent hover:text-gray-600'"
+           >
+             Complementos
+           </button>
+           <button 
              @click="activeSidebarTab = 'estatisticas'"
              class="py-3 border-b-2 transition-colors duration-200"
              :class="activeSidebarTab === 'estatisticas' ? 'text-primary-600 border-primary-600' : 'border-transparent hover:text-gray-600'"
@@ -211,17 +218,73 @@
                    </div>
                 </div>
 
-               <!-- Fechamento -->
+               <!-- Fechamento e Probabilidade -->
+               <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                   <div class="group flex items-center justify-between">
+                      <label class="text-xs text-gray-400 font-medium w-1/3">Previsão</label>
+                      <div class="w-2/3">
+                         <input 
+                            type="date"
+                            v-model="oportunidadeForm.data_fechamento_esperada"
+                            @blur="saveChanges"
+                            class="w-full py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 text-sm text-right focus:outline-none"
+                         />
+                      </div>
+                   </div>
+                   <div class="group flex items-center justify-between">
+                      <label class="text-xs text-gray-400 font-medium w-1/3 text-right pr-2">Prob. (%)</label>
+                      <div class="w-2/3">
+                         <input 
+                            type="number"
+                            min="0" max="100"
+                            v-model.number="oportunidadeForm.probabilidade"
+                            @blur="saveChanges"
+                            class="w-full py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none"
+                         />
+                      </div>
+                   </div>
+               </div>
+
+                <!-- Canal de Aquisição -->
                <div class="group flex items-center justify-between">
-                  <label class="text-xs text-gray-400 font-medium w-1/3">Previsão</label>
+                  <label class="text-xs text-gray-400 font-medium w-1/3">Canal</label>
                   <div class="w-2/3">
-                     <input 
-                        type="date"
-                        v-model="oportunidadeForm.data_fechamento_esperada"
-                        @blur="saveChanges"
-                        class="w-full py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 text-sm text-right focus:outline-none"
-                     />
+                     <select 
+                        v-model="oportunidadeForm.canal"
+                        @change="saveChanges"
+                        class="w-full py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none appearance-none cursor-pointer"
+                     >
+                        <option :value="null">Selecione...</option>
+                        <option v-for="c in canais" :key="c.id" :value="c.id">{{ c.nome }}</option>
+                     </select>
                   </div>
+               </div>
+
+               <!-- Indicador -->
+               <div class="group flex items-center justify-between">
+                  <label class="text-xs text-gray-400 font-medium w-1/3">Indicador</label>
+                  <div class="w-2/3">
+                     <select 
+                        v-model="oportunidadeForm.indicador_comissao"
+                        @change="saveChanges"
+                        class="w-full py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none appearance-none cursor-pointer"
+                     >
+                        <option :value="null">Sem indicador...</option>
+                        <option v-for="c in indicadores" :key="c.id" :value="c.id">{{ c.nome }}</option>
+                     </select>
+                  </div>
+               </div>
+               
+               <!-- Observações -->
+               <div class="group">
+                  <label class="text-xs text-gray-400 font-medium block mb-1">Detalhamento / Contexto</label>
+                  <textarea 
+                      v-model="oportunidadeForm.descricao" 
+                      @blur="saveChanges"
+                      rows="3" 
+                      class="w-full py-2 px-3 bg-gray-50 border border-gray-100 rounded-lg group-hover:border-gray-200 focus:border-primary-500 focus:bg-white text-gray-900 text-sm focus:outline-none transition-colors custom-scrollbar" 
+                      placeholder="Anote aqui informações importantes da negociação..."
+                  ></textarea>
                </div>
                
                <!-- Tarefas Agendadas -->
@@ -412,6 +475,142 @@
                </div>
             </div>
         </div>
+
+        <!-- CONTEÚDO: COMPLEMENTOS (Vínculos, Anexos, etc) -->
+        <div v-else-if="activeSidebarTab === 'complementos'" class="p-6 space-y-6">
+           
+           <!-- Vínculos Adicionais -->
+           <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+             <h4 class="text-xs font-black text-indigo-500 uppercase tracking-widest mb-4">Vínculos Múltiplos</h4>
+             
+             <!-- M2M Contatos -->
+             <div class="mb-4">
+               <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Contatos Vinculados</label>
+               <div class="relative mb-2">
+                 <input
+                   v-model="searchM2MContato"
+                   type="text"
+                   class="w-full py-1.5 px-3 bg-gray-50 border border-gray-100 rounded focus:border-primary-500 focus:bg-white text-gray-900 text-xs focus:outline-none transition-colors"
+                   placeholder="Buscar contato para vincular..."
+                   @focus="showM2MContatosDropdown = true"
+                 >
+                 <div v-if="showM2MContatosDropdown && filteredM2MContatos.length > 0" class="absolute z-50 mt-1 w-full bg-white shadow-xl rounded-lg border border-gray-100 max-h-48 overflow-y-auto custom-scrollbar">
+                   <div
+                     v-for="c in filteredM2MContatos" :key="c.id"
+                     @click="addContatoM2M(c)"
+                     class="p-2 hover:bg-primary-50 cursor-pointer border-b border-gray-50 text-xs"
+                   >
+                     <span class="font-bold">{{ c.nome }}</span> <span class="text-gray-400">({{ c.conta_nome || 'S/ Empresa' }})</span>
+                   </div>
+                 </div>
+                 
+                 <!-- Backdrop M2M contatos -->
+                 <div v-if="showM2MContatosDropdown" class="fixed inset-0 z-40 bg-transparent cursor-default" @click="showM2MContatosDropdown = false"></div>
+               </div>
+               <div class="flex flex-wrap gap-2">
+                 <span
+                   v-for="cId in oportunidadeForm.contatos" :key="'c'+cId"
+                   class="inline-flex items-center px-2 py-1 rounded bg-indigo-50 border border-indigo-100 text-xs font-bold text-indigo-700"
+                 >
+                   {{ getContatoNome(cId) }}
+                   <button type="button" @click="removeContatoM2M(cId)" class="ml-1 text-indigo-400 hover:text-red-500">
+                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                   </button>
+                 </span>
+                 <p v-if="!oportunidadeForm.contatos?.length" class="text-xs text-gray-400 italic">Nenhum vínculo adicional.</p>
+               </div>
+             </div>
+
+             <!-- M2M Empresas -->
+             <div>
+               <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Empresas Vinculadas</label>
+               <div class="relative mb-2">
+                 <input
+                   v-model="searchM2MEmpresa"
+                   type="text"
+                   class="w-full py-1.5 px-3 bg-gray-50 border border-gray-100 rounded focus:border-primary-500 focus:bg-white text-gray-900 text-xs focus:outline-none transition-colors"
+                   placeholder="Buscar empresa para vincular..."
+                   @focus="showM2MEmpresasDropdown = true"
+                 >
+                 <div v-if="showM2MEmpresasDropdown && filteredM2MEmpresas.length > 0" class="absolute z-50 mt-1 w-full bg-white shadow-xl rounded-lg border border-gray-100 max-h-48 overflow-y-auto custom-scrollbar">
+                   <div
+                     v-for="c in filteredM2MEmpresas" :key="c.id"
+                     @click="addEmpresaM2M(c)"
+                     class="p-2 hover:bg-primary-50 cursor-pointer border-b border-gray-50 text-xs font-bold"
+                   >
+                     {{ c.nome_empresa }}
+                   </div>
+                 </div>
+                 
+                 <!-- Backdrop M2M empresas -->
+                 <div v-if="showM2MEmpresasDropdown" class="fixed inset-0 z-40 bg-transparent cursor-default" @click="showM2MEmpresasDropdown = false"></div>
+               </div>
+               <div class="flex flex-wrap gap-2">
+                 <span
+                   v-for="eId in oportunidadeForm.empresas" :key="'e'+eId"
+                   class="inline-flex items-center px-2 py-1 rounded bg-indigo-50 border border-indigo-100 text-xs font-bold text-indigo-700"
+                 >
+                   {{ getEmpresaNome(eId) }}
+                   <button type="button" @click="removeEmpresaM2M(eId)" class="ml-1 text-indigo-400 hover:text-red-500">
+                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                   </button>
+                 </span>
+                 <p v-if="!oportunidadeForm.empresas?.length" class="text-xs text-gray-400 italic">Nenhum vínculo adicional.</p>
+               </div>
+             </div>
+           </div>
+
+           <!-- Seção de Anexos -->
+           <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+             <h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 flex justify-between items-center">
+               Anexos
+               <label class="cursor-pointer text-primary-600 hover:text-primary-700 font-bold tracking-normal uppercase text-[10px] bg-primary-50 px-2 py-1 border border-primary-100 rounded">
+                 <input type="file" class="hidden" @change="handleFileUpload" multiple>
+                 + Adicionar
+               </label>
+             </h4>
+             
+             <div v-if="anexos.length > 0" class="space-y-2">
+               <div v-for="anexo in anexos" :key="anexo.id" class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg group hover:bg-white border border-transparent hover:border-gray-100 transition-all">
+                 <div class="flex items-center gap-3 min-w-0">
+                   <div class="w-8 h-8 rounded bg-white flex items-center justify-center shadow-sm shrink-0">
+                     <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                   </div>
+                   <div class="min-w-0 flex-1">
+                     <div class="text-xs font-bold text-gray-700 truncate" :title="anexo.nome">{{ anexo.nome }}</div>
+                     <div class="text-[9px] text-gray-400">{{ formatDateShort(anexo.data_upload) }}</div>
+                   </div>
+                 </div>
+                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                   <a :href="anexo.arquivo" target="_blank" class="p-1.5 text-gray-400 hover:text-primary-600"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></a>
+                   <button type="button" @click="deleteAnexo(anexo.id)" class="p-1.5 text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                 </div>
+               </div>
+             </div>
+             <div v-else class="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-loose">Sem arquivos</p>
+             </div>
+           </div>
+
+           <!-- Diagnósticos de Maturidade -->
+           <div v-if="diagnosticos && diagnosticos.length > 0" class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+             <h4 class="text-xs font-black text-indigo-400 uppercase tracking-widest mb-3">Maturidade (Diagnóstico)</h4>
+             <div class="space-y-3">
+               <div v-for="diag in diagnosticos" :key="diag.id" class="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 relative group overflow-hidden">
+                  <div class="flex justify-between items-center mb-3 border-b border-indigo-100 pb-2">
+                    <span class="text-[10px] font-black text-indigo-600 uppercase">{{ formatDateShort(diag.data_conclusao) }}</span>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2 mt-2">
+                    <div v-for="(pilar, nome) in diag.pontuacao_por_pilar" :key="nome" class="text-center bg-white p-1.5 rounded shadow-sm">
+                       <div class="text-[8px] font-black text-gray-500 uppercase truncate" :title="nome">{{ nome }}</div>
+                       <div class="text-sm font-black text-indigo-600">{{ pilar.score }}</div>
+                    </div>
+                  </div>
+               </div>
+             </div>
+           </div>
+
+        </div>
         
         <!-- CONTEÚDO: ESTATÍSTICAS (MANTIDO) -->
         <div v-else-if="activeSidebarTab === 'estatisticas'" class="p-6">
@@ -549,6 +748,9 @@ const hoveredEstagioId = ref(null)
 const usuarios = ref([])
 const planos = ref([])
 const adicionais_opcoes = ref([])
+const canais = ref([])
+const contatos = ref([])
+const indicadores = computed(() => contatos.value.filter(c => c.tipo === 'INDICADOR' || c.tipo_contato_nome?.toUpperCase() === 'INDICADOR'))
 
 // Forms e Estados
 const oportunidadeForm = ref({
@@ -557,7 +759,12 @@ const oportunidadeForm = ref({
   probabilidade: 0,
   proprietario: null,
   plano: null,
-  adicionais_itens: []
+  adicionais_itens: [],
+  canal: null,
+  indicador_comissao: null,
+  descricao: '',
+  contatos: [],
+  empresas: []
 })
 
 // Forms Entidades Vinculadas (para edição direta)
@@ -629,6 +836,104 @@ function toggleAdicional(adicionalId, checked) {
 
 const showAdicionaisDropdown = ref(false)
 
+const anexos = ref([])
+const diagnosticos = ref([])
+
+// Novas Lists para M2M
+const contas = ref([])
+
+// M2M Search Logic
+const searchM2MContato = ref('')
+const showM2MContatosDropdown = ref(false)
+const filteredM2MContatos = computed(() => {
+  if (!searchM2MContato.value) return contatos.value.slice(0, 10)
+  return contatos.value.filter(c => 
+    c.nome.toLowerCase().includes(searchM2MContato.value.toLowerCase()) &&
+    !(oportunidadeForm.value.contatos || []).includes(c.id)
+  ).slice(0, 10)
+})
+
+const searchM2MEmpresa = ref('')
+const showM2MEmpresasDropdown = ref(false)
+const filteredM2MEmpresas = computed(() => {
+  if (!searchM2MEmpresa.value) return contas.value.slice(0, 10)
+  return contas.value.filter(c => 
+    c.nome_empresa.toLowerCase().includes(searchM2MEmpresa.value.toLowerCase()) &&
+    !(oportunidadeForm.value.empresas || []).includes(c.id)
+  ).slice(0, 10)
+})
+
+function addContatoM2M(c) {
+  if (!oportunidadeForm.value.contatos) oportunidadeForm.value.contatos = []
+  if (!oportunidadeForm.value.contatos.includes(c.id)) {
+    oportunidadeForm.value.contatos.push(c.id)
+    saveChanges()
+  }
+  searchM2MContato.value = ''
+  showM2MContatosDropdown.value = false
+}
+
+function removeContatoM2M(id) {
+  oportunidadeForm.value.contatos = oportunidadeForm.value.contatos.filter(c => c !== id)
+  saveChanges()
+}
+
+function addEmpresaM2M(c) {
+  if (!oportunidadeForm.value.empresas) oportunidadeForm.value.empresas = []
+  if (!oportunidadeForm.value.empresas.includes(c.id)) {
+    oportunidadeForm.value.empresas.push(c.id)
+    saveChanges()
+  }
+  searchM2MEmpresa.value = ''
+  showM2MEmpresasDropdown.value = false
+}
+
+function removeEmpresaM2M(id) {
+  oportunidadeForm.value.empresas = oportunidadeForm.value.empresas.filter(e => e !== id)
+  saveChanges()
+}
+
+function getContatoNome(id) {
+  return contatos.value.find(c => c.id === id)?.nome || 'Desconhecido'
+}
+
+function getEmpresaNome(id) {
+  return contas.value.find(e => e.id === id)?.nome_empresa || 'Desconhecida'
+}
+
+// Upload Anexos
+async function handleFileUpload(event) {
+  const files = event.target.files
+  if (!files.length) return
+  
+  for (let i = 0; i < files.length; i++) {
+    const formData = new FormData()
+    formData.append('arquivo', files[i])
+    formData.append('nome', files[i].name)
+    formData.append('oportunidade', oportunidade.value.id)
+    
+    try {
+      const res = await api.post('/oportunidades-anexos/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      anexos.value.unshift(res.data)
+    } catch (err) {
+      console.error("Erro no upload do anexo", err)
+    }
+  }
+  event.target.value = ''
+}
+
+async function deleteAnexo(id) {
+  if (!confirm('Excluir anexo?')) return
+  try {
+    await api.delete(`/oportunidades-anexos/${id}/`)
+    anexos.value = anexos.value.filter(a => a.id !== id)
+  } catch (err) {
+    console.error("Erro excluindo anexo", err)
+  }
+}
+
 function formatSelectedAdicionais() {
     if (!oportunidadeForm.value.adicionais_itens?.length) return ''
     
@@ -651,15 +956,21 @@ onMounted(async () => {
 
 async function loadAuxData() {
     try {
-        const [usersRes, planosRes, adicRes, ctRes] = await Promise.all([
+        const [usersRes, planosRes, adicRes, ctRes, canaisRes, contatosRes, contasRes] = await Promise.all([
             api.get('/usuarios/'),
             api.get('/planos/'),
             api.get('/adicionais-plano/'),
-            api.get('/atividades/content_types/')
+            api.get('/atividades/content_types/'),
+            api.get('/canais/'),
+            api.get('/contatos/'),
+            api.get('/contas/')
         ])
         usuarios.value = usersRes.data.results || usersRes.data
         planos.value = planosRes.data.results || planosRes.data
         adicionais_opcoes.value = adicRes.data.results || adicRes.data
+        canais.value = canaisRes.data.results || canaisRes.data
+        contatos.value = contatosRes.data.results || contatosRes.data
+        contas.value = contasRes.data.results || contasRes.data
         const ct = (ctRes.data || []).find(t => t.model === 'oportunidade')
         if (ct) oportunidadeContentTypeId.value = ct.id
     } catch (err) {
@@ -683,11 +994,19 @@ async function loadData() {
       probabilidade: res.data.probabilidade,
       proprietario: res.data.proprietario,
       plano: res.data.plano,
+      canal: res.data.canal,
+      indicador_comissao: res.data.indicador_comissao,
+      descricao: res.data.descricao,
+      contatos: res.data.contatos || [],
+      empresas: res.data.empresas || [],
       adicionais_itens: res.data.adicionais_detalhes?.map(d => ({
           adicional: d.adicional,
           quantidade: d.quantidade
       })) || []
     }
+    
+    anexos.value = res.data.anexos_detalhe || []
+    diagnosticos.value = res.data.diagnosticos_detalhe || []
     
     // Preencher Forms vinculados (Contato/Empresa)
     if (res.data.contato_principal_dados) {
@@ -758,6 +1077,11 @@ async function saveChanges() {
        plano: typeof oportunidadeForm.value.plano === 'object'
          ? oportunidadeForm.value.plano?.id
          : oportunidadeForm.value.plano,
+       canal: oportunidadeForm.value.canal,
+       indicador_comissao: oportunidadeForm.value.indicador_comissao,
+       descricao: oportunidadeForm.value.descricao,
+       contatos: oportunidadeForm.value.contatos,
+       empresas: oportunidadeForm.value.empresas,
        adicionais: oportunidadeForm.value.adicionais_itens || []
      }
      

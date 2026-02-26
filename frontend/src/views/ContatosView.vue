@@ -6,16 +6,16 @@
     </div>
 
     <!-- Cards de Estatísticas/Filtros por Tipo -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-3">
+    <div class="flex flex-nowrap gap-3 overflow-x-auto pb-1 -mb-1">
       <!-- Card Total -->
       <div
         @click="filterByTipo(undefined)"
-        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2 py-3', selectedTipo === undefined && !hasActiveExtraFilters ? 'border-primary-500 bg-primary-50' : 'border-transparent hover:border-gray-300']"
+        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2 py-3 px-4 flex-shrink-0 min-w-[140px]', selectedTipo === undefined && !hasActiveExtraFilters ? 'border-primary-500 bg-primary-50' : 'border-transparent hover:border-gray-300']"
       >
-        <div class="flex items-center justify-between font-outfit">
-          <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between gap-3 font-outfit">
+          <div class="min-w-0">
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total</p>
-            <p class="text-2xl font-black text-gray-900 mt-1">{{ stats.total }}</p>
+            <p class="text-2xl font-black text-gray-900">{{ stats.total }}</p>
           </div>
           <div class="h-10 w-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary-100">
             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -30,12 +30,15 @@
         v-for="(tipo, index) in stats.por_tipo"
         :key="tipo.id || 'sem-tipo'"
         @click="filterByTipo(tipo.id)"
-        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2 py-3', selectedTipo === tipo.id ? 'border-teal-500 bg-teal-50' : 'border-transparent hover:border-gray-300']"
+        :class="['card cursor-pointer transition-all duration-200 hover:shadow-lg border-2 py-3 px-4 flex-shrink-0 min-w-[140px]', selectedTipo === tipo.id ? 'border-teal-500 bg-teal-50' : 'border-transparent hover:border-gray-300']"
       >
-        <div class="flex items-center justify-between font-outfit">
-          <div class="flex-1 min-w-0">
-            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate">{{ tipo.nome }}</p>
-            <p class="text-2xl font-black text-gray-900 mt-1">{{ tipo.total }}</p>
+        <div class="flex items-center justify-between gap-3 font-outfit">
+          <div class="min-w-0">
+            <p
+              class="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[80px]"
+              :title="tipo.nome"
+            >{{ tipo.nome }}</p>
+            <p class="text-2xl font-black text-gray-900">{{ tipo.total }}</p>
           </div>
           <div
             :class="['h-10 w-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 shadow-lg shadow-gray-100', getTipoColor(index)]"

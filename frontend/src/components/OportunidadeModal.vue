@@ -544,7 +544,7 @@ watch(() => props.oportunidade, async (newOp) => {
            quantidade: d.quantidade
        })) || []
     }
-    // ...
+    telefoneContato.value = newOp.contato_telefone || ''
   } else {
     isEdit.value = false
     resetForm()
