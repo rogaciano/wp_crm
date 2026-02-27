@@ -63,6 +63,7 @@ def configure_webhook_for_instance(instance_name, api_url, api_key, webhook_url,
     }
     
     webhook_config = {
+        "enabled": True,
         "url": webhook_url,
         "webhookByEvents": False,
         "webhookBase64": True,
