@@ -56,37 +56,60 @@ def get_instances_from_db():
 
 def configure_webhook_for_instance(instance_name, api_url, api_key, webhook_url, instance_token=None):
     """Configura webhook para uma instância específica"""
-    url = f"{api_url}/webhook/set/{instance_name}"
-    
-    # Usa token da instância se disponível, senão usa global key
-    auth_key = instance_token if instance_token else api_key
+    # Usa global API key para gerenciar instâncias
     headers = {
-        'apikey': auth_key,
+        'apikey': api_key,
         'Content-Type': 'application/json'
     }
     
-    payload = {
+    webhook_config = {
         "url": webhook_url,
-        "webhook_by_events": False,
-        "webhook_base64": True,
+        "webhookByEvents": False,
+        "webhookBase64": True,
         "events": [
             "MESSAGES_UPSERT",
             "MESSAGES_UPDATE"
         ]
     }
     
+    # Tenta endpoint webhook/set com payload aninhado
     try:
+        url = f"{api_url}/webhook/set/{instance_name}"
+        payload = {"webhook": webhook_config}
         response = requests.post(url, json=payload, headers=headers, timeout=30)
         
+        if response.status_code in [200, 201]:
+            try:
+                return True, response.json()
+            except:
+                return True, response.text[:500]
+        
+        # Se falhou, tenta payload flat (algumas versões aceitam assim)
+        response2 = requests.post(url, json=webhook_config, headers=headers, timeout=30)
+        
+        if response2.status_code in [200, 201]:
+            try:
+                return True, response2.json()
+            except:
+                return True, response2.text[:500]
+        
+        # Se ambos falharam, tenta via instance/update
+        url3 = f"{api_url}/instance/update/{instance_name}"
+        payload3 = {"webhook": webhook_config}
+        response3 = requests.put(url3, json=payload3, headers=headers, timeout=30)
+        
+        if response3.status_code in [200, 201]:
+            try:
+                return True, response3.json()
+            except:
+                return True, response3.text[:500]
+        
+        # Retorna o erro mais relevante
         try:
             result = response.json()
         except:
             result = response.text[:500]
-        
-        if response.status_code in [200, 201]:
-            return True, result
-        else:
-            return False, result
+        return False, result
             
     except Exception as e:
         return False, str(e)
