@@ -191,9 +191,9 @@
                     </button>
                   </div>
                   <!-- Telefones adicionais da lista -->
-                  <template v-if="contato.telefones && contato.telefones.length > 0">
+                  <template v-if="getAdditionalPhones(contato).length > 0">
                     <div 
-                      v-for="tel in contato.telefones.filter(t => t.numero !== (contato.telefone || contato.celular))" 
+                      v-for="tel in getAdditionalPhones(contato)" 
                       :key="tel.id" 
                       class="flex items-center gap-2 text-sm text-gray-500"
                     >
@@ -475,6 +475,27 @@ function getContatoPhoneFormatted(contato) {
   if (contato.celular_formatado) return contato.celular_formatado
   if (contato.telefone_formatado) return contato.telefone_formatado
   return getContatoPhone(contato) || ''
+}
+
+function normalizePhone(value) {
+  return (value || '').replace(/\D/g, '')
+}
+
+function getAdditionalPhones(contato) {
+  const telefones = contato?.telefones || []
+  if (!telefones.length) return []
+
+  const primaryNormalized = normalizePhone(getContatoPhone(contato))
+  const seen = new Set()
+
+  return telefones.filter((tel) => {
+    const normalized = normalizePhone(tel.numero)
+    if (!normalized) return false
+    if (normalized === primaryNormalized) return false
+    if (seen.has(normalized)) return false
+    seen.add(normalized)
+    return true
+  })
 }
 
 function openWhatsapp(contato) {
