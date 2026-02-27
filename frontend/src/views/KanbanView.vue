@@ -498,13 +498,13 @@ async function copyBillingInfo(id) {
 }
 
 function openWhatsapp(item) {
-  const number = item.contato_telefone
-  if (!number) {
-    alert('Contato sem telefone cadastrado.')
+  let phone = item.contato_telefone || item.contato_celular
+  if (!phone) {
+    alert('Contato sem telefone cadastrado neta oportunidade.')
     return
   }
   
-  let cleanNumber = number.replace(/\D/g, '')
+  let cleanNumber = phone.replace(/\D/g, '')
   if (!cleanNumber.startsWith('55') && cleanNumber.length <= 11) {
     cleanNumber = '55' + cleanNumber
   }

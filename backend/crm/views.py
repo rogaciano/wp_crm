@@ -1912,7 +1912,6 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                 tipo_mensagem=media_type,
                 media_base64=f"data:{mime_type};base64,{media}" if media_type == 'image' else None,
                 timestamp=timezone.now(),
-                lead_id=lead_id,
                 oportunidade_id=opp_id
             )
             
