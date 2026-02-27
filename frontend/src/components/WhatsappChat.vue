@@ -172,8 +172,11 @@
                 </div>
               </div>
               
-              <!-- Texto ou Caption -->
-              <p class="text-sm whitespace-pre-wrap break-words">{{ msg.texto }}</p>
+              <!-- Texto ou Caption (omite placeholder quando a imagem já está visível) -->
+              <p
+                v-if="!(msg.tipo_mensagem === 'image' && msg.media_base64 && msg.texto?.startsWith('📷'))"
+                class="text-sm whitespace-pre-wrap break-words"
+              >{{ msg.texto }}</p>
 
               <!-- Reações -->
               <div v-if="msg.reacoes && msg.reacoes.length" class="flex flex-wrap gap-1 mt-1.5 -mb-0.5">

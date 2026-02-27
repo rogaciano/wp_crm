@@ -394,49 +394,62 @@ class EvolutionService:
             logger.error(f"Erro ao buscar mensagens para {number}: {str(e)}")
             return []
 
-    def get_media_base64(self, message_key: dict):
+    def get_media_base64(self, message_key: dict, convert_to_mp4: bool = False):
         """
         Obtém a mídia de uma mensagem em formato Base64.
-        
+
         Args:
             message_key: O objeto 'key' da mensagem do webhook, contendo:
                 - id: ID da mensagem
-                - remoteJid: JID do remetente
+                - remoteJid: JID do remetente/conversa
                 - fromMe: Se foi enviada por nós
-        
+            convert_to_mp4: Converte vídeo para mp4 (False para áudio/imagem)
+
         Returns:
             dict com 'base64' e 'mimetype' ou None se falhar
         """
         url = f"{self.base_url}/chat/getBase64FromMediaMessage/{self.instance}"
-        
+
+        # Garante que remoteJid tem o sufixo correto
+        remote_jid = message_key.get('remoteJid', '')
+        if remote_jid and '@' not in remote_jid:
+            remote_jid = f"{remote_jid}@s.whatsapp.net"
+
+        key = {**message_key, 'remoteJid': remote_jid}
+
         payload = {
-            "message": {
-                "key": message_key
-            },
-            "convertToMp4": False
+            "message": {"key": key},
+            "convertToMp4": convert_to_mp4
         }
-        
+
         try:
-            logger.info(f"[Evolution] Baixando mídia: {message_key.get('id', '')[:20]}...")
+            logger.info(f"[Evolution] Baixando mídia: id={key.get('id', '')[:20]} jid={remote_jid} fromMe={key.get('fromMe')}")
             response = requests.post(url, json=payload, headers=self.headers, timeout=60)
-            response.raise_for_status()
-            data = response.json()
-            
-            base64_data = data.get('base64')
-            mimetype = data.get('mimetype', '')
-            
-            if base64_data:
-                logger.info(f"[Evolution] Mídia baixada: {len(base64_data)} caracteres, tipo: {mimetype}")
-                return {
-                    'base64': base64_data,
-                    'mimetype': mimetype
-                }
-            else:
-                logger.warning(f"[Evolution] Resposta sem base64: {list(data.keys())}")
+
+            if not response.ok:
+                logger.error(f"[Evolution] HTTP {response.status_code} ao baixar mídia: {response.text[:300]}")
                 return None
-                
+
+            data = response.json()
+
+            # Tenta múltiplas chaves de resposta (varia entre versões da Evolution API)
+            base64_data = (
+                data.get('base64') or
+                data.get('audio') or
+                data.get('media') or
+                data.get('data', {}).get('base64') if isinstance(data.get('data'), dict) else None
+            )
+            mimetype = data.get('mimetype') or data.get('mimeType') or data.get('mime_type') or ''
+
+            if base64_data:
+                logger.info(f"[Evolution] Mídia baixada: {len(base64_data)} chars, tipo: {mimetype}")
+                return {'base64': base64_data, 'mimetype': mimetype}
+
+            logger.warning(f"[Evolution] Resposta sem base64. Chaves: {list(data.keys())} | Resposta: {str(data)[:300]}")
+            return None
+
         except requests.exceptions.RequestException as e:
-            logger.error(f"[Evolution] Erro ao baixar mídia: {str(e)}")
+            logger.error(f"[Evolution] Erro de rede ao baixar mídia: {str(e)}")
             return None
         except Exception as e:
             logger.error(f"[Evolution] Erro inesperado ao baixar mídia: {str(e)}")

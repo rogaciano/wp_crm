@@ -2266,21 +2266,29 @@ class WhatsappViewSet(viewsets.ModelViewSet):
 
         # Obtém a instância Evolution do canal associado
         service, canal, instance_name = self._get_evolution_service_for_entity(msg.oportunidade_id)
+
+        # Usa o remoteJid correto: para recebidas é o número do remetente, para enviadas é o destinatário
+        remote_number = msg.numero_remetente if not msg.de_mim else msg.numero_destinatario
+        # Remove @s.whatsapp.net se já vier com sufixo
+        remote_number = remote_number.split('@')[0] if remote_number else ''
         key = {
             'id': msg.id_mensagem,
-            'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
+            'remoteJid': f"{remote_number}@s.whatsapp.net",
             'fromMe': msg.de_mim
         }
 
+        logger.info(f"[GetAudio] msg={msg.id} key={key}")
         media_result = service.get_media_base64(key)
 
         if not media_result or not media_result.get('base64'):
+            logger.error(f"[GetAudio] Falha ao baixar áudio para msg={msg.id} key={key}")
             return Response({'error': 'could_not_download_audio'}, status=500)
 
         base64_data = media_result['base64']
-        mimetype = media_result.get('mimetype', 'audio/ogg')
+        mimetype = media_result.get('mimetype') or 'audio/ogg; codecs=opus'
+        if not mimetype.startswith('audio'):
+            mimetype = 'audio/ogg; codecs=opus'
 
-        # Formata o base64 para reprodução
         audio_url = f"data:{mimetype};base64,{base64_data}"
 
         return Response({
@@ -2314,9 +2322,11 @@ class WhatsappViewSet(viewsets.ModelViewSet):
 
         # Obtém a instância Evolution do canal associado
         service, canal, instance_name = self._get_evolution_service_for_entity(msg.oportunidade_id)
+        remote_number = msg.numero_remetente if not msg.de_mim else msg.numero_destinatario
+        remote_number = remote_number.split('@')[0] if remote_number else ''
         key = {
             'id': msg.id_mensagem,
-            'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
+            'remoteJid': f"{remote_number}@s.whatsapp.net",
             'fromMe': msg.de_mim
         }
 
