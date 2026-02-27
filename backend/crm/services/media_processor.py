@@ -27,13 +27,21 @@ def process_audio_async(message_id: int, delay: float = 2.0):
             from crm.services.evolution_api import EvolutionService
             from crm.services.audio_transcription import transcribe_from_base64
             
-            msg = WhatsappMessage.objects.get(id=message_id)
+            msg = WhatsappMessage.objects.select_related('oportunidade__canal').get(id=message_id)
             
             # Só processa se ainda não foi transcrito
             if msg.texto and '🎤 [Áudio]' in msg.texto and 's]:' not in msg.texto:
                 logger.info(f"[AsyncAudio] Processando mensagem {message_id}...")
                 
-                evolution = EvolutionService()
+                # Usa o canal da oportunidade da mensagem, se disponível
+                if msg.oportunidade and msg.oportunidade.canal and msg.oportunidade.canal.evolution_instance_name:
+                    canal = msg.oportunidade.canal
+                    evolution = EvolutionService(
+                        instance_name=canal.evolution_instance_name,
+                        instance_token=canal.evolution_token
+                    )
+                else:
+                    evolution = EvolutionService()
                 key = {
                     'id': msg.id_mensagem,
                     'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
@@ -100,13 +108,21 @@ def process_image_async(message_id: int, delay: float = 1.0):
             from crm.models import WhatsappMessage
             from crm.services.evolution_api import EvolutionService
             
-            msg = WhatsappMessage.objects.get(id=message_id)
+            msg = WhatsappMessage.objects.select_related('oportunidade__canal').get(id=message_id)
             
             # Só processa se ainda não tem base64
             if msg.tipo_mensagem == 'image' and not msg.media_base64:
                 logger.info(f"[AsyncImage] Processando imagem {message_id}...")
                 
-                evolution = EvolutionService()
+                # Usa o canal da oportunidade da mensagem, se disponível
+                if msg.oportunidade and msg.oportunidade.canal and msg.oportunidade.canal.evolution_instance_name:
+                    canal = msg.oportunidade.canal
+                    evolution = EvolutionService(
+                        instance_name=canal.evolution_instance_name,
+                        instance_token=canal.evolution_token
+                    )
+                else:
+                    evolution = EvolutionService()
                 key = {
                     'id': msg.id_mensagem,
                     'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",

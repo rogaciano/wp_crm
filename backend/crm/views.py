@@ -1685,9 +1685,9 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             )
             return service, canal, canal.evolution_instance_name
         
-        # Fallback: usa instância global
+        # Fallback: busca canal padrão do banco, depois settings
         service = EvolutionService()
-        return service, None, settings.EVOLUTION_INSTANCE_ID
+        return service, None, service.instance
 
     def get_queryset(self):
         from django.conf import settings

@@ -3,7 +3,7 @@ import json
 import logging
 from django.conf import settings
 from datetime import datetime
-from ..models import WhatsappMessage, Oportunidade
+from ..models import WhatsappMessage, Oportunidade, Canal
 from django.db.models import Q
 
 logger = logging.getLogger(__name__)
@@ -17,6 +17,33 @@ class EvolutionService:
     2. Instance Token: Para operações em uma instância específica (status, qrcode, etc)
     """
     
+    @classmethod
+    def get_default_canal(cls):
+        """
+        Retorna o primeiro Canal com Evolution configurado no banco.
+        Usado como fallback quando nenhuma instância é especificada.
+        """
+        try:
+            return Canal.objects.filter(
+                evolution_instance_name__isnull=False
+            ).exclude(
+                evolution_instance_name=''
+            ).first()
+        except Exception:
+            return None
+
+    @classmethod
+    def for_canal(cls, canal):
+        """
+        Cria um EvolutionService a partir de um objeto Canal.
+        """
+        if canal and canal.evolution_instance_name:
+            return cls(
+                instance_name=canal.evolution_instance_name,
+                instance_token=canal.evolution_token
+            )
+        return cls()
+
     def __init__(self, instance_name=None, instance_token=None):
         """
         Inicializa o serviço Evolution API.
@@ -27,7 +54,19 @@ class EvolutionService:
         """
         self.global_api_key = settings.EVOLUTION_API_KEY.strip()
         self.base_url = settings.EVOLUTION_API_URL.strip().rstrip('/')
-        self.instance = instance_name.strip() if instance_name else settings.EVOLUTION_INSTANCE_ID.strip()
+        
+        # Prioridade: parâmetro > Canal do banco (EVOLUTION_INSTANCE_ID do .env é ignorado)
+        if instance_name:
+            self.instance = instance_name.strip()
+        else:
+            default_canal = self.get_default_canal()
+            if default_canal and default_canal.evolution_instance_name:
+                self.instance = default_canal.evolution_instance_name.strip()
+                if not instance_token and default_canal.evolution_token:
+                    instance_token = default_canal.evolution_token
+            else:
+                logger.error("[Evolution] Nenhum Canal com evolution_instance_name configurado no banco!")
+                self.instance = ''
         
         # Se tiver instance_token, usa ele; senão usa a global key
         self.api_key = instance_token.strip() if instance_token else self.global_api_key
