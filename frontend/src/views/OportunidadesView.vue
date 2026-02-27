@@ -344,7 +344,8 @@ async function loadOportunidades() {
       search: searchQuery.value || undefined,
       funil: funilFilter.value || undefined,
       canal: canalFilter.value || undefined,
-      estagio__tipo: statusFilter.value || undefined
+      estagio__tipo: statusFilter.value || undefined,
+      funil__tipo: funilFilter.value ? undefined : 'VENDAS' // Só filtra por tipo se não selecionou um funil específico
     }
     
     // Busca lista e stats em paralelo

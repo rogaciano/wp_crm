@@ -696,6 +696,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         'conta': ['exact'],
         'canal': ['exact'],
         'funil': ['exact'],
+        'funil__tipo': ['exact'],
         'contatos': ['exact'],
         'empresas': ['exact'],
     }
@@ -954,6 +955,16 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                 Q(nome__icontains=search) | 
                 Q(conta__nome_empresa__icontains=search)
             )
+
+        # Filtro por tipo de funil (ex: só VENDAS)
+        funil_tipo = request.query_params.get('funil__tipo')
+        if funil_tipo:
+            queryset = queryset.filter(funil__tipo=funil_tipo)
+        
+        # Filtro por funil específico
+        funil_id = request.query_params.get('funil')
+        if funil_id:
+            queryset = queryset.filter(funil_id=funil_id)
 
         data = queryset.aggregate(
             total_valor=Sum('valor_estimado'),
