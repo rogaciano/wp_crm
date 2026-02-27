@@ -2429,6 +2429,26 @@ class WhatsappWebhookView(APIView):
                     remote_jid = key.get('remoteJid', '')
                     from_me = key.get('fromMe', False)
                     
+                    # Trata reações (reactionMessage) — atualiza a mensagem original
+                    message_content = msg_data.get('message', {})
+                    if 'reactionMessage' in message_content:
+                        reaction = message_content['reactionMessage']
+                        original_id = reaction.get('key', {}).get('id')
+                        emoji = reaction.get('text', '')
+                        remote_number = remote_jid.split('@')[0] if remote_jid else ''
+                        try:
+                            original_msg = WhatsappMessage.objects.get(id_mensagem=original_id)
+                            reacoes = list(original_msg.reacoes or [])
+                            # Remove reação anterior do mesmo número
+                            reacoes = [r for r in reacoes if r.get('numero') != remote_number]
+                            if emoji:  # string vazia = remoção da reação
+                                reacoes.append({'emoji': emoji, 'de_mim': from_me, 'numero': remote_number})
+                            original_msg.reacoes = reacoes
+                            original_msg.save(update_fields=['reacoes'])
+                        except WhatsappMessage.DoesNotExist:
+                            pass
+                        continue  # Reação não é salva como mensagem nova
+
                     # Previne duplicatas
                     if WhatsappMessage.objects.filter(id_mensagem=id_msg).exists():
                         continue

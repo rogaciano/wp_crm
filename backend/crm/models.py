@@ -917,7 +917,8 @@ class WhatsappMessage(models.Model):
     tipo_mensagem = models.CharField(max_length=50, default='text', help_text="text, image, video, document, audio, etc")
     url_media = models.URLField(max_length=1000, null=True, blank=True)
     media_base64 = models.TextField(null=True, blank=True, help_text="Base64 da mídia para exibição direta")
-    
+    reacoes = models.JSONField(default=list, blank=True, help_text="Reações [{emoji, de_mim, numero}]")
+
     lida = models.BooleanField(default=False, help_text="True se a mensagem já foi visualizada no CRM")
     timestamp = models.DateTimeField()
     data_criacao = models.DateTimeField(auto_now_add=True)

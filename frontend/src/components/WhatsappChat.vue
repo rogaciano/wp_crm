@@ -174,7 +174,17 @@
               
               <!-- Texto ou Caption -->
               <p class="text-sm whitespace-pre-wrap break-words">{{ msg.texto }}</p>
-              
+
+              <!-- Reações -->
+              <div v-if="msg.reacoes && msg.reacoes.length" class="flex flex-wrap gap-1 mt-1.5 -mb-0.5">
+                <span
+                  v-for="(r, i) in msg.reacoes"
+                  :key="i"
+                  :title="r.de_mim ? 'Você' : 'Contato'"
+                  class="inline-flex items-center bg-white/90 border border-gray-200 rounded-full px-1.5 py-0.5 text-sm shadow-sm leading-none"
+                >{{ r.emoji }}</span>
+              </div>
+
               <div class="flex items-center justify-end space-x-1 mt-1">
                 <span class="text-[9px] text-gray-400">{{ formatTime(msg.timestamp) }}</span>
                 <svg v-if="msg.de_mim" class="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59 21 7z"/></svg>
