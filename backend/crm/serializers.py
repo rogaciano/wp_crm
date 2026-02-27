@@ -314,7 +314,9 @@ class ContaSerializer(serializers.ModelSerializer):
         return obj.contatos.count()
     
     def get_total_oportunidades(self, obj):
-        return obj.oportunidades.count()
+        from django.db.models import Q
+        from .models import Oportunidade
+        return Oportunidade.objects.filter(Q(conta=obj) | Q(empresas=obj)).distinct().count()
     
     def _salvar_marcas_adicionais(self, conta, marcas_data):
         """Salva as marcas adicionais da conta"""
@@ -505,7 +507,9 @@ class ContatoSerializer(serializers.ModelSerializer):
     
     def get_oportunidades(self, obj):
         """Retorna as oportunidades vinculadas a este contato"""
-        opps = obj.oportunidades.all()
+        from django.db.models import Q
+        from .models import Oportunidade
+        opps = Oportunidade.objects.filter(Q(contato_principal=obj) | Q(contatos=obj)).distinct()
         return [{
             'id': opp.id,
             'nome': opp.nome,

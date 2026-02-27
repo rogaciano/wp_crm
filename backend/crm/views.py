@@ -477,7 +477,9 @@ class ContaViewSet(viewsets.ModelViewSet):
     def oportunidades(self, request, pk=None):
         """Lista oportunidades da conta"""
         conta = self.get_object()
-        oportunidades = conta.oportunidades.all()
+        from django.db.models import Q
+        from .models import Oportunidade
+        oportunidades = Oportunidade.objects.filter(Q(conta=conta) | Q(empresas=conta)).distinct()
         serializer = OportunidadeSerializer(oportunidades, many=True, context={'request': request})
         return Response(serializer.data)
 
