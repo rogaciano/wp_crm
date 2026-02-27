@@ -1646,6 +1646,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['oportunidade', 'numero_remetente', 'numero_destinatario']
     ordering_fields = ['timestamp']
+    pagination_class = None  # Chat não usa paginação — retorna todo o histórico do contato
 
     def _get_evolution_service_for_entity(self, opp_id=None):
         """
