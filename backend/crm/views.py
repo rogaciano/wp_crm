@@ -2611,7 +2611,7 @@ class WhatsappWebhookView(APIView):
                         texto=text or '[sem texto]',
                         tipo_mensagem=mtype,
                         url_media=media_url,
-                        media_base64=media_base64 if mtype == 'image' else None,
+                        media_base64=media_base64 if mtype in ['image', 'audio'] else None,
                         timestamp=dt
                     )
                     

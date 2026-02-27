@@ -437,7 +437,7 @@ class EvolutionService:
                 data.get('base64') or
                 data.get('audio') or
                 data.get('media') or
-                data.get('data', {}).get('base64') if isinstance(data.get('data'), dict) else None
+                (data.get('data', {}).get('base64') if isinstance(data.get('data'), dict) else None)
             )
             mimetype = data.get('mimetype') or data.get('mimeType') or data.get('mime_type') or ''
 

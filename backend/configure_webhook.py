@@ -56,7 +56,7 @@ def configure_webhook(crm_base_url):
     payload = {
         "url": webhook_url,
         "webhook_by_events": False,
-        "webhook_base64": False,
+        "webhook_base64": True,
         "events": [
             "MESSAGES_UPSERT",
             "MESSAGES_UPDATE"
