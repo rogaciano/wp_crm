@@ -437,13 +437,18 @@ const loadMessages = async (silent = false) => {
 
       messages.value = newMessages
 
-      // Carrega áudios do cache para mensagens de áudio
+      // Carrega áudios: primeiro do media_base64 da API, depois do cache local
       nextTick(() => {
         newMessages.forEach(msg => {
           if (msg.tipo_mensagem === 'audio') {
-            const cachedUrl = loadAudioFromCache(msg.id)
-            if (cachedUrl) {
-              audioUrls.value[msg.id] = cachedUrl
+            // Se o backend já tem o base64 salvo, usa direto (sem salvar no localStorage - já está no DB)
+            if (msg.media_base64) {
+              audioUrls.value[msg.id] = msg.media_base64
+            } else {
+              const cachedUrl = loadAudioFromCache(msg.id)
+              if (cachedUrl) {
+                audioUrls.value[msg.id] = cachedUrl
+              }
             }
           }
         })
