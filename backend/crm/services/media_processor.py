@@ -50,6 +50,13 @@ def process_audio_async(message_id: int, delay: float = 2.0):
                     time.sleep(2)
                 
                 if media_result and media_result.get('base64'):
+                    # Salva base64 do áudio para reprodução futura
+                    mimetype = media_result.get('mimetype', 'audio/ogg; codecs=opus')
+                    audio_b64 = media_result['base64']
+                    if not audio_b64.startswith('data:'):
+                        audio_b64 = f"data:{mimetype};base64,{audio_b64}"
+                    msg.media_base64 = audio_b64
+
                     # Transcreve
                     transcription = transcribe_from_base64(
                         media_result['base64'],
@@ -61,11 +68,12 @@ def process_audio_async(message_id: int, delay: float = 2.0):
                         new_text = f"🎤 [Áudio {int(duration)}s]: {transcription['text']}"
                         
                         msg.texto = new_text
-                        msg.save(update_fields=['texto'])
+                        msg.save(update_fields=['texto', 'media_base64'])
                         
                         logger.info(f"[AsyncAudio] Mensagem {message_id} transcrita com sucesso!")
                     else:
-                        logger.warning(f"[AsyncAudio] Transcrição retornou vazio para {message_id}")
+                        msg.save(update_fields=['media_base64'])
+                        logger.warning(f"[AsyncAudio] Transcrição retornou vazio para {message_id}, áudio salvo")
                 else:
                     logger.warning(f"[AsyncAudio] Não foi possível baixar mídia para {message_id}")
                     

@@ -2192,6 +2192,13 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                     media_result = service.get_media_base64(key)
                     
                     if media_result and media_result.get('base64'):
+                        # Salva base64 do áudio para reprodução futura
+                        mimetype = media_result.get('mimetype', 'audio/ogg; codecs=opus')
+                        audio_b64 = media_result['base64']
+                        if not audio_b64.startswith('data:'):
+                            audio_b64 = f"data:{mimetype};base64,{audio_b64}"
+                        msg.media_base64 = audio_b64
+
                         transcription = transcribe_from_base64(
                             media_result['base64'],
                             media_result.get('mimetype', '')
@@ -2200,8 +2207,10 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                         if transcription and transcription.get('text'):
                             duration = transcription.get('duration', 0)
                             msg.texto = f"🎤 [Áudio {int(duration)}s]: {transcription['text']}"
-                            msg.save(update_fields=['texto'])
+                            msg.save(update_fields=['texto', 'media_base64'])
                             processed_audio += 1
+                        else:
+                            msg.save(update_fields=['media_base64'])
                             
                 except Exception as e:
                     logger.error(f"[ProcessMedia] Erro ao processar áudio {msg.id}: {e}")
@@ -2261,6 +2270,15 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         if msg.tipo_mensagem != 'audio':
             return Response({'error': 'message is not audio'}, status=400)
 
+        # Verifica se já tem o áudio salvo no banco (cache)
+        if msg.media_base64:
+            logger.info(f"[GetAudio] msg={msg.id} servido do cache DB")
+            return Response({
+                'success': True,
+                'audio_url': msg.media_base64,
+                'mimetype': 'audio/ogg; codecs=opus'
+            })
+
         # Baixa o áudio da Evolution API usando a instância correta
         from .services.evolution_api import EvolutionService
 
@@ -2291,6 +2309,14 @@ class WhatsappViewSet(viewsets.ModelViewSet):
 
         audio_url = f"data:{mimetype};base64,{base64_data}"
 
+        # Salva no banco para próximas requisições
+        try:
+            msg.media_base64 = audio_url
+            msg.save(update_fields=['media_base64'])
+            logger.info(f"[GetAudio] msg={msg.id} áudio salvo no DB para cache")
+        except Exception as e:
+            logger.warning(f"[GetAudio] Falha ao salvar cache DB: {e}")
+
         return Response({
             'success': True,
             'audio_url': audio_url,
@@ -2316,30 +2342,56 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         if msg.tipo_mensagem != 'audio':
             return Response({'error': 'message is not audio'}, status=400)
 
-        # Baixa o áudio da Evolution API usando a instância correta
-        from .services.evolution_api import EvolutionService
         from .services.audio_transcription import transcribe_from_base64
 
-        # Obtém a instância Evolution do canal associado
-        service, canal, instance_name = self._get_evolution_service_for_entity(msg.oportunidade_id)
-        remote_number = msg.numero_remetente if not msg.de_mim else msg.numero_destinatario
-        remote_number = remote_number.split('@')[0] if remote_number else ''
-        key = {
-            'id': msg.id_mensagem,
-            'remoteJid': f"{remote_number}@s.whatsapp.net",
-            'fromMe': msg.de_mim
-        }
+        base64_data = None
+        mimetype = 'audio/ogg'
+        audio_url = None
 
-        media_result = service.get_media_base64(key)
+        # Verifica se já tem o áudio salvo no banco (cache)
+        if msg.media_base64:
+            logger.info(f"[TranscribeAudio] msg={msg.id} usando áudio do cache DB")
+            audio_url = msg.media_base64
+            # Extrai base64 puro e mimetype do data URI para transcrição
+            if msg.media_base64.startswith('data:'):
+                parts = msg.media_base64.split(',', 1)
+                if len(parts) == 2:
+                    mimetype = parts[0].replace('data:', '').replace(';base64', '')
+                    base64_data = parts[1]
+            else:
+                base64_data = msg.media_base64
 
-        if not media_result or not media_result.get('base64'):
-            return Response({'error': 'could_not_download_audio'}, status=500)
+        # Se não tem no cache, baixa da Evolution API
+        if not base64_data:
+            from .services.evolution_api import EvolutionService
 
-        base64_data = media_result['base64']
-        mimetype = media_result.get('mimetype', 'audio/ogg')
+            service, canal, instance_name = self._get_evolution_service_for_entity(msg.oportunidade_id)
+            remote_number = msg.numero_remetente if not msg.de_mim else msg.numero_destinatario
+            remote_number = remote_number.split('@')[0] if remote_number else ''
+            key = {
+                'id': msg.id_mensagem,
+                'remoteJid': f"{remote_number}@s.whatsapp.net",
+                'fromMe': msg.de_mim
+            }
 
-        # Formata o base64 para reprodução
-        audio_url = f"data:{mimetype};base64,{base64_data}"
+            media_result = service.get_media_base64(key)
+
+            if not media_result or not media_result.get('base64'):
+                return Response({'error': 'could_not_download_audio'}, status=500)
+
+            base64_data = media_result['base64']
+            mimetype = media_result.get('mimetype', 'audio/ogg')
+
+            # Formata o base64 para reprodução
+            audio_url = f"data:{mimetype};base64,{base64_data}"
+
+            # Salva no banco para próximas requisições
+            try:
+                msg.media_base64 = audio_url
+                msg.save(update_fields=['media_base64'])
+                logger.info(f"[TranscribeAudio] msg={msg.id} áudio salvo no DB para cache")
+            except Exception as e:
+                logger.warning(f"[TranscribeAudio] Falha ao salvar cache DB: {e}")
 
         # Tenta transcrever
         transcription_text = None
@@ -2500,17 +2552,27 @@ class WhatsappWebhookView(APIView):
                                 
                                 # Extrai URL da mídia para referência
                                 media_url = media_content.get('url') or media_content.get('directPath')
-                                
-                                # Define texto temporário e marca para processamento assíncrono
+
+                                # Captura base64 se a Evolution API enviou via Webhook Base64
+                                inline_b64 = media_content.get('base64') or msg_data.get('base64')
+                                if inline_b64:
+                                    mimetype = media_content.get('mimetype') or media_content.get('mimeType') or ''
+                                    if not inline_b64.startswith('data:'):
+                                        inline_b64 = f"data:{mimetype};base64,{inline_b64}" if mimetype else inline_b64
+                                    media_base64 = inline_b64
+
+                                # Define texto temporário; só marca async se não tiver base64 inline
                                 if media_type == 'audioMessage':
                                     if not text:
                                         text = "🎤 [Áudio]"
-                                    needs_async_processing = True
+                                    if not media_base64:
+                                        needs_async_processing = True
 
                                 elif media_type == 'imageMessage':
                                     if not text:
                                         text = "📷 [Imagem]"
-                                    needs_async_processing = True
+                                    if not media_base64:
+                                        needs_async_processing = True
                                     
                                 elif media_type == 'videoMessage':
                                     if not text:
@@ -2600,6 +2662,13 @@ class WhatsappWebhookView(APIView):
                                         msg.save(update_fields=['media_base64'])
 
                                     elif media_type == 'audio':
+                                        # Salva base64 do áudio para reprodução futura
+                                        mimetype = media_result.get('mimetype', 'audio/ogg; codecs=opus')
+                                        audio_b64 = media_result['base64']
+                                        if not audio_b64.startswith('data:'):
+                                            audio_b64 = f"data:{mimetype};base64,{audio_b64}"
+                                        msg.media_base64 = audio_b64
+
                                         # Transcreve áudio
                                         from .services.audio_transcription import transcribe_from_base64
                                         transcription = transcribe_from_base64(
@@ -2609,7 +2678,9 @@ class WhatsappWebhookView(APIView):
                                         if transcription and transcription.get('text'):
                                             duration = transcription.get('duration', 0)
                                             msg.texto = f"🎤 [Áudio {int(duration)}s]: {transcription['text']}"
-                                            msg.save(update_fields=['texto'])
+                                            msg.save(update_fields=['texto', 'media_base64'])
+                                        else:
+                                            msg.save(update_fields=['media_base64'])
 
                             except Exception as e:
                                 logger.error(f"[ASYNC] Erro ao processar mídia {msg_id}: {e}")
