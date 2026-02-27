@@ -1935,7 +1935,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Número é obrigatório'}, status=400)
 
         # Obtém o serviço Evolution do canal correto
-        service, canal, instance_name = self._get_evolution_service_for_entity(lead_id, opp_id)
+        service, canal, instance_name = self._get_evolution_service_for_entity(opp_id)
 
         try:
             # Busca mensagens da API Evolution
@@ -2010,12 +2010,11 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                     texto=text or '[sem texto]',
                     tipo_mensagem=mtype,
                     timestamp=dt,
-                    lead_id=lead_id,
                     oportunidade_id=opp_id
                 )
-                
-                # Tenta linkar com Lead/Oportunidade se não foi fornecido
-                if not lead_id and not opp_id:
+
+                # Tenta linkar com Oportunidade se não foi fornecido
+                if not opp_id:
                     EvolutionService.identify_and_link_message(msg_obj)
                 
                 imported_count += 1
@@ -2161,7 +2160,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             for msg in pending_audio[:5]:  # Limita para não demorar muito
                 try:
                     # Obtém a instância Evolution do canal da mensagem
-                    service, canal, instance_name = self._get_evolution_service_for_entity(msg.lead_id, msg.oportunidade_id)
+                    service, canal, instance_name = self._get_evolution_service_for_entity(msg.oportunidade_id)
                     
                     key = {
                         'id': msg.id_mensagem,
@@ -2193,7 +2192,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             for msg in pending_images[:10]:  # Limita
                 try:
                     # Obtém a instância Evolution do canal da mensagem
-                    service, canal, instance_name = self._get_evolution_service_for_entity(msg.lead_id, msg.oportunidade_id)
+                    service, canal, instance_name = self._get_evolution_service_for_entity(msg.oportunidade_id)
                     
                     key = {
                         'id': msg.id_mensagem,
@@ -2245,7 +2244,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         from .services.evolution_api import EvolutionService
 
         # Obtém a instância Evolution do canal associado
-        service, canal, instance_name = self._get_evolution_service_for_entity(msg.lead_id, msg.oportunidade_id)
+        service, canal, instance_name = self._get_evolution_service_for_entity(msg.oportunidade_id)
         key = {
             'id': msg.id_mensagem,
             'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
@@ -2293,7 +2292,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         from .services.audio_transcription import transcribe_from_base64
 
         # Obtém a instância Evolution do canal associado
-        service, canal, instance_name = self._get_evolution_service_for_entity(msg.lead_id, msg.oportunidade_id)
+        service, canal, instance_name = self._get_evolution_service_for_entity(msg.oportunidade_id)
         key = {
             'id': msg.id_mensagem,
             'remoteJid': f"{msg.numero_remetente}@s.whatsapp.net",
@@ -2530,16 +2529,11 @@ class WhatsappWebhookView(APIView):
                                     instance_token=None
                                 )
                                 
-                                # Tenta pegar de configuração do canal
-                                if msg.lead and msg.lead.canal:
-                                    service = EvolutionService(
-                                        instance_name=msg.lead.canal.evolution_instance_name or instance_name,
-                                        instance_token=msg.lead.canal.evolution_api_key
-                                    )
-                                elif msg.oportunidade and msg.oportunidade.canal:
+                                # Tenta pegar de configuração do canal via Oportunidade
+                                if msg.oportunidade and msg.oportunidade.canal:
                                     service = EvolutionService(
                                         instance_name=msg.oportunidade.canal.evolution_instance_name or instance_name,
-                                        instance_token=msg.oportunidade.canal.evolution_api_key
+                                        instance_token=msg.oportunidade.canal.evolution_token
                                     )
                                 
                                 media_result = service.get_media_base64(msg_key)
