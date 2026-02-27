@@ -39,4 +39,5 @@ router.register(r'organograma', OrganogramaViewSet, basename='organograma')
 urlpatterns = [
     path('', include(router.urls)),
     path('webhooks/whatsapp/', WhatsappWebhookView.as_view(), name='whatsapp-webhook'),
+    path('webhook/whatsapp/', WhatsappWebhookView.as_view(), name='whatsapp-webhook-alias'),  # alias sem 's'
 ]

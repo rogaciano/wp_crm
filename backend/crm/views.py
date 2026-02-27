@@ -2375,7 +2375,7 @@ class WhatsappWebhookView(APIView):
         data = request.data
 
         # Log para debug (ajuda muito a identificar mudanças na API Evolution)
-        # logger.debug(f"[WEBHOOK] Payload: {json.dumps(data)[:500]}...")
+        logger.warning(f"[WEBHOOK] Payload recebido | event={data.get('event')} instance={data.get('instance')} | {json.dumps(data)[:800]}")
         
         event = data.get('event', '').lower()
         instance = data.get('instance', 'unknown')
