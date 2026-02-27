@@ -1,7 +1,7 @@
 <template>
   <BaseModal
     :show="show"
-    :title="isEdit ? 'Editar Oportunidade' : 'Nova Oportunidade'"
+    title="Nova Oportunidade"
     size="xl"
     @close="$emit('close')"
     @confirm="handleSubmit"

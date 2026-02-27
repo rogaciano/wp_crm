@@ -232,6 +232,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '@/services/api'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
 import FaturamentoModal from '@/components/FaturamentoModal.vue'
@@ -239,6 +240,7 @@ import WhatsappChat from '@/components/WhatsappChat.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
+const router = useRouter()
 
 // Ícones simples
 const IconPipeline = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>' }
@@ -375,8 +377,7 @@ function openCreateModal() {
 }
 
 function openEditModal(oportunidade) {
-  selectedOportunidade.value = oportunidade
-  showModal.value = true
+  router.push({ name: 'oportunidade-detail', params: { id: oportunidade.id } })
 }
 
 function closeModal() {

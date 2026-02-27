@@ -349,8 +349,12 @@ async function refreshContacts() {
 }
 
 function openOportunidadeModal(oportunidade = null) {
-  selectedOportunidade.value = oportunidade
-  showOportunidadeModal.value = true
+  if (oportunidade && oportunidade.id) {
+    router.push({ name: 'oportunidade-detail', params: { id: oportunidade.id } })
+  } else {
+    selectedOportunidade.value = null
+    showOportunidadeModal.value = true
+  }
 }
 
 function openEditContaModal() {
