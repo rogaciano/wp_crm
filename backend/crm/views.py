@@ -1838,16 +1838,18 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             # Formata o número para armazenamento consistente
             formatted_number = service._format_number(number)
 
-            # Salva localmente usando a instância correta
-            msg = WhatsappMessage.objects.create(
+            # Salva localmente (webhook pode ter chegado antes — usa get_or_create para evitar IntegrityError)
+            msg, _ = WhatsappMessage.objects.get_or_create(
                 id_mensagem=msg_id,
-                instancia=instance_name,
-                de_mim=True,
-                numero_remetente=instance_name,
-                numero_destinatario=formatted_number,
-                texto=text,
-                timestamp=timezone.now(),
-                oportunidade_id=opp_id
+                defaults=dict(
+                    instancia=instance_name,
+                    de_mim=True,
+                    numero_remetente=instance_name,
+                    numero_destinatario=formatted_number,
+                    texto=text,
+                    timestamp=timezone.now(),
+                    oportunidade_id=opp_id
+                )
             )
 
             return Response(WhatsappMessageSerializer(msg).data)
@@ -1901,20 +1903,27 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             if not mime_type:
                 mime_type = 'image/jpeg'
             
-            # Salva localmente com base64 completo
-            msg = WhatsappMessage.objects.create(
+            # Salva localmente com base64 completo (webhook pode ter chegado antes)
+            media_b64 = f"data:{mime_type};base64,{media}" if media_type == 'image' else None
+            msg, created = WhatsappMessage.objects.get_or_create(
                 id_mensagem=msg_id,
-                instancia=instance_name,
-                de_mim=True,
-                numero_remetente=instance_name,
-                numero_destinatario=formatted_number,
-                texto=caption or f"📷 [Imagem: {file_name}]",
-                tipo_mensagem=media_type,
-                media_base64=f"data:{mime_type};base64,{media}" if media_type == 'image' else None,
-                timestamp=timezone.now(),
-                oportunidade_id=opp_id
+                defaults=dict(
+                    instancia=instance_name,
+                    de_mim=True,
+                    numero_remetente=instance_name,
+                    numero_destinatario=formatted_number,
+                    texto=caption or f"📷 [Imagem: {file_name}]",
+                    tipo_mensagem=media_type,
+                    media_base64=media_b64,
+                    timestamp=timezone.now(),
+                    oportunidade_id=opp_id
+                )
             )
-            
+            # Se o webhook criou antes (sem media_base64), atualiza com o dado local
+            if not created and media_b64 and not msg.media_base64:
+                msg.media_base64 = media_b64
+                msg.save(update_fields=['media_base64'])
+
             return Response(WhatsappMessageSerializer(msg).data)
         except Exception as e:
             logger.exception(f"Erro ao enviar mídia WhatsApp: {e}")
