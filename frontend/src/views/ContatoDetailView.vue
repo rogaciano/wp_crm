@@ -167,7 +167,7 @@
           <TimelineFeed 
             model="contato" 
             :id="contato.id" 
-            @action="(type) => console.log('Timeline Action:', type)" 
+            @action="handleTimelineAction" 
           />
         </div>
       </div>
@@ -250,6 +250,14 @@
       @close="showEditModal = false"
       @saved="handleSaved"
     />
+
+    <WhatsappChat
+      :show="showWhatsapp"
+      :number="whatsappData.number"
+      :title="whatsappData.title"
+      :oportunidade="whatsappData.oportunidade"
+      @close="showWhatsapp = false"
+    />
   </div>
 </template>
 
@@ -259,6 +267,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import ContatoModal from '@/components/ContatoModal.vue'
 import TimelineFeed from '@/components/TimelineFeed.vue'
+import WhatsappChat from '@/components/WhatsappChat.vue'
 import { sanitizeHtml } from '@/utils/sanitize'
 
 const route = useRoute()
@@ -267,6 +276,8 @@ const router = useRouter()
 const contato = ref(null)
 const loading = ref(false)
 const showEditModal = ref(false)
+const showWhatsapp = ref(false)
+const whatsappData = ref({ number: '', title: '', oportunidade: null })
 
 const telefonePrincipal = computed(() => {
   if (!contato.value?.telefones?.length) return null
@@ -314,7 +325,15 @@ function abrirWhatsapp() {
     cleanNumber = '55' + cleanNumber
   }
   
-  window.open(`https://wa.me/${cleanNumber}`, '_blank')
+  whatsappData.value = { number: cleanNumber, title: contato.value?.nome || '', oportunidade: null }
+  showWhatsapp.value = true
+}
+
+function handleTimelineAction(action) {
+  if (action === 'whatsapp') {
+    abrirWhatsapp()
+    return
+  }
 }
 
 function irParaOportunidade(id) {
