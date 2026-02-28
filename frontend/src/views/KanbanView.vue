@@ -63,6 +63,18 @@
         <option value="">Todos os status</option>
       </select>
 
+      <div class="relative">
+        <input
+          v-model="searchTerm"
+          type="text"
+          placeholder="Buscar oportunidade, conta..."
+          class="bg-gray-50 border-0 rounded-xl pl-9 pr-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all w-52"
+        />
+        <svg class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 6 6a7.5 7.5 0 0 0 10.65 10.65Z" />
+        </svg>
+      </div>
+
       <!-- Botão Nova Oportunidade -->
       <button 
         @click="openCreateModal" 
@@ -78,7 +90,7 @@
     <!-- Mobile Stage Selector -->
     <div class="lg:hidden flex gap-2 overflow-x-auto pb-4 custom-scrollbar snap-x no-scrollbar">
       <button 
-        v-for="coluna in kanbanData" 
+        v-for="coluna in kanbanColumns" 
         :key="'tab-' + coluna.estagio.id"
         @click="scrollToStage(coluna.estagio.id)"
         class="flex-shrink-0 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all whitespace-nowrap"
@@ -119,7 +131,7 @@
       @scroll="updateActiveStage"
     >
       <div
-        v-for="coluna in kanbanData"
+        v-for="coluna in kanbanColumns"
         :key="coluna.estagio.id"
         :id="'stage-' + coluna.estagio.id"
         class="flex-shrink-0 w-[260px] sm:w-[300px] lg:w-[320px] snap-center"
@@ -310,6 +322,7 @@ const selectedOportunidade = ref(null)
 const draggedItem = ref(null)
 const activeContextEstagioId = ref(null)
 const activeStatus = ref('')
+const searchTerm = ref('')
 
 const activeTipoFunil = ref(route.query.tipo || 'VENDAS')
 const tiposFunil = [
@@ -328,6 +341,37 @@ watch(() => route.query.tipo, (newTipo) => {
 
 const filteredFunis = computed(() => {
   return funis.value.filter(f => f.tipo === activeTipoFunil.value)
+})
+
+function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+const normalizedSearchTerm = computed(() => normalizeSearchText(searchTerm.value).trim())
+
+const kanbanColumns = computed(() => {
+  const term = normalizedSearchTerm.value
+  if (!term) return kanbanData.value
+
+  return kanbanData.value.map((coluna) => ({
+    ...coluna,
+    items: (coluna.items || []).filter((item) => {
+      const searchable = [
+        item.nome,
+        item.conta_nome,
+        item.contato_nome,
+        item.origem_nome,
+        item.fonte
+      ]
+        .map(normalizeSearchText)
+        .join(' ')
+
+      return searchable.includes(term)
+    })
+  }))
 })
 
 const activeStage = ref(null)
@@ -360,14 +404,14 @@ function scrollToStage(stageId) {
 }
 
 function updateActiveStage() {
-  if (!kanbanContainer.value || !kanbanData.value.length) return
+  if (!kanbanContainer.value || !kanbanColumns.value.length) return
   const container = kanbanContainer.value
   const scrollLeft = container.scrollLeft
   
   // Find which column is most visible
   const index = Math.round(scrollLeft / 280) // 280 is mobile column width
-  if (kanbanData.value[index]) {
-    activeStage.value = kanbanData.value[index].estagio.id
+  if (kanbanColumns.value[index]) {
+    activeStage.value = kanbanColumns.value[index].estagio.id
   }
 }
 
