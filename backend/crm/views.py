@@ -702,6 +702,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         'funil__tipo': ['exact'],
         'contatos': ['exact'],
         'empresas': ['exact'],
+        'origem': ['exact'],
     }
     search_fields = ['nome', 'conta__nome_empresa', 'empresas__nome_empresa', 'contatos__nome']
     ordering_fields = ['nome', 'conta__nome_empresa', 'valor_estimado', 'data_fechamento_esperada', 'data_criacao']

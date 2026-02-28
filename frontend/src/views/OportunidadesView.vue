@@ -14,7 +14,7 @@
 
     <!-- Filtros -->
     <div class="card mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <input
           v-model="searchQuery"
           type="text"
@@ -32,11 +32,14 @@
           <option value="PERDIDO">Perdidos</option>
           <option value="">Todos os Status</option>
         </select>
+        <select v-model="origemFilter" class="input" @change="loadOportunidades">
+          <option value="">Todas as Fontes</option>
+          <option v-for="o in origensOptions" :key="o.id" :value="o.id">{{ o.nome }}</option>
+        </select>
         <select v-if="authStore.isAdmin" v-model="canalFilter" class="input" @change="loadOportunidades">
           <option value="">Todos os Canais</option>
           <option v-for="c in canaisOptions" :key="c.id" :value="c.id">{{ c.nome }}</option>
         </select>
-        <div v-else></div> <!-- Spacer -->
       </div>
     </div>
 
@@ -98,10 +101,9 @@
                     </span>
                   </span>
                 </th>
+                <th class="table-header">Fonte</th>
                 <th class="table-header text-right">Valor</th>
                 <th class="table-header text-center">Estágio</th>
-                <th class="table-header text-center">Previsão</th>
-                <th class="table-header text-center">Prob.</th>
                 <th class="table-header text-center sticky right-0 bg-gray-50">Ações</th>
               </tr>
             </thead>
@@ -113,6 +115,9 @@
                 <td class="table-cell text-gray-500 max-w-[180px] truncate" :title="oportunidade.conta_nome">
                   {{ oportunidade.conta_nome }}
                 </td>
+                <td class="table-cell text-gray-500 max-w-[140px] truncate" :title="oportunidade.origem_nome">
+                  {{ oportunidade.origem_nome || '—' }}
+                </td>
                 <td class="table-cell text-right font-semibold text-green-600 whitespace-nowrap">
                   R$ {{ Number(oportunidade.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
                 </td>
@@ -121,8 +126,6 @@
                     {{ oportunidade.estagio_nome }}
                   </span>
                 </td>
-                <td class="table-cell text-center text-gray-500 whitespace-nowrap">{{ formatDate(oportunidade.data_fechamento_esperada) }}</td>
-                <td class="table-cell text-center text-gray-500">{{ oportunidade.probabilidade }}%</td>
                 <td class="table-cell sticky right-0 bg-white">
                   <div class="flex justify-center items-center gap-1">
                     <button @click="openWhatsapp(oportunidade)" class="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg" title="WhatsApp">
@@ -334,8 +337,10 @@ const searchQuery = ref('')
 const funilFilter = ref('')
 const canalFilter = ref('')
 const statusFilter = ref('ABERTO')
+const origemFilter = ref('')
 const funisOptions = ref([])
 const canaisOptions = ref([])
+const origensOptions = ref([])
 const currentPage = ref(1)
 const totalItems = ref(0)
 const pageSize = ref(20)
@@ -407,12 +412,14 @@ onMounted(() => {
 
 async function loadFilterOptions() {
   try {
-    const [funisRes, canaisRes] = await Promise.all([
+    const [funisRes, canaisRes, origensRes] = await Promise.all([
       api.get('/funis/', { params: { tipo: 'VENDAS' } }),
-      authStore.isAdmin ? api.get('/canais/') : Promise.resolve({ data: [] })
+      authStore.isAdmin ? api.get('/canais/') : Promise.resolve({ data: [] }),
+      api.get('/origens/')
     ])
     funisOptions.value = funisRes.data.results || funisRes.data
     canaisOptions.value = canaisRes.data.results || canaisRes.data
+    origensOptions.value = origensRes.data.results || origensRes.data
   } catch (err) {
     console.error('Erro ao carregar opções de filtro:', err)
   }
@@ -429,6 +436,7 @@ async function loadOportunidades() {
       canal: canalFilter.value || undefined,
       estagio__tipo: statusFilter.value || undefined,
       funil__tipo: funilFilter.value ? undefined : 'VENDAS',
+      origem: origemFilter.value || undefined,
       ordering: sortField.value
         ? (sortDir.value === 'desc' ? '-' : '') + (sortField.value === 'conta' ? 'conta__nome_empresa' : 'nome')
         : undefined
