@@ -85,10 +85,32 @@
         </svg>
         <span class="hidden sm:inline">Nova</span>
       </button>
+
+      <!-- Toggle Kanban / Lista -->
+      <div class="flex bg-gray-100 rounded-xl p-0.5 border border-gray-200">
+        <button
+          @click="setViewMode('kanban')"
+          :class="['p-2 rounded-lg transition-all', viewMode === 'kanban' ? 'bg-white shadow text-primary-600' : 'text-gray-400 hover:text-gray-600']"
+          title="Visualização Kanban"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+          </svg>
+        </button>
+        <button
+          @click="setViewMode('lista')"
+          :class="['p-2 rounded-lg transition-all', viewMode === 'lista' ? 'bg-white shadow text-primary-600' : 'text-gray-400 hover:text-gray-600']"
+          title="Visualização Lista"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
     </div>
 
-    <!-- Mobile Stage Selector -->
-    <div class="lg:hidden flex gap-2 overflow-x-auto pb-4 custom-scrollbar snap-x no-scrollbar">
+    <!-- Mobile Stage Selector (only in kanban mode) -->
+    <div v-show="viewMode === 'kanban'" class="lg:hidden flex gap-2 overflow-x-auto pb-4 custom-scrollbar snap-x no-scrollbar">
       <button 
         v-for="coluna in kanbanColumns" 
         :key="'tab-' + coluna.estagio.id"
@@ -104,6 +126,8 @@
       </button>
     </div>
 
+    <!-- Kanban loading/error/empty/grid (hidden in list mode) -->
+    <div v-show="viewMode === 'kanban'">
     <div v-if="loading" class="text-center py-24">
       <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary-100 border-b-primary-600"></div>
       <p class="mt-4 text-gray-400 font-bold uppercase text-[10px] tracking-widest">Sincronizando pipeline...</p>
@@ -263,8 +287,94 @@
         </div>
       </div>
     </div>
+    </div> <!-- end kanban-only section -->
 
-    <!-- Modals -->
+    <!-- ============ LISTA VIEW ============ -->
+    <div v-if="!loading && !error && viewMode === 'lista'" class="card overflow-hidden mt-2">
+      <div class="hidden md:block overflow-x-auto">
+        <table class="table min-w-full">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="table-header">Nome</th>
+              <th class="table-header">Conta</th>
+              <th class="table-header">Estágio</th>
+              <th class="table-header">Fonte</th>
+              <th class="table-header text-right">Valor</th>
+              <th class="table-header text-center sticky right-0 bg-gray-50">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-if="listItems.length === 0">
+              <td colspan="6" class="py-12 text-center text-gray-400 text-sm">Nenhum registro encontrado.</td>
+            </tr>
+            <tr v-for="item in listItems" :key="item.id" class="hover:bg-gray-50">
+              <td class="table-cell font-medium text-gray-900 max-w-[200px] truncate" :title="item.nome">
+                {{ item.nome }}
+              </td>
+              <td class="table-cell text-gray-500 max-w-[180px] truncate" :title="item.conta_nome">
+                {{ item.conta_nome || '—' }}
+              </td>
+              <td class="table-cell text-center">
+                <span class="px-2 py-1 text-xs rounded-full font-medium whitespace-nowrap" :style="{ backgroundColor: (item.estagio_cor || '#ccc') + '20', color: item.estagio_cor || '#666' }">
+                  {{ item.estagio_nome }}
+                </span>
+              </td>
+              <td class="table-cell text-gray-500 max-w-[140px] truncate" :title="item.origem_nome">
+                {{ item.origem_nome || item.fonte || '—' }}
+              </td>
+              <td class="table-cell text-right font-semibold text-green-600 whitespace-nowrap">
+                R$ {{ Number(item.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+              </td>
+              <td class="table-cell sticky right-0 bg-white">
+                <div class="flex justify-center items-center gap-1">
+                  <button @click.stop="openWhatsapp(item)" class="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg" title="WhatsApp">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.041-.534c.945.512 1.99.782 3.245.782 3.181 0 5.766-2.587 5.768-5.766 0-3.181-2.587-5.766-5.866-5.751zm3.387 7.464c-.135-.067-.807-.399-.933-.444-.124-.045-.215-.067-.306.067-.09.135-.352.444-.43.534-.08.09-.158.101-.293.034-.135-.067-.57-.209-1.085-.67-.399-.356-.67-.795-.749-.933-.08-.135-.011-.202.056-.27.06-.06.135-.158.203-.237.067-.08.09-.135.135-.225.045-.09.022-.169-.011-.237-.034-.067-.306-.745-.421-.998-.103-.236-.211-.201-.306-.201h-.26c-.09 0-.237.034-.361.169s-.474.464-.474 1.13c0 .665.485 1.307.553 1.398.067.09.954 1.458 2.312 2.044.323.139.575.221.77.283.325.103.621.088.854.054.26-.039.807-.33 1.019-.648.214-.318.214-.593.15-.648-.063-.056-.233-.09-.368-.157z"/></svg>
+                  </button>
+                  <button @click.stop="openFaturamentoModal(item)" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Faturamento">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </button>
+                  <button v-if="item.plano" @click.stop="openPropostaPreview(item.id)" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg" title="Proposta">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1.01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  </button>
+                  <button @click.stop="editItem(item)" class="p-1.5 text-primary-600 hover:bg-primary-50 rounded-lg" title="Editar">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  </button>
+                  <button @click.stop="deleteOportunidade(item.id)" class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg" title="Excluir">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile cards no modo lista -->
+      <div class="md:hidden divide-y divide-gray-100">
+        <div v-if="listItems.length === 0" class="py-12 text-center text-gray-400 text-sm">Nenhum registro encontrado.</div>
+        <div v-for="item in listItems" :key="'m-' + item.id" class="p-4">
+          <div class="flex justify-between items-start mb-2">
+            <div @click="editItem(item)" class="cursor-pointer">
+              <h3 class="font-bold text-gray-900">{{ item.nome }}</h3>
+              <p class="text-sm text-gray-500">{{ item.conta_nome || '—' }}</p>
+            </div>
+            <span class="px-2 py-1 text-[10px] font-bold uppercase rounded-full" :style="{ backgroundColor: (item.estagio_cor || '#ccc') + '20', color: item.estagio_cor || '#666' }">
+              {{ item.estagio_nome }}
+            </span>
+          </div>
+          <div class="flex flex-wrap justify-end gap-x-4 gap-y-2 border-t pt-3 mt-3">
+            <button @click.stop="openWhatsapp(item)" class="text-xs font-bold text-emerald-600 uppercase tracking-wider">WhatsApp</button>
+            <button @click.stop="openFaturamentoModal(item)" class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Faturamento</button>
+            <button @click.stop="editItem(item)" class="text-xs font-bold text-primary-600 uppercase tracking-wider">Editar</button>
+            <button @click.stop="deleteOportunidade(item.id)" class="text-xs font-bold text-red-600 uppercase tracking-wider">Excluir</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    </div> <!-- end kanban view wrapper -->
+
+    <!-- Modals (always mounted regardless of view mode) -->
     <OportunidadeModal
       :show="showModal"
       :oportunidade="selectedOportunidade"
@@ -289,7 +399,6 @@
       @close="showFaturamentoModal = false"
       @saved="handleSaved"
     />
-
 
   </div>
 </template>
@@ -325,6 +434,14 @@ const activeStatus = ref('')
 const searchTerm = ref('')
 
 const activeTipoFunil = ref(route.query.tipo || 'VENDAS')
+
+const STORAGE_KEY = 'crm_view_mode'
+const viewMode = ref(localStorage.getItem(STORAGE_KEY) || 'kanban')
+
+function setViewMode(mode) {
+  viewMode.value = mode
+  localStorage.setItem(STORAGE_KEY, mode)
+}
 const tiposFunil = [
   { id: 'VENDAS', label: 'Vendas' },
   { id: 'POS_VENDA', label: 'Pós-Venda' },
@@ -376,6 +493,17 @@ const kanbanColumns = computed(() => {
 
 const activeStage = ref(null)
 const kanbanContainer = ref(null)
+
+// All items flat for list view
+const listItems = computed(() => {
+  return kanbanColumns.value.flatMap(col =>
+    col.items.map(item => ({
+      ...item,
+      estagio_nome: item.estagio_nome || col.estagio.nome,
+      estagio_cor: item.estagio_cor || col.estagio.cor
+    }))
+  )
+})
 
 const showWhatsapp = ref(false)
 const whatsappData = ref({
