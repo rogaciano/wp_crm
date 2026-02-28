@@ -212,7 +212,18 @@
                 {{ item.status_cliente_display }}
               </span>
               
-              <h4 class="font-black text-gray-800 mb-3 leading-tight group-hover:text-primary-600 transition-colors pr-24">{{ item.nome }}</h4>
+              <h4 class="font-black text-gray-800 mb-2 leading-tight group-hover:text-primary-600 transition-colors pr-24">{{ item.nome }}</h4>
+
+              <div v-if="item.tags_detail?.length" class="mb-3 flex flex-wrap gap-1.5">
+                <span
+                  v-for="tag in item.tags_detail"
+                  :key="`kanban-tag-${item.id}-${tag.id}`"
+                  class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide border"
+                  :style="{ backgroundColor: `${tag.cor || '#64748B'}20`, color: tag.cor || '#64748B', borderColor: `${tag.cor || '#64748B'}40` }"
+                >
+                  {{ tag.nome }}
+                </span>
+              </div>
               
               <div class="text-[11px] text-gray-500 space-y-2.5">
                 <p class="flex items-center font-bold text-gray-400">
@@ -307,8 +318,18 @@
               <td colspan="6" class="py-12 text-center text-gray-400 text-sm">Nenhum registro encontrado.</td>
             </tr>
             <tr v-for="item in listItems" :key="item.id" class="hover:bg-gray-50">
-              <td class="table-cell font-medium text-gray-900 max-w-[200px] truncate" :title="item.nome">
-                {{ item.nome }}
+              <td class="table-cell max-w-[260px]" :title="item.nome">
+                <div class="font-medium text-gray-900 truncate">{{ item.nome }}</div>
+                <div v-if="item.tags_detail?.length" class="mt-1.5 flex flex-wrap gap-1">
+                  <span
+                    v-for="tag in item.tags_detail"
+                    :key="`list-tag-${item.id}-${tag.id}`"
+                    class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide border"
+                    :style="{ backgroundColor: `${tag.cor || '#64748B'}20`, color: tag.cor || '#64748B', borderColor: `${tag.cor || '#64748B'}40` }"
+                  >
+                    {{ tag.nome }}
+                  </span>
+                </div>
               </td>
               <td class="table-cell text-gray-500 max-w-[180px] truncate" :title="item.conta_nome">
                 {{ item.conta_nome || '—' }}
@@ -356,6 +377,16 @@
             <div @click="editItem(item)" class="cursor-pointer">
               <h3 class="font-bold text-gray-900">{{ item.nome }}</h3>
               <p class="text-sm text-gray-500">{{ item.conta_nome || '—' }}</p>
+              <div v-if="item.tags_detail?.length" class="mt-1.5 flex flex-wrap gap-1">
+                <span
+                  v-for="tag in item.tags_detail"
+                  :key="`mobile-list-tag-${item.id}-${tag.id}`"
+                  class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide border"
+                  :style="{ backgroundColor: `${tag.cor || '#64748B'}20`, color: tag.cor || '#64748B', borderColor: `${tag.cor || '#64748B'}40` }"
+                >
+                  {{ tag.nome }}
+                </span>
+              </div>
             </div>
             <span class="px-2 py-1 text-[10px] font-bold uppercase rounded-full" :style="{ backgroundColor: (item.estagio_cor || '#ccc') + '20', color: item.estagio_cor || '#666' }">
               {{ item.estagio_nome }}
