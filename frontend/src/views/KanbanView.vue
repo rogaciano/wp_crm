@@ -51,16 +51,15 @@
         </option>
       </select>
 
-      <!-- Status Selector -->
+      <!-- Estágio Selector -->
       <select 
-        v-model="activeStatus" 
-        @change="loadKanban"
+        v-model="selectedEstagio"
         class="bg-gray-50 border-0 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all cursor-pointer"
       >
-        <option value="ABERTO">{{ activeTipoFunil === 'VENDAS' ? 'Em aberto' : 'Em andamento' }}</option>
-        <option value="GANHO">{{ activeTipoFunil === 'VENDAS' ? 'Ganhos' : 'Finalizados' }}</option>
-        <option value="PERDIDO">{{ activeTipoFunil === 'VENDAS' ? 'Perdidos' : 'Cancelados' }}</option>
-        <option value="">Todos os status</option>
+        <option value="">Todos os estágios</option>
+        <option v-for="col in kanbanData" :key="col.estagio.id" :value="col.estagio.id">
+          {{ col.estagio.nome }}
+        </option>
       </select>
 
       <div class="relative">
@@ -428,7 +427,7 @@ const showModal = ref(false)
 const selectedOportunidade = ref(null)
 const draggedItem = ref(null)
 const activeContextEstagioId = ref(null)
-const activeStatus = ref('')
+const selectedEstagio = ref('')
 const searchTerm = ref('')
 
 const activeTipoFunil = ref(route.query.tipo || 'VENDAS')
@@ -469,24 +468,26 @@ const normalizedSearchTerm = computed(() => normalizeSearchText(searchTerm.value
 
 const kanbanColumns = computed(() => {
   const term = normalizedSearchTerm.value
-  if (!term) return kanbanData.value
 
-  return kanbanData.value.map((coluna) => ({
-    ...coluna,
-    items: (coluna.items || []).filter((item) => {
-      const searchable = [
-        item.nome,
-        item.conta_nome,
-        item.contato_nome,
-        item.origem_nome,
-        item.fonte
-      ]
-        .map(normalizeSearchText)
-        .join(' ')
-
-      return searchable.includes(term)
-    })
-  }))
+  return kanbanData.value
+    .filter(col => !selectedEstagio.value || col.estagio.id === selectedEstagio.value)
+    .map(coluna => ({
+      ...coluna,
+      items: !term
+        ? (coluna.items || [])
+        : (coluna.items || []).filter(item => {
+            const searchable = [
+              item.nome,
+              item.conta_nome,
+              item.contato_nome,
+              item.origem_nome,
+              item.fonte
+            ]
+              .map(normalizeSearchText)
+              .join(' ')
+            return searchable.includes(term)
+          })
+    }))
 })
 
 const activeStage = ref(null)
@@ -582,7 +583,8 @@ async function changeTipoFunil(tipo) {
 }
 
 async function loadKanban() {
-  await oportunidadesStore.fetchKanban(activeFunilId.value, activeCanalId.value, activeStatus.value)
+  selectedEstagio.value = ''
+  await oportunidadesStore.fetchKanban(activeFunilId.value, activeCanalId.value)
   if (kanbanData.value?.length) {
     activeStage.value = kanbanData.value[0].estagio.id
   }
