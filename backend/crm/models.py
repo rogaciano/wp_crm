@@ -203,6 +203,13 @@ class Conta(models.Model):
     # Relação polimórfica com Atividades
     atividades = GenericRelation('Atividade')
 
+    # Tags para categorização
+    tags = models.ManyToManyField(
+        'Tag',
+        blank=True,
+        related_name='contas'
+    )
+
     class Meta:
         verbose_name = 'Conta'
         verbose_name_plural = 'Contas'
@@ -738,6 +745,13 @@ class Oportunidade(models.Model):
     
     # Relação polimórfica com Atividades
     atividades = GenericRelation('Atividade')
+
+    # Tags para categorização
+    tags = models.ManyToManyField(
+        'Tag',
+        blank=True,
+        related_name='oportunidades'
+    )
 
     class Meta:
         verbose_name = 'Oportunidade'

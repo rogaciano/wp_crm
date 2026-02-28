@@ -439,7 +439,7 @@ class ContaViewSet(viewsets.ModelViewSet):
     serializer_class = ContaSerializer
     permission_classes = [HierarchyPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['setor', 'estado']
+    filterset_fields = ['setor', 'estado', 'tags']
     search_fields = ['nome_empresa', 'cnpj', 'email']
     ordering_fields = ['nome_empresa', 'data_criacao']
     
@@ -541,16 +541,21 @@ class TipoRedeSocialViewSet(viewsets.ModelViewSet):
 
 
 class TagViewSet(viewsets.ModelViewSet):
-    """ViewSet para Tags de Contatos (CRUD apenas Admin, leitura para autenticados)"""
+    """ViewSet para Tags (leitura e criação para autenticados, edição e exclusão apenas Admin)"""
     serializer_class = TagSerializer
-    
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nome']
+    ordering_fields = ['nome']
+
     def get_queryset(self):
         from .models import Tag
         return Tag.objects.all().order_by('nome')
-    
+
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
+        # Qualquer usuário autenticado pode listar, buscar e CRIAR tags
+        if self.action in ['list', 'retrieve', 'create']:
             return [permissions.IsAuthenticated()]
+        # Apenas admin pode editar ou excluir
         return [IsAdminUser()]
 
 
@@ -703,6 +708,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         'contatos': ['exact'],
         'empresas': ['exact'],
         'origem': ['exact'],
+        'tags': ['exact'],
     }
     search_fields = ['nome', 'conta__nome_empresa', 'empresas__nome_empresa', 'contatos__nome']
     ordering_fields = ['nome', 'conta__nome_empresa', 'valor_estimado', 'data_fechamento_esperada', 'data_criacao']

@@ -23,16 +23,14 @@
           <h1 class="text-2xl md:text-3xl font-bold text-gray-900">{{ contato?.nome }}</h1>
           <p v-if="contato?.cargo" class="text-gray-500 mt-1">{{ contato.cargo }}</p>
           
-          <!-- Tags -->
-          <div v-if="contato?.tags_detail?.length" class="flex flex-wrap gap-2 mt-3">
-            <span 
-              v-for="tag in contato.tags_detail" 
-              :key="tag.id"
-              class="px-3 py-1 text-xs font-medium rounded-full text-white"
-              :style="{ backgroundColor: tag.cor }"
-            >
-              {{ tag.nome }}
-            </span>
+          <!-- Tags editáveis -->
+          <div class="mt-3">
+            <TagInput
+              v-model="contatoTagsIds"
+              v-model:tagsDetail="contatoTagsDetail"
+              placeholder="Adicionar etiqueta..."
+              @update:modelValue="saveTags"
+            />
           </div>
         </div>
         
@@ -262,12 +260,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import ContatoModal from '@/components/ContatoModal.vue'
 import TimelineFeed from '@/components/TimelineFeed.vue'
 import WhatsappChat from '@/components/WhatsappChat.vue'
+import TagInput from '@/components/TagInput.vue'
 import { sanitizeHtml } from '@/utils/sanitize'
 
 const route = useRoute()
@@ -278,6 +277,8 @@ const loading = ref(false)
 const showEditModal = ref(false)
 const showWhatsapp = ref(false)
 const whatsappData = ref({ number: '', title: '', oportunidade: null })
+const contatoTagsIds = ref([])
+const contatoTagsDetail = ref([])
 
 const telefonePrincipal = computed(() => {
   if (!contato.value?.telefones?.length) return null
@@ -295,10 +296,21 @@ async function loadContato() {
     const id = route.params.id
     const response = await api.get(`/contatos/${id}/`)
     contato.value = response.data
+    contatoTagsIds.value = response.data.tags || []
+    contatoTagsDetail.value = response.data.tags_detail || []
   } catch (error) {
     console.error('Erro ao carregar contato:', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function saveTags() {
+  if (!contato.value) return
+  try {
+    await api.patch(`/contatos/${contato.value.id}/`, { tags: contatoTagsIds.value })
+  } catch (err) {
+    console.error('Erro ao salvar tags do contato:', err)
   }
 }
 

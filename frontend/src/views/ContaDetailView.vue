@@ -48,7 +48,21 @@
               </span>
             </div>
           </div>
-          
+
+          <!-- Etiquetas (Tags) -->
+          <div class="col-span-2">
+            <p class="text-xs text-gray-400 font-bold uppercase mb-2 flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+              Etiquetas
+            </p>
+            <TagInput
+              v-model="contaTagsIds"
+              v-model:tagsDetail="contaTagsDetail"
+              placeholder="Adicionar etiqueta..."
+              @update:modelValue="saveTagsConta"
+            />
+          </div>
+
           <div>
             <p class="text-sm text-gray-500">Website</p>
             <p class="font-medium">
@@ -351,6 +365,7 @@ import ContatoModal from '@/components/ContatoModal.vue'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
 import ContaModal from '@/components/ContaModal.vue'
 import WhatsappChat from '@/components/WhatsappChat.vue'
+import TagInput from '@/components/TagInput.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -359,6 +374,8 @@ const contatos = ref([])
 const oportunidades = ref([])
 const loading = ref(false)
 const activeTab = ref('contatos')
+const contaTagsIds = ref([])
+const contaTagsDetail = ref([])
 
 const showEditContaModal = ref(false)
 const showContactModal = ref(false)
@@ -416,10 +433,21 @@ async function loadContaData() {
     conta.value = contaRes.data
     contatos.value = contatosRes.data
     oportunidades.value = oportunidadesRes.data
+    contaTagsIds.value = contaRes.data.tags || []
+    contaTagsDetail.value = contaRes.data.tags_detail || []
   } catch (error) {
     console.error('Erro ao carregar conta:', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function saveTagsConta() {
+  if (!conta.value) return
+  try {
+    await api.patch(`/contas/${conta.value.id}/`, { tags_ids: JSON.stringify(contaTagsIds.value) })
+  } catch (err) {
+    console.error('Erro ao salvar tags da conta:', err)
   }
 }
 

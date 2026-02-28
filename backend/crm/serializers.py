@@ -289,6 +289,31 @@ class ContaMarcaSerializer(serializers.ModelSerializer):
         fields = ['id', 'nome']
 
 
+class TagSerializer(serializers.ModelSerializer):
+    """Serializer para Tags"""
+    uso_oportunidades = serializers.SerializerMethodField()
+    uso_contatos = serializers.SerializerMethodField()
+    uso_contas = serializers.SerializerMethodField()
+    total_uso = serializers.SerializerMethodField()
+
+    class Meta:
+        from .models import Tag
+        model = Tag
+        fields = ['id', 'nome', 'cor', 'uso_oportunidades', 'uso_contatos', 'uso_contas', 'total_uso']
+
+    def get_uso_oportunidades(self, obj):
+        return obj.oportunidades.count()
+
+    def get_uso_contatos(self, obj):
+        return obj.contatos.count()
+
+    def get_uso_contas(self, obj):
+        return obj.contas.count()
+
+    def get_total_uso(self, obj):
+        return obj.oportunidades.count() + obj.contatos.count() + obj.contas.count()
+
+
 class ContaSerializer(serializers.ModelSerializer):
     proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
@@ -297,9 +322,9 @@ class ContaSerializer(serializers.ModelSerializer):
     diagnosticos = DiagnosticoResultadoSerializer(many=True, read_only=True)
     marcas_adicionais = ContaMarcaSerializer(many=True, read_only=True)
     status_cliente_display = serializers.CharField(source='get_status_cliente_display', read_only=True)
-    
     canal_nome = serializers.CharField(source='canal.nome', read_only=True)
-    
+    tags_detail = TagSerializer(source='tags', many=True, read_only=True)
+
     class Meta:
         model = Conta
         fields = [
@@ -308,6 +333,7 @@ class ContaSerializer(serializers.ModelSerializer):
             'status_cliente', 'status_cliente_display', 'data_ativacao_cliente',
             'notas', 'canal', 'canal_nome', 'proprietario', 'proprietario_nome',
             'total_contatos', 'total_oportunidades', 'diagnosticos',
+            'tags', 'tags_detail',
             'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos', 'marcas_adicionais']
@@ -357,7 +383,12 @@ class ContaSerializer(serializers.ModelSerializer):
         marcas_input = self.context['request'].data.get('marcas_adicionais_input')
         if marcas_input:
             self._salvar_marcas_adicionais(conta, marcas_input)
-            
+
+        # Processar tags
+        tags_ids = self.context['request'].data.get('tags_ids')
+        if tags_ids is not None:
+            self._salvar_tags_conta(conta, tags_ids)
+
         return conta
 
     def update(self, instance, validated_data):
@@ -367,8 +398,24 @@ class ContaSerializer(serializers.ModelSerializer):
         marcas_input = self.context['request'].data.get('marcas_adicionais_input')
         if marcas_input is not None:
             self._salvar_marcas_adicionais(conta, marcas_input)
-            
+
+        # Processar tags
+        tags_ids = self.context['request'].data.get('tags_ids')
+        if tags_ids is not None:
+            self._salvar_tags_conta(conta, tags_ids)
+
         return conta
+
+    def _salvar_tags_conta(self, conta, tags_ids):
+        import json
+        from .models import Tag
+        if isinstance(tags_ids, str):
+            try:
+                tags_ids = json.loads(tags_ids)
+            except (json.JSONDecodeError, TypeError):
+                tags_ids = []
+        if isinstance(tags_ids, list):
+            conta.tags.set(Tag.objects.filter(id__in=tags_ids))
 
 
 
@@ -415,25 +462,18 @@ class ContatoEmailSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'tipo', 'tipo_display', 'principal']
 
 
-class TagSerializer(serializers.ModelSerializer):
-    """Serializer para Tags"""
-    class Meta:
-        from .models import Tag
-        model = Tag
-        fields = ['id', 'nome', 'cor']
-
 
 class ContatoAnexoSerializer(serializers.ModelSerializer):
     """Serializer para anexos de contatos"""
     uploaded_por_nome = serializers.CharField(source='uploaded_por.get_full_name', read_only=True)
     arquivo_url = serializers.SerializerMethodField()
-    
+
     class Meta:
         from .models import ContatoAnexo
         model = ContatoAnexo
         fields = ['id', 'arquivo', 'arquivo_url', 'nome', 'descricao', 'data_upload', 'uploaded_por', 'uploaded_por_nome']
         read_only_fields = ['data_upload', 'uploaded_por']
-    
+
     def get_arquivo_url(self, obj):
         if obj.arquivo:
             request = self.context.get('request')
@@ -956,6 +996,9 @@ class OportunidadeSerializer(serializers.ModelSerializer):
     contato_principal_dados = ContatoSerializer(source='contato_principal', read_only=True)
     conta_dados = ContaSerializer(source='conta', read_only=True)
     
+    # Tags (leitura detalhada)
+    tags_detail = TagSerializer(source='tags', many=True, read_only=True)
+
     class Meta:
         model = Oportunidade
         fields = [
@@ -965,10 +1008,12 @@ class OportunidadeSerializer(serializers.ModelSerializer):
             'proprietario', 'proprietario_nome', 'descricao', 'motivo_perda',
             'data_fechamento_real', 'plano', 'plano_nome', 'periodo_pagamento',
             'adicionais_detalhes', 'cortesia', 'anexos', 'diagnosticos',
-            'cupom_desconto', 'forma_pagamento', 'indicador_comissao', 'indicador_nome', 
-            'canal', 'canal_nome', 'funil_nome', 'funil_tipo', 'contato_telefone', 'contato_celular', 'whatsapp_nao_lidas', 'fonte', 'origem', 'origem_nome',
+            'cupom_desconto', 'forma_pagamento', 'indicador_comissao', 'indicador_nome',
+            'canal', 'canal_nome', 'funil_nome', 'funil_tipo', 'contato_telefone', 'contato_celular',
+            'whatsapp_nao_lidas', 'fonte', 'origem', 'origem_nome',
             'contatos', 'empresas', 'contatos_detalhe', 'empresas_detalhe',
             'contato_principal_dados', 'conta_dados',
+            'tags', 'tags_detail',
             'data_criacao', 'data_atualizacao', 'proxima_atividade'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'whatsapp_nao_lidas']
@@ -1056,7 +1101,8 @@ class OportunidadeSerializer(serializers.ModelSerializer):
         adicionais_data = self.context['request'].data.get('adicionais_itens', [])
         contatos_data = validated_data.pop('contatos', [])
         empresas_data = validated_data.pop('empresas', [])
-        
+        tags_data = validated_data.pop('tags', [])
+
         validated_data['proprietario'] = self.context['request'].user
         
         try:
@@ -1071,7 +1117,14 @@ class OportunidadeSerializer(serializers.ModelSerializer):
                     oportunidade.contatos.set(contatos_data)
                 if empresas_data:
                     oportunidade.empresas.set(empresas_data)
-                
+                if tags_data is not None:
+                    oportunidade.tags.set(tags_data)
+
+                # Processar tags via tags_ids (alternátiva de envio)
+                tags_ids = self.context['request'].data.get('tags_ids')
+                if tags_ids is not None:
+                    self._salvar_tags_oportunidade(oportunidade, tags_ids)
+
                 for item in adicionais_data:
                     if item.get('adicional'):
                         OportunidadeAdicional.objects.create(
@@ -1087,6 +1140,7 @@ class OportunidadeSerializer(serializers.ModelSerializer):
         adicionais_data = self.context['request'].data.get('adicionais_itens')
         contatos_data = validated_data.pop('contatos', None)
         empresas_data = validated_data.pop('empresas', None)
+        tags_data = validated_data.pop('tags', None)
         
         try:
             with transaction.atomic():
@@ -1100,7 +1154,14 @@ class OportunidadeSerializer(serializers.ModelSerializer):
                     instance.contatos.set(contatos_data)
                 if empresas_data is not None:
                     instance.empresas.set(empresas_data)
-                
+                if tags_data is not None:
+                    instance.tags.set(tags_data)
+
+                # Processar tags via tags_ids
+                tags_ids = self.context['request'].data.get('tags_ids')
+                if tags_ids is not None:
+                    self._salvar_tags_oportunidade(instance, tags_ids)
+
                 if adicionais_data is not None:
                     instance.oportunidadeadicional_set.all().delete()
                     for item in adicionais_data:
@@ -1113,6 +1174,17 @@ class OportunidadeSerializer(serializers.ModelSerializer):
                 return instance
         except Exception as e:
             raise serializers.ValidationError(str(e))
+
+    def _salvar_tags_oportunidade(self, oportunidade, tags_ids):
+        import json
+        from .models import Tag
+        if isinstance(tags_ids, str):
+            try:
+                tags_ids = json.loads(tags_ids)
+            except (json.JSONDecodeError, TypeError):
+                tags_ids = []
+        if isinstance(tags_ids, list):
+            oportunidade.tags.set(Tag.objects.filter(id__in=tags_ids))
 
 
 class OportunidadeKanbanSerializer(serializers.ModelSerializer):

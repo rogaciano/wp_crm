@@ -337,7 +337,18 @@
                       placeholder="Anote aqui informações importantes da negociação..."
                   ></textarea>
                </div>
-               
+
+               <!-- Etiquetas (Tags) -->
+               <div class="group">
+                  <label class="text-xs text-gray-400 font-medium block mb-1.5">Etiquetas</label>
+                  <TagInput
+                    v-model="oportunidadeForm.tags"
+                    v-model:tagsDetail="oportunidadeForm.tags_detail"
+                    placeholder="Adicionar etiqueta..."
+                    @update:modelValue="saveChanges"
+                  />
+               </div>
+
                <!-- Tarefas Agendadas -->
                <div class="group flex items-center justify-between">
                   <label class="text-xs text-gray-400 font-medium w-1/3">Próxima Tarefa</label>
@@ -472,7 +483,7 @@
                         <div class="w-full">
                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-0.5">Empresa</span>
                            <div class="flex items-center gap-2">
-                             <h3 class="font-bold text-gray-900 leading-tight cursor-pointer hover:text-primary-600 hover:underline" @click="openCompanyModal">
+                             <h3 class="font-bold text-gray-900 leading-tight cursor-pointer hover:text-primary-600 hover:underline" @click="openCompanyDetails">
                                 {{ oportunidade.conta_nome }}
                              </h3>
                              <span
@@ -809,6 +820,7 @@ import ContaModal from '@/components/ContaModal.vue'
 import WhatsappChat from '@/components/WhatsappChat.vue'
 import AtividadeModal from '@/components/AtividadeModal.vue'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
+import TagInput from '@/components/TagInput.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -840,7 +852,9 @@ const oportunidadeForm = ref({
   indicador_comissao: null,
   descricao: '',
   contatos: [],
-  empresas: []
+  empresas: [],
+  tags: [],
+  tags_detail: []
 })
 
 // Forms Entidades Vinculadas (para edição direta)
@@ -1200,6 +1214,8 @@ async function loadData() {
       descricao: res.data.descricao,
       contatos: res.data.contatos || [],
       empresas: res.data.empresas || [],
+      tags: res.data.tags || [],
+      tags_detail: res.data.tags_detail || [],
       adicionais_itens: res.data.adicionais_detalhes?.map(d => ({
           adicional: d.adicional,
           quantidade: d.quantidade
@@ -1291,6 +1307,7 @@ async function saveChanges() {
        descricao: oportunidadeForm.value.descricao,
        contatos: oportunidadeForm.value.contatos,
        empresas: oportunidadeForm.value.empresas,
+       tags: oportunidadeForm.value.tags,
        adicionais: oportunidadeForm.value.adicionais_itens || []
      }
      
@@ -1413,10 +1430,21 @@ function closeContactModal() {
 function openCompanyModal() {
   if (oportunidade.value.empresas_detalhe?.length) {
     selectedCompany.value = oportunidade.value.empresas_detalhe[0]
+  } else if (oportunidade.value.conta_dados?.id) {
+    selectedCompany.value = oportunidade.value.conta_dados
   } else {
     selectedCompany.value = null
   }
   showCompanyModal.value = true
+}
+
+function openCompanyDetails() {
+  const contaId = oportunidade.value?.conta || oportunidade.value?.conta_dados?.id || oportunidade.value?.empresas_detalhe?.[0]?.id
+  if (contaId) {
+    router.push({ name: 'conta-detail', params: { id: contaId } })
+    return
+  }
+  openCompanyModal()
 }
 
 function closeCompanyModal() {

@@ -148,6 +148,12 @@ const router = createRouter({
           name: 'admin-organograma',
           component: () => import('@/views/admin/OrganogramaView.vue'),
           meta: { requiresAdmin: true }
+        },
+        {
+          path: '/config/tags',
+          name: 'admin-tags',
+          component: () => import('@/views/admin/TagsView.vue'),
+          meta: { requiresAdmin: true }
         }
       ]
     }
