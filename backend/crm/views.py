@@ -2020,6 +2020,8 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                 'cor': dados['cor']
             }
 
+        telefone_normalizado = self._normalize_phone_from_import(data.get('telefone', ''))
+
         try:
             with transaction.atomic():
                 # 3. Cria ou busca Contato, Conta e Oportunidade
@@ -2057,7 +2059,7 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                     contato = Contato.objects.create(
                         nome=data['nome'],
                         email=data['email'],
-                        telefone=data.get('telefone', ''),
+                        telefone=telefone_normalizado or None,
                         conta=conta,
                         proprietario=admin_user
                     )
@@ -2151,7 +2153,7 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
         
         nome = request.data['nome']
         email = request.data['email']
-        telefone = request.data['telefone']
+        telefone = self._normalize_phone_from_import(request.data['telefone'])
         empresa = request.data['empresa']
         respostas_ids = request.data['respostas_ids']
         
@@ -2226,14 +2228,14 @@ class DiagnosticoViewSet(viewsets.ModelViewSet):
                     contato = Contato.objects.create(
                         nome=nome,
                         email=email,
-                        telefone=telefone,
+                        telefone=telefone or None,
                         conta=conta,
                         canal=canal,
                         proprietario=proprietario
                     )
                 else:
                     # Atualiza dados se necessário
-                    if not contato.telefone:
+                    if telefone and not contato.telefone:
                         contato.telefone = telefone
                         contato.save()
                 
