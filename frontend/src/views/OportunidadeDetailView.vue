@@ -3,6 +3,29 @@
     <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
   </div>
 
+  <div v-else-if="loadError" class="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+    <div class="max-w-lg w-full bg-white border border-red-100 rounded-2xl shadow-sm p-6">
+      <h2 class="text-lg font-black text-red-700 mb-2">Não foi possível abrir a oportunidade</h2>
+      <p class="text-sm text-gray-600 mb-5">{{ loadError }}</p>
+      <div class="flex gap-2 justify-end">
+        <button
+          type="button"
+          @click="router.push({ name: 'oportunidades' })"
+          class="px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider border border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
+        >
+          Ir para oportunidades
+        </button>
+        <button
+          type="button"
+          @click="goBack"
+          class="px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider bg-primary-600 text-white hover:bg-primary-700"
+        >
+          Voltar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div v-else-if="oportunidade" class="min-h-screen bg-gray-50 flex flex-col">
     <!-- Header de Negócio -->
     <header class="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-20">
@@ -891,6 +914,7 @@ const router = useRouter()
 const oportunidadesStore = useOportunidadesStore()
 
 const loading = ref(true)
+const loadError = ref('')
 const oportunidade = ref(null)
 const estagios = ref([])
 const hoveredEstagioId = ref(null)
@@ -1400,6 +1424,7 @@ async function loadAuxData() {
 
 async function loadData() {
   loading.value = true
+  loadError.value = ''
   try {
     const id = route.params.id
     
@@ -1475,8 +1500,10 @@ async function loadData() {
     }
   } catch (error) {
     console.error('Erro ao carregar oportunidade:', error)
+    const backendMsg = error.response?.data?.error || error.response?.data?.detail
+    loadError.value = backendMsg || 'Houve um erro ao carregar os dados da oportunidade.'
     if (error.response?.status === 404) {
-      router.push('/kanban')
+      loadError.value = 'Essa oportunidade não foi encontrada ou você não tem acesso a ela.'
     }
   } finally {
     loading.value = false
