@@ -939,16 +939,6 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
 
         return funil, estagio
 
-    def _resolve_funil_estagio_por_tipo(self, funil_tipo):
-        funil = Funil.objects.filter(tipo=funil_tipo, is_active=True).first()
-        if not funil:
-            return None, None
-
-        vinculo = FunilEstagio.objects.filter(funil=funil, is_padrao=True).first() or \
-                  FunilEstagio.objects.filter(funil=funil).order_by('ordem').first()
-        estagio = vinculo.estagio if vinculo else None
-        return funil, estagio
-
     @staticmethod
     def _get_request_ip(request):
         forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
@@ -1006,13 +996,6 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
 
         file = request.FILES.get('file')
         dry_run = str(request.data.get('dry_run', 'true')).lower() in ['1', 'true', 'yes', 'sim']
-        modo_importacao = str(request.data.get('modo_importacao', 'VENDAS') or 'VENDAS').strip().upper()
-
-        if modo_importacao not in ['VENDAS', 'CLIENTE_LEGADO']:
-            return Response({'error': 'modo_importacao inválido. Use VENDAS ou CLIENTE_LEGADO.'}, status=400)
-
-        if modo_importacao == 'CLIENTE_LEGADO' and request.user.perfil != 'ADMIN':
-            return Response({'error': 'Somente ADMIN pode usar o modo CLIENTE_LEGADO.'}, status=403)
 
         if not file:
             return Response({'error': 'Arquivo é obrigatório.'}, status=400)
@@ -1024,32 +1007,11 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         if canal_error:
             return canal_error
 
-        legacy_funis = []
-        if modo_importacao == 'CLIENTE_LEGADO':
-            funil_pos, estagio_pos = self._resolve_funil_estagio_por_tipo(Funil.TIPO_POS_VENDA)
-            if not funil_pos:
-                return Response({'error': 'Nenhum funil de Pós-Venda configurado.'}, status=400)
-            if not estagio_pos:
-                return Response({'error': 'Nenhum estágio inicial encontrado para o funil de Pós-Venda.'}, status=400)
-
-            funil_sup, estagio_sup = self._resolve_funil_estagio_por_tipo(Funil.TIPO_SUPORTE)
-            if not funil_sup:
-                return Response({'error': 'Nenhum funil de Suporte configurado.'}, status=400)
-            if not estagio_sup:
-                return Response({'error': 'Nenhum estágio inicial encontrado para o funil de Suporte.'}, status=400)
-
-            legacy_funis = [
-                {'funil': funil_pos, 'estagio': estagio_pos, 'tipo': Funil.TIPO_POS_VENDA},
-                {'funil': funil_sup, 'estagio': estagio_sup, 'tipo': Funil.TIPO_SUPORTE},
-            ]
-            funil = None
-            estagio = None
-        else:
-            funil, estagio = self._resolve_funil_estagio(canal)
-            if not funil:
-                return Response({'error': 'Nenhum funil de vendas configurado.'}, status=400)
-            if not estagio:
-                return Response({'error': 'Nenhum estágio inicial encontrado para o funil selecionado.'}, status=400)
+        funil, estagio = self._resolve_funil_estagio(canal)
+        if not funil:
+            return Response({'error': 'Nenhum funil de vendas configurado.'}, status=400)
+        if not estagio:
+            return Response({'error': 'Nenhum estágio inicial encontrado para o funil selecionado.'}, status=400)
 
         try:
             wb = load_workbook(file, data_only=True)
@@ -1213,19 +1175,12 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                             created_ids['origens_ids'].add(origem.id)
                             summary['origens_criadas'] += 1
 
-                    if modo_importacao == 'CLIENTE_LEGADO':
-                        base_legado = (nome_fantasia or razao_social or empresa_nome or nome).strip()
-                        opp_name = base_legado[:255]
-                        destinos = legacy_funis
-                    else:
-                        opp_suffix = (nome_fantasia or razao_social).strip()
-                        opp_name = f"{nome} - {opp_suffix}" if opp_suffix else nome
-                        opp_name = opp_name[:255]
-                        destinos = [{'funil': funil, 'estagio': estagio, 'tipo': Funil.TIPO_VENDAS}]
+                    opp_suffix = (nome_fantasia or razao_social).strip()
+                    opp_name = f"{nome} - {opp_suffix}" if opp_suffix else nome
+                    opp_name = opp_name[:255]
 
                     if dry_run:
-                        preview_destinos = [d['funil'].nome for d in destinos]
-                        summary['criadas'] += len(destinos)
+                        summary['criadas'] += 1
                         rows_result.append({
                             'linha': row_idx,
                             'status': 'preview',
@@ -1234,67 +1189,36 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                             'empresa': empresa_nome,
                             'contato': nome,
                             'fonte': fonte_nome,
-                            'destinos': preview_destinos,
                         })
                         continue
 
-                    criadas_na_linha = 0
-                    puladas_na_linha = 0
-                    oportunidade_principal = None
-                    for destino in destinos:
-                        funil_destino = destino['funil']
-                        estagio_destino = destino['estagio']
+                    oportunidade = Oportunidade.objects.create(
+                        nome=opp_name,
+                        conta=conta,
+                        contato_principal=contato,
+                        funil=funil,
+                        estagio=estagio,
+                        canal=canal,
+                        proprietario=request.user,
+                        fonte=fonte_nome or None,
+                        origem=origem,
+                        descricao=f"Estande: {estande}" if estande else None,
+                    )
+                    created_ids['oportunidades_ids'].add(oportunidade.id)
 
-                        existing_opp = Oportunidade.objects.filter(
-                            conta=conta,
-                            funil=funil_destino,
-                            nome__iexact=opp_name
-                        ).first()
-                        if existing_opp:
-                            puladas_na_linha += 1
-                            continue
+                    if contato:
+                        oportunidade.contatos.add(contato)
+                    if conta:
+                        oportunidade.empresas.add(conta)
 
-                        oportunidade = Oportunidade.objects.create(
-                            nome=opp_name,
-                            conta=conta,
-                            contato_principal=contato,
-                            funil=funil_destino,
-                            estagio=estagio_destino,
-                            canal=canal,
-                            proprietario=request.user,
-                            fonte=fonte_nome or None,
-                            origem=origem,
-                            descricao=f"Estande: {estande}" if estande else None,
-                        )
-                        created_ids['oportunidades_ids'].add(oportunidade.id)
-
-                        if contato:
-                            oportunidade.contatos.add(contato)
-                        if conta:
-                            oportunidade.empresas.add(conta)
-
-                        if not oportunidade_principal:
-                            oportunidade_principal = oportunidade
-                        criadas_na_linha += 1
-
-                    summary['criadas'] += criadas_na_linha
-                    summary['puladas'] += puladas_na_linha
-
-                    if criadas_na_linha:
-                        rows_result.append({
-                            'linha': row_idx,
-                            'status': 'ok',
-                            'mensagem': f'Importado com sucesso ({criadas_na_linha} oportunidade(s) criada(s), {puladas_na_linha} pulada(s)).',
-                            'oportunidade_id': oportunidade_principal.id if oportunidade_principal else None,
-                            'oportunidade_nome': opp_name,
-                        })
-                    else:
-                        rows_result.append({
-                            'linha': row_idx,
-                            'status': 'preview' if dry_run else 'ok',
-                            'mensagem': 'Nenhuma oportunidade criada: já existia registro equivalente nos funis de destino.',
-                            'oportunidade_nome': opp_name,
-                        })
+                    summary['criadas'] += 1
+                    rows_result.append({
+                        'linha': row_idx,
+                        'status': 'ok',
+                        'mensagem': 'Importado com sucesso.',
+                        'oportunidade_id': oportunidade.id,
+                        'oportunidade_nome': oportunidade.nome,
+                    })
 
             except Exception as e:
                 summary['erros'] += 1
@@ -1316,18 +1240,9 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                 objeto_repr=f"Importação XLSX - {file.name}",
                 alteracoes={
                     'arquivo': file.name,
-                    'modo_importacao': modo_importacao,
                     'canal': {'id': canal.id, 'nome': canal.nome} if canal else None,
                     'funil': {'id': funil.id, 'nome': funil.nome} if funil else None,
                     'estagio': {'id': estagio.id, 'nome': estagio.nome} if estagio else None,
-                    'destinos': [
-                        {
-                            'funil': {'id': item['funil'].id, 'nome': item['funil'].nome},
-                            'estagio': {'id': item['estagio'].id, 'nome': item['estagio'].nome},
-                            'tipo': item['tipo'],
-                        }
-                        for item in legacy_funis
-                    ] if modo_importacao == 'CLIENTE_LEGADO' else None,
                     'summary': summary,
                     'created_ids': created_ids_json,
                 },
@@ -1338,18 +1253,9 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
 
         return Response({
             'dry_run': dry_run,
-            'modo_importacao': modo_importacao,
             'canal': {'id': canal.id, 'nome': canal.nome} if canal else None,
             'funil': {'id': funil.id, 'nome': funil.nome} if funil else None,
             'estagio': {'id': estagio.id, 'nome': estagio.nome} if estagio else None,
-            'destinos': [
-                {
-                    'funil': {'id': item['funil'].id, 'nome': item['funil'].nome},
-                    'estagio': {'id': item['estagio'].id, 'nome': item['estagio'].nome},
-                    'tipo': item['tipo'],
-                }
-                for item in legacy_funis
-            ] if modo_importacao == 'CLIENTE_LEGADO' else None,
             'summary': summary,
             'rows': rows_result[:200],
             'lote_importacao': {'id': import_lote.id, 'criado_em': import_lote.timestamp} if import_lote else None,
@@ -1592,6 +1498,77 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                 {'error': f'Erro ao mudar estágio: {str(e)}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+    @action(detail=True, methods=['post'], url_path='converter_em_cliente')
+    def converter_em_cliente(self, request, pk=None):
+        """Converte a conta da oportunidade para Cliente Ativo/Inativo de forma idempotente."""
+        oportunidade = self.get_object()
+
+        if not oportunidade.conta:
+            return Response({'error': 'A oportunidade não possui empresa vinculada.'}, status=400)
+
+        status_destino = str(request.data.get('status_cliente') or Conta.STATUS_CLIENTE_ATIVO).upper()
+        if status_destino not in [Conta.STATUS_CLIENTE_ATIVO, Conta.STATUS_INATIVO]:
+            return Response({'error': 'status_cliente inválido. Use CLIENTE_ATIVO ou INATIVO.'}, status=400)
+
+        conta = oportunidade.conta
+        before_status = conta.status_cliente
+        before_ativacao = conta.data_ativacao_cliente
+
+        if conta.status_cliente == status_destino:
+            return Response({
+                'success': True,
+                'idempotente': True,
+                'conta': {
+                    'id': conta.id,
+                    'nome_empresa': conta.nome_empresa,
+                    'status_cliente': conta.status_cliente,
+                    'data_ativacao_cliente': conta.data_ativacao_cliente,
+                },
+                'mensagem': 'Conta já estava com o status informado. Nenhuma alteração aplicada.',
+            })
+
+        with transaction.atomic():
+            conta.status_cliente = status_destino
+            if status_destino == Conta.STATUS_CLIENTE_ATIVO and not conta.data_ativacao_cliente:
+                conta.data_ativacao_cliente = timezone.now()
+
+            conta.save(update_fields=['status_cliente', 'data_ativacao_cliente', 'data_atualizacao'])
+
+            Log.objects.create(
+                usuario=request.user,
+                acao=Log.ACAO_UPDATE,
+                modelo='Conta',
+                objeto_id=conta.id,
+                objeto_repr=str(conta),
+                alteracoes={
+                    'status_cliente': {'antes': before_status, 'depois': conta.status_cliente},
+                    'data_ativacao_cliente': {
+                        'antes': before_ativacao.isoformat() if before_ativacao else None,
+                        'depois': conta.data_ativacao_cliente.isoformat() if conta.data_ativacao_cliente else None,
+                    },
+                    'origem': {
+                        'tipo': 'oportunidade',
+                        'oportunidade_id': oportunidade.id,
+                        'oportunidade_nome': oportunidade.nome,
+                    }
+                },
+                ip_address=self._get_request_ip(request),
+                user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000] or None,
+                observacao='Conversão de oportunidade em cliente',
+            )
+
+        return Response({
+            'success': True,
+            'idempotente': False,
+            'conta': {
+                'id': conta.id,
+                'nome_empresa': conta.nome_empresa,
+                'status_cliente': conta.status_cliente,
+                'data_ativacao_cliente': conta.data_ativacao_cliente,
+            },
+            'mensagem': 'Conta convertida com sucesso.',
+        })
 
     @action(detail=False, methods=['get'])
     def stats(self, request):

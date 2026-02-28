@@ -28,7 +28,7 @@
     </div>
 
     <div v-if="activeTab === 'importar'" class="card space-y-5">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="md:col-span-2">
           <label class="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Arquivo (.xlsx)</label>
           <input
@@ -53,16 +53,6 @@
           </select>
         </div>
 
-        <div>
-          <label class="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Tipo de importação</label>
-          <select v-model="modoImportacao" class="input">
-            <option value="VENDAS">Funil de Vendas</option>
-            <option v-if="authStore.isAdmin" value="CLIENTE_LEGADO">Clientes legados (Pós-Venda + Suporte)</option>
-          </select>
-          <p v-if="modoImportacao === 'CLIENTE_LEGADO'" class="text-[11px] text-gray-500 mt-1">
-            Cria oportunidades diretamente em Pós-Venda e Suporte, sem venda retroativa.
-          </p>
-        </div>
       </div>
 
       <div class="flex flex-col md:flex-row md:items-center gap-3 justify-between border-t border-gray-100 pt-4">
@@ -87,27 +77,6 @@
 
       <div v-if="result" class="space-y-4">
         <div class="rounded-xl bg-gray-50 border border-gray-100 p-4">
-          <div class="flex flex-wrap items-center gap-2 mb-3">
-            <span class="text-[10px] font-black uppercase tracking-widest text-gray-500">Modo:</span>
-            <span
-              class="px-2 py-1 rounded-full text-[10px] font-black uppercase"
-              :class="result.modo_importacao === 'CLIENTE_LEGADO' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'"
-            >
-              {{ result.modo_importacao === 'CLIENTE_LEGADO' ? 'Clientes legados' : 'Vendas' }}
-            </span>
-
-            <template v-if="result.destinos && result.destinos.length">
-              <span class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Destinos:</span>
-              <span
-                v-for="destino in result.destinos"
-                :key="destino.tipo || destino.funil?.id"
-                class="px-2 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-700"
-              >
-                {{ destino.funil?.nome || destino.tipo }}
-              </span>
-            </template>
-          </div>
-
           <p class="text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Resumo</p>
           <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
             <div class="bg-white rounded-lg border border-gray-100 p-3">
@@ -301,7 +270,6 @@ const authStore = useAuthStore()
 const fileInput = ref(null)
 const selectedFile = ref(null)
 const selectedCanal = ref('')
-const modoImportacao = ref('VENDAS')
 const canais = ref([])
 const dryRun = ref(true)
 const importLoading = ref(false)
@@ -370,7 +338,6 @@ function clearForm() {
   errorMessage.value = ''
   successMessage.value = ''
   dryRun.value = true
-  modoImportacao.value = 'VENDAS'
   if (fileInput.value) fileInput.value.value = ''
 }
 
@@ -393,7 +360,6 @@ async function importar() {
   formData.append('file', selectedFile.value)
   formData.append('canal_id', selectedCanal.value)
   formData.append('dry_run', dryRun.value ? 'true' : 'false')
-  formData.append('modo_importacao', modoImportacao.value)
 
   importLoading.value = true
   try {

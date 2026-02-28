@@ -20,6 +20,24 @@
         </div>
         
         <div class="flex items-center gap-3">
+          <div v-if="oportunidade.conta" class="hidden md:flex items-center gap-2">
+            <select
+              v-model="conversaoStatus"
+              class="px-2 py-1 rounded-lg border border-gray-200 text-xs font-bold text-gray-700 bg-white"
+            >
+              <option value="CLIENTE_ATIVO">Cliente Ativo</option>
+              <option value="INATIVO">Cliente Inativo</option>
+            </select>
+            <button
+              @click="converterEmCliente"
+              :disabled="convertendoCliente"
+              class="px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+              title="Converte a empresa da oportunidade em cliente"
+            >
+              {{ convertendoCliente ? 'Convertendo...' : 'Converter em cliente' }}
+            </button>
+          </div>
+
           <!-- Botão Cancelar -->
           <button 
             @click="goBack" 
@@ -420,9 +438,18 @@
                         <!-- Nome Empresa -->
                         <div class="w-full">
                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-0.5">Empresa</span>
-                           <h3 class="font-bold text-gray-900 leading-tight cursor-pointer hover:text-primary-600 hover:underline" @click="openCompanyModal">
-                              {{ oportunidade.conta_nome }}
-                           </h3>
+                           <div class="flex items-center gap-2">
+                             <h3 class="font-bold text-gray-900 leading-tight cursor-pointer hover:text-primary-600 hover:underline" @click="openCompanyModal">
+                                {{ oportunidade.conta_nome }}
+                             </h3>
+                             <span
+                               v-if="oportunidade.conta_dados?.status_cliente_display"
+                               class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase"
+                               :class="oportunidade.conta_dados?.status_cliente === 'CLIENTE_ATIVO' ? 'bg-emerald-100 text-emerald-700' : (oportunidade.conta_dados?.status_cliente === 'INATIVO' ? 'bg-gray-200 text-gray-700' : 'bg-blue-100 text-blue-700')"
+                             >
+                               {{ oportunidade.conta_dados.status_cliente_display }}
+                             </span>
+                           </div>
                         </div>
                         <button class="text-gray-400 hover:text-gray-600">•••</button>
                      </div>
@@ -797,6 +824,8 @@ const showAtividadeModal = ref(false)
 const initialTipoAtividade = ref('TAREFA')
 const oportunidadeContentTypeId = ref(null)
 const timelineFeedRef = ref(null)
+const conversaoStatus = ref('CLIENTE_ATIVO')
+const convertendoCliente = ref(false)
 
 // Computed
 const daysActive = computed(() => {
@@ -934,6 +963,33 @@ async function deleteAnexo(id) {
   }
 }
 
+async function converterEmCliente() {
+  if (!oportunidade.value?.conta) {
+    alert('A oportunidade precisa ter empresa vinculada para conversão.')
+    return
+  }
+
+  const statusLabel = conversaoStatus.value === 'INATIVO' ? 'Cliente Inativo' : 'Cliente Ativo'
+  const ok = confirm(
+    `Este processo NÃO gera vendas.\n\nEle converte a empresa desta oportunidade para "${statusLabel}" e registra auditoria.\nUse somente para oportunidades que já são clientes.\n\nDeseja continuar?`
+  )
+  if (!ok) return
+
+  convertendoCliente.value = true
+  try {
+    const res = await api.post(`/oportunidades/${oportunidade.value.id}/converter_em_cliente/`, {
+      status_cliente: conversaoStatus.value
+    })
+    alert(res.data?.mensagem || 'Conversão concluída.')
+    await loadData()
+  } catch (error) {
+    console.error('Erro ao converter em cliente:', error)
+    alert(error.response?.data?.error || 'Erro ao converter em cliente.')
+  } finally {
+    convertendoCliente.value = false
+  }
+}
+
 function formatSelectedAdicionais() {
     if (!oportunidadeForm.value.adicionais_itens?.length) return ''
     
@@ -1031,8 +1087,14 @@ async function loadData() {
             endereco: emp.endereco,
             email: emp.email
         }
+        if (emp.status_cliente === 'INATIVO') {
+          conversaoStatus.value = 'INATIVO'
+        } else {
+          conversaoStatus.value = 'CLIENTE_ATIVO'
+        }
     } else {
         companyForm.value = { website: '', endereco: '', email: '' }
+        conversaoStatus.value = 'CLIENTE_ATIVO'
     }
 
     // 2. Estágios do Funil

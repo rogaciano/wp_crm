@@ -296,6 +296,7 @@ class ContaSerializer(serializers.ModelSerializer):
     total_oportunidades = serializers.SerializerMethodField()
     diagnosticos = DiagnosticoResultadoSerializer(many=True, read_only=True)
     marcas_adicionais = ContaMarcaSerializer(many=True, read_only=True)
+    status_cliente_display = serializers.CharField(source='get_status_cliente_display', read_only=True)
     
     canal_nome = serializers.CharField(source='canal.nome', read_only=True)
     
@@ -304,6 +305,7 @@ class ContaSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'nome_empresa', 'marca', 'marcas_adicionais', 'cnpj', 'telefone_principal', 'email',
             'website', 'setor', 'endereco', 'cidade', 'estado', 'cep',
+            'status_cliente', 'status_cliente_display', 'data_ativacao_cliente',
             'notas', 'canal', 'canal_nome', 'proprietario', 'proprietario_nome',
             'total_contatos', 'total_oportunidades', 'diagnosticos',
             'data_criacao', 'data_atualizacao'

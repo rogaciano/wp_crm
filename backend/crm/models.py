@@ -153,6 +153,16 @@ class User(AbstractUser):
 
 class Conta(models.Model):
     """Conta - Representa uma empresa/organização"""
+    STATUS_PROSPECT = 'PROSPECT'
+    STATUS_CLIENTE_ATIVO = 'CLIENTE_ATIVO'
+    STATUS_INATIVO = 'INATIVO'
+
+    STATUS_CLIENTE_CHOICES = [
+        (STATUS_PROSPECT, 'Prospect'),
+        (STATUS_CLIENTE_ATIVO, 'Cliente Ativo'),
+        (STATUS_INATIVO, 'Inativo'),
+    ]
+
     nome_empresa = models.CharField(max_length=255)
     marca = models.CharField(max_length=100, null=True, blank=True)
     cnpj = models.CharField(max_length=20, null=True, blank=True, unique=True)
@@ -168,6 +178,17 @@ class Conta(models.Model):
     cep = models.CharField(max_length=10, null=True, blank=True)
     
     notas = models.TextField(null=True, blank=True)
+    status_cliente = models.CharField(
+        max_length=20,
+        choices=STATUS_CLIENTE_CHOICES,
+        default=STATUS_PROSPECT,
+        help_text='Status do cliente no ciclo comercial'
+    )
+    data_ativacao_cliente = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Data em que a conta foi convertida para cliente ativo'
+    )
     canal = models.ForeignKey(
         'Canal', 
         on_delete=models.SET_NULL, 
