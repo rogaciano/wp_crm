@@ -57,9 +57,9 @@
         @change="loadKanban"
         class="bg-gray-50 border-0 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all cursor-pointer"
       >
-        <option value="ABERTO">Em aberto</option>
-        <option value="GANHO">Concluídos (Ganho)</option>
-        <option value="PERDIDO">Cancelados (Perdido)</option>
+        <option value="ABERTO">{{ activeTipoFunil === 'VENDAS' ? 'Em aberto' : 'Em andamento' }}</option>
+        <option value="GANHO">{{ activeTipoFunil === 'VENDAS' ? 'Ganhos' : 'Finalizados' }}</option>
+        <option value="PERDIDO">{{ activeTipoFunil === 'VENDAS' ? 'Perdidos' : 'Cancelados' }}</option>
         <option value="">Todos os status</option>
       </select>
 
