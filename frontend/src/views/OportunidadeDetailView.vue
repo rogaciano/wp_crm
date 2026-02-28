@@ -22,7 +22,7 @@
         <div class="flex items-center gap-3">
           <button
             v-if="showNovaOportunidadeVendaAction"
-            @click="criarOportunidadeVenda"
+            @click="abrirModalNovaOportunidadeVenda"
             :disabled="criandoOportunidadeVenda"
             class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
             title="Cria uma nova oportunidade de vendas para esta empresa"
@@ -757,6 +757,82 @@
       @close="showAtividadeModal = false"
       @saved="handleAtividadeSaved"
     />
+
+    <BaseModal
+      :show="showNovaOportunidadeModal"
+      title="Nova oportunidade de vendas"
+      size="md"
+      :show-footer="false"
+      @close="fecharModalNovaOportunidadeVenda"
+    >
+      <div class="space-y-4">
+        <p class="text-sm text-gray-600">
+          Informe os dados da nova oportunidade. A empresa e os contatos já serão vinculados automaticamente.
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+            <div class="font-black uppercase tracking-wide text-gray-500 mb-1">Empresa</div>
+            <div class="font-semibold text-gray-800 truncate">{{ oportunidade?.conta_dados?.nome_empresa || oportunidade?.conta_nome || 'N/A' }}</div>
+          </div>
+          <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+            <div class="font-black uppercase tracking-wide text-gray-500 mb-1">Contato principal</div>
+            <div class="font-semibold text-gray-800 truncate">{{ oportunidade?.contato_nome || 'Não informado' }}</div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-black uppercase tracking-wide text-gray-500 mb-1">Tipo da oportunidade</label>
+          <select v-model="novaOportunidadeForm.tipo_oferta" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+            <option value="UPSELL">UPSELL</option>
+            <option value="CROSS-SELL">CROSS-SELL</option>
+            <option value="RENOVACAO">RENOVAÇÃO</option>
+            <option value="REATIVACAO">REATIVAÇÃO</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-black uppercase tracking-wide text-gray-500 mb-1">Produto/serviço</label>
+          <input
+            v-model="novaOportunidadeForm.produto"
+            type="text"
+            class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            placeholder="Ex.: Plano Enterprise + Módulo Financeiro"
+          />
+          <p v-if="novaOportunidadeErrors.produto" class="text-xs text-red-600 mt-1">{{ novaOportunidadeErrors.produto }}</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-black uppercase tracking-wide text-gray-500 mb-1">Valor estimado (opcional)</label>
+          <input
+            v-model="novaOportunidadeForm.valor_estimado"
+            type="text"
+            class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            placeholder="Ex.: 1999,90"
+          />
+          <p v-if="novaOportunidadeErrors.valor_estimado" class="text-xs text-red-600 mt-1">{{ novaOportunidadeErrors.valor_estimado }}</p>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            @click="fecharModalNovaOportunidadeVenda"
+            :disabled="criandoOportunidadeVenda"
+            class="px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-60"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            @click="criarOportunidadeVenda"
+            :disabled="criandoOportunidadeVenda"
+            class="px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+          >
+            {{ criandoOportunidadeVenda ? 'Criando...' : 'Criar oportunidade' }}
+          </button>
+        </div>
+      </div>
+    </BaseModal>
     
   </div>
 </template>
@@ -771,6 +847,7 @@ import ContatoModal from '@/components/ContatoModal.vue'
 import ContaModal from '@/components/ContaModal.vue'
 import WhatsappChat from '@/components/WhatsappChat.vue'
 import AtividadeModal from '@/components/AtividadeModal.vue'
+import BaseModal from '@/components/BaseModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -837,6 +914,16 @@ const timelineFeedRef = ref(null)
 const conversaoStatus = ref('CLIENTE_ATIVO')
 const convertendoCliente = ref(false)
 const criandoOportunidadeVenda = ref(false)
+const showNovaOportunidadeModal = ref(false)
+const novaOportunidadeForm = ref({
+  tipo_oferta: 'UPSELL',
+  produto: '',
+  valor_estimado: ''
+})
+const novaOportunidadeErrors = ref({
+  produto: '',
+  valor_estimado: ''
+})
 
 // Computed
 const daysActive = computed(() => {
@@ -1005,34 +1092,67 @@ function parseValorEstimadoInput(value) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-async function criarOportunidadeVenda() {
+function limparErrosNovaOportunidade() {
+  novaOportunidadeErrors.value = {
+    produto: '',
+    valor_estimado: ''
+  }
+}
+
+function abrirModalNovaOportunidadeVenda() {
   if (!oportunidade.value?.conta) {
     alert('A oportunidade precisa ter empresa vinculada para criar uma nova venda.')
     return
   }
 
-  const ok = confirm('Criar nova oportunidade de vendas para este cliente?')
-  if (!ok) return
+  limparErrosNovaOportunidade()
+  novaOportunidadeForm.value = {
+    tipo_oferta: 'UPSELL',
+    produto: '',
+    valor_estimado: ''
+  }
+  showNovaOportunidadeModal.value = true
+}
 
-  const tipoInput = prompt('Tipo da oportunidade (ex.: UPSELL, CROSS-SELL, RENOVACAO):', 'UPSELL')
-  if (tipoInput === null) return
-  const tipoOferta = String(tipoInput || '').trim().toUpperCase() || 'UPSELL'
+function fecharModalNovaOportunidadeVenda() {
+  if (criandoOportunidadeVenda.value) return
+  showNovaOportunidadeModal.value = false
+}
 
-  const produtoInput = prompt('Qual produto/serviço deseja ofertar?', '')
-  if (produtoInput === null) return
-  const produto = String(produtoInput || '').trim()
+function validarDadosNovaOportunidadeVenda() {
+  limparErrosNovaOportunidade()
+
+  const tipoOferta = String(novaOportunidadeForm.value.tipo_oferta || 'UPSELL').trim().toUpperCase()
+  const produto = String(novaOportunidadeForm.value.produto || '').trim()
+  const valorDigitado = String(novaOportunidadeForm.value.valor_estimado || '').trim()
+  const valorEstimado = parseValorEstimadoInput(valorDigitado)
+
+  let invalido = false
+
   if (!produto) {
-    alert('Informe o produto/serviço da oportunidade.')
-    return
+    novaOportunidadeErrors.value.produto = 'Informe o produto/serviço da oportunidade.'
+    invalido = true
   }
 
-  const valorInput = prompt('Valor estimado (opcional). Ex: 1999,90', '')
-  if (valorInput === null) return
-  const valorEstimado = parseValorEstimadoInput(valorInput)
-  if (String(valorInput || '').trim() && valorEstimado === null) {
-    alert('Valor inválido. Use formato numérico, ex.: 1999,90')
-    return
+  if (valorDigitado && valorEstimado === null) {
+    novaOportunidadeErrors.value.valor_estimado = 'Valor inválido. Use formato numérico, ex.: 1999,90.'
+    invalido = true
   }
+
+  if (invalido) return null
+
+  return {
+    tipoOferta,
+    produto,
+    valorEstimado
+  }
+}
+
+async function criarOportunidadeVenda() {
+  const dados = validarDadosNovaOportunidadeVenda()
+  if (!dados) return
+
+  const { tipoOferta, produto, valorEstimado } = dados
 
   criandoOportunidadeVenda.value = true
   try {
@@ -1073,10 +1193,12 @@ async function criarOportunidadeVenda() {
 
     if (!novaOportunidadeId) {
       alert('Oportunidade criada, mas não foi possível abrir automaticamente.')
+      showNovaOportunidadeModal.value = false
       router.push({ name: 'oportunidades' })
       return
     }
 
+    showNovaOportunidadeModal.value = false
     router.push({ name: 'oportunidade-detail', params: { id: novaOportunidadeId } })
   } catch (error) {
     console.error('Erro ao criar nova oportunidade de vendas:', error)
