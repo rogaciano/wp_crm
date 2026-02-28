@@ -986,9 +986,23 @@ async function deleteAnexo(id) {
   }
 }
 
-function buildNomeNovaOportunidadeVenda() {
+function buildNomeNovaOportunidadeVenda(tipoOferta, produto) {
   const empresaNome = oportunidade.value?.conta_dados?.nome_empresa || oportunidade.value?.conta_nome || 'Cliente'
-  return `${empresaNome} - UPSELL`
+  return `${empresaNome} - ${tipoOferta} - ${produto}`
+}
+
+function parseValorEstimadoInput(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+
+  const normalized = raw
+    .replace(/\s/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .replace(/[^0-9.\-]/g, '')
+
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 async function criarOportunidadeVenda() {
@@ -999,6 +1013,26 @@ async function criarOportunidadeVenda() {
 
   const ok = confirm('Criar nova oportunidade de vendas para este cliente?')
   if (!ok) return
+
+  const tipoInput = prompt('Tipo da oportunidade (ex.: UPSELL, CROSS-SELL, RENOVACAO):', 'UPSELL')
+  if (tipoInput === null) return
+  const tipoOferta = String(tipoInput || '').trim().toUpperCase() || 'UPSELL'
+
+  const produtoInput = prompt('Qual produto/serviço deseja ofertar?', '')
+  if (produtoInput === null) return
+  const produto = String(produtoInput || '').trim()
+  if (!produto) {
+    alert('Informe o produto/serviço da oportunidade.')
+    return
+  }
+
+  const valorInput = prompt('Valor estimado (opcional). Ex: 1999,90', '')
+  if (valorInput === null) return
+  const valorEstimado = parseValorEstimadoInput(valorInput)
+  if (String(valorInput || '').trim() && valorEstimado === null) {
+    alert('Valor inválido. Use formato numérico, ex.: 1999,90')
+    return
+  }
 
   criandoOportunidadeVenda.value = true
   try {
@@ -1022,13 +1056,16 @@ async function criarOportunidadeVenda() {
     }
 
     const payload = {
-      nome: buildNomeNovaOportunidadeVenda(),
+      nome: buildNomeNovaOportunidadeVenda(tipoOferta, produto),
       conta: oportunidade.value.conta,
       contato_principal: oportunidade.value.contato_principal || null,
+      contatos: Array.from(new Set([...(oportunidadeForm.value.contatos || []), oportunidade.value.contato_principal].filter(Boolean))),
+      empresas: Array.from(new Set([...(oportunidadeForm.value.empresas || []), oportunidade.value.conta].filter(Boolean))),
       funil: funilVendas.id,
       estagio: estagioInicial.estagio_id,
       canal: oportunidade.value.canal || null,
-      descricao: `Gerada a partir da oportunidade #${oportunidade.value.id} (${oportunidade.value.nome || 'Pós-Venda'}).`
+      valor_estimado: valorEstimado,
+      descricao: `Gerada a partir da oportunidade #${oportunidade.value.id} (${oportunidade.value.nome || 'Pós-Venda'}). Tipo: ${tipoOferta}. Produto: ${produto}.`
     }
 
     const res = await api.post('/oportunidades/', payload)
