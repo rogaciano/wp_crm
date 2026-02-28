@@ -106,7 +106,7 @@
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="oportunidade in sortedOportunidades" :key="oportunidade.id" class="hover:bg-gray-50">
+              <tr v-for="oportunidade in oportunidades" :key="oportunidade.id" class="hover:bg-gray-50">
                 <td class="table-cell font-medium text-gray-900 max-w-[200px] truncate" :title="oportunidade.nome">
                   {{ oportunidade.nome }}
                 </td>
@@ -233,6 +233,14 @@
             <button
               class="btn btn-white !px-3 !py-1.5 text-xs"
               :disabled="currentPage <= 1"
+              @click="changePage(1)"
+              title="Primeira página"
+            >
+              «
+            </button>
+            <button
+              class="btn btn-white !px-3 !py-1.5 text-xs"
+              :disabled="currentPage <= 1"
               @click="changePage(currentPage - 1)"
             >
               Anterior
@@ -243,6 +251,14 @@
               @click="changePage(currentPage + 1)"
             >
               Próxima
+            </button>
+            <button
+              class="btn btn-white !px-3 !py-1.5 text-xs"
+              :disabled="currentPage >= totalPages"
+              @click="changePage(totalPages)"
+              title="Última página"
+            >
+              »
             </button>
           </div>
         </div>
@@ -297,18 +313,6 @@ const oportunidades = ref([])
 const sortField = ref('')   // 'nome' | 'conta' | ''
 const sortDir = ref('asc') // 'asc' | 'desc'
 
-const sortedOportunidades = computed(() => {
-  if (!sortField.value) return oportunidades.value
-  return [...oportunidades.value].sort((a, b) => {
-    const key = sortField.value === 'nome' ? 'nome' : 'conta_nome'
-    const valA = (a[key] || '').toLowerCase()
-    const valB = (b[key] || '').toLowerCase()
-    if (valA < valB) return sortDir.value === 'asc' ? -1 : 1
-    if (valA > valB) return sortDir.value === 'asc' ? 1 : -1
-    return 0
-  })
-})
-
 function toggleSort(field) {
   if (sortField.value === field) {
     sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
@@ -316,6 +320,8 @@ function toggleSort(field) {
     sortField.value = field
     sortDir.value = 'asc'
   }
+  currentPage.value = 1
+  loadOportunidades()
 }
 
 const totalPages = computed(() => {
@@ -422,7 +428,10 @@ async function loadOportunidades() {
       funil: funilFilter.value || undefined,
       canal: canalFilter.value || undefined,
       estagio__tipo: statusFilter.value || undefined,
-      funil__tipo: funilFilter.value ? undefined : 'VENDAS' // Só filtra por tipo se não selecionou um funil específico
+      funil__tipo: funilFilter.value ? undefined : 'VENDAS',
+      ordering: sortField.value
+        ? (sortDir.value === 'desc' ? '-' : '') + (sortField.value === 'conta' ? 'conta__nome_empresa' : 'nome')
+        : undefined
     }
     
     // Busca lista e stats em paralelo

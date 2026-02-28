@@ -704,7 +704,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         'empresas': ['exact'],
     }
     search_fields = ['nome', 'conta__nome_empresa', 'empresas__nome_empresa', 'contatos__nome']
-    ordering_fields = ['nome', 'valor_estimado', 'data_fechamento_esperada', 'data_criacao']
+    ordering_fields = ['nome', 'conta__nome_empresa', 'valor_estimado', 'data_fechamento_esperada', 'data_criacao']
     
     def get_queryset(self):
         """Aplica filtros de hierarquia e funis de acesso"""
