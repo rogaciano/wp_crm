@@ -24,7 +24,7 @@
             v-if="showNovaOportunidadeVendaAction"
             @click="criarOportunidadeVenda"
             :disabled="criandoOportunidadeVenda"
-            class="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+            class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
             title="Cria uma nova oportunidade de vendas para esta empresa"
           >
             {{ criandoOportunidadeVenda ? 'Criando...' : 'Nova oportunidade' }}
