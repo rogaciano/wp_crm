@@ -20,7 +20,7 @@
         </div>
         
         <div class="flex items-center gap-3">
-          <div v-if="oportunidade.conta" class="hidden md:flex items-center gap-2">
+          <div v-if="showConverterClienteAction" class="hidden md:flex items-center gap-2">
             <select
               v-model="conversaoStatus"
               class="px-2 py-1 rounded-lg border border-gray-200 text-xs font-bold text-gray-700 bg-white"
@@ -836,6 +836,10 @@ const daysActive = computed(() => {
   const diffTime = Math.abs(now - created)
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) 
   return diffDays
+})
+
+const showConverterClienteAction = computed(() => {
+  return oportunidade.value?.conta && oportunidade.value?.conta_dados?.status_cliente === 'PROSPECT'
 })
 
 function formatDateShort(dateString) {

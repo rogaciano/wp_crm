@@ -206,6 +206,30 @@
         <div v-if="oportunidades.length === 0" class="text-center py-12 text-gray-500">
           Nenhuma oportunidade registrada.
         </div>
+
+        <div v-if="totalPages > 1" class="border-t border-gray-100 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p class="text-xs text-gray-500">
+            Mostrando página <span class="font-bold text-gray-700">{{ currentPage }}</span>
+            de <span class="font-bold text-gray-700">{{ totalPages }}</span>
+            ({{ totalItems }} registros)
+          </p>
+          <div class="flex items-center gap-2">
+            <button
+              class="btn btn-white !px-3 !py-1.5 text-xs"
+              :disabled="currentPage <= 1"
+              @click="changePage(currentPage - 1)"
+            >
+              Anterior
+            </button>
+            <button
+              class="btn btn-white !px-3 !py-1.5 text-xs"
+              :disabled="currentPage >= totalPages"
+              @click="changePage(currentPage + 1)"
+            >
+              Próxima
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -254,6 +278,11 @@ const IconTicket = { template: '<svg fill="none" stroke="currentColor" viewBox="
 const IconTotal = { template: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>' }
 
 const oportunidades = ref([])
+
+const totalPages = computed(() => {
+  if (!totalItems.value || !pageSize.value) return 1
+  return Math.max(1, Math.ceil(totalItems.value / pageSize.value))
+})
 const loading = ref(false)
 const error = ref(null)
 const searchQuery = ref('')
@@ -262,6 +291,9 @@ const canalFilter = ref('')
 const statusFilter = ref('ABERTO')
 const funisOptions = ref([])
 const canaisOptions = ref([])
+const currentPage = ref(1)
+const totalItems = ref(0)
+const pageSize = ref(20)
 
 // WhatsApp
 const showWhatsapp = ref(false)
@@ -346,6 +378,7 @@ async function loadOportunidades() {
   error.value = null
   try {
     const params = {
+      page: currentPage.value,
       search: searchQuery.value || undefined,
       funil: funilFilter.value || undefined,
       canal: canalFilter.value || undefined,
@@ -358,8 +391,20 @@ async function loadOportunidades() {
       api.get('/oportunidades/', { params }),
       api.get('/oportunidades/stats/', { params })
     ])
-    
-    oportunidades.value = listRes.data.results || listRes.data
+
+    const isPaginated = Array.isArray(listRes.data?.results)
+    oportunidades.value = isPaginated ? listRes.data.results : (listRes.data || [])
+    totalItems.value = isPaginated ? Number(listRes.data.count || 0) : oportunidades.value.length
+    if (isPaginated && oportunidades.value.length > 0) {
+      pageSize.value = oportunidades.value.length
+    }
+
+    if (isPaginated && totalPages.value > 0 && currentPage.value > totalPages.value) {
+      currentPage.value = totalPages.value
+      await loadOportunidades()
+      return
+    }
+
     stats.value = statsRes.data
   } catch (err) {
     console.error('Erro ao carregar oportunidades:', err)
@@ -373,8 +418,15 @@ let searchTimeout = null
 function onSearchInput() {
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
+    currentPage.value = 1
     loadOportunidades()
   }, 500)
+}
+
+function changePage(page) {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) return
+  currentPage.value = page
+  loadOportunidades()
 }
 
 function openCreateModal() {

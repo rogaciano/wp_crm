@@ -939,6 +939,16 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
 
         return funil, estagio
 
+    def _resolve_funil_estagio_por_tipo(self, funil_tipo):
+        funil = Funil.objects.filter(tipo=funil_tipo, is_active=True).first()
+        if not funil:
+            return None, None
+
+        vinculo = FunilEstagio.objects.filter(funil=funil, is_padrao=True).first() or \
+                  FunilEstagio.objects.filter(funil=funil).order_by('ordem').first()
+        estagio = vinculo.estagio if vinculo else None
+        return funil, estagio
+
     @staticmethod
     def _get_request_ip(request):
         forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
@@ -1501,7 +1511,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='converter_em_cliente')
     def converter_em_cliente(self, request, pk=None):
-        """Converte a conta da oportunidade para Cliente Ativo/Inativo de forma idempotente."""
+        """Converte a conta da oportunidade para Cliente Ativo/Inativo e move para Pós-Venda."""
         oportunidade = self.get_object()
 
         if not oportunidade.conta:
@@ -1511,11 +1521,37 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         if status_destino not in [Conta.STATUS_CLIENTE_ATIVO, Conta.STATUS_INATIVO]:
             return Response({'error': 'status_cliente inválido. Use CLIENTE_ATIVO ou INATIVO.'}, status=400)
 
+        funil_pos, estagio_pos = self._resolve_funil_estagio_por_tipo(Funil.TIPO_POS_VENDA)
+        if not funil_pos:
+            return Response({'error': 'Nenhum funil de Pós-Venda configurado.'}, status=400)
+        if not estagio_pos:
+            return Response({'error': 'Nenhum estágio inicial encontrado para o funil de Pós-Venda.'}, status=400)
+
+        estagio_destino = estagio_pos
+        if status_destino == Conta.STATUS_INATIVO:
+            vinculo_inativo = FunilEstagio.objects.filter(
+                funil=funil_pos,
+                estagio__nome__icontains='inativ'
+            ).select_related('estagio').order_by('ordem').first()
+            if not vinculo_inativo:
+                vinculo_inativo = FunilEstagio.objects.filter(
+                    funil=funil_pos,
+                    estagio__tipo=EstagioFunil.TIPO_PERDIDO
+                ).select_related('estagio').order_by('ordem').first()
+            if vinculo_inativo:
+                estagio_destino = vinculo_inativo.estagio
+
         conta = oportunidade.conta
         before_status = conta.status_cliente
         before_ativacao = conta.data_ativacao_cliente
+        before_funil_id = oportunidade.funil_id
+        before_funil_nome = oportunidade.funil.nome if oportunidade.funil else None
+        before_estagio_id = oportunidade.estagio_id
+        before_estagio_nome = oportunidade.estagio.nome if oportunidade.estagio else None
 
-        if conta.status_cliente == status_destino:
+        ja_no_destino = oportunidade.funil_id == funil_pos.id and oportunidade.estagio_id == estagio_destino.id
+
+        if conta.status_cliente == status_destino and ja_no_destino:
             return Response({
                 'success': True,
                 'idempotente': True,
@@ -1524,6 +1560,13 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                     'nome_empresa': conta.nome_empresa,
                     'status_cliente': conta.status_cliente,
                     'data_ativacao_cliente': conta.data_ativacao_cliente,
+                },
+                'oportunidade': {
+                    'id': oportunidade.id,
+                    'funil_id': oportunidade.funil_id,
+                    'funil_nome': oportunidade.funil.nome if oportunidade.funil else None,
+                    'estagio_id': oportunidade.estagio_id,
+                    'estagio_nome': oportunidade.estagio.nome if oportunidade.estagio else None,
                 },
                 'mensagem': 'Conta já estava com o status informado. Nenhuma alteração aplicada.',
             })
@@ -1534,6 +1577,10 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                 conta.data_ativacao_cliente = timezone.now()
 
             conta.save(update_fields=['status_cliente', 'data_ativacao_cliente', 'data_atualizacao'])
+
+            oportunidade.funil = funil_pos
+            oportunidade.estagio = estagio_destino
+            oportunidade.save(update_fields=['funil', 'estagio', 'data_atualizacao'])
 
             Log.objects.create(
                 usuario=request.user,
@@ -1551,7 +1598,15 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                         'tipo': 'oportunidade',
                         'oportunidade_id': oportunidade.id,
                         'oportunidade_nome': oportunidade.nome,
-                    }
+                    },
+                    'oportunidade_funil': {
+                        'antes': {'id': before_funil_id, 'nome': before_funil_nome},
+                        'depois': {'id': oportunidade.funil_id, 'nome': oportunidade.funil.nome if oportunidade.funil else None},
+                    },
+                    'oportunidade_estagio': {
+                        'antes': {'id': before_estagio_id, 'nome': before_estagio_nome},
+                        'depois': {'id': oportunidade.estagio_id, 'nome': oportunidade.estagio.nome if oportunidade.estagio else None},
+                    },
                 },
                 ip_address=self._get_request_ip(request),
                 user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000] or None,
@@ -1567,7 +1622,14 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                 'status_cliente': conta.status_cliente,
                 'data_ativacao_cliente': conta.data_ativacao_cliente,
             },
-            'mensagem': 'Conta convertida com sucesso.',
+            'oportunidade': {
+                'id': oportunidade.id,
+                'funil_id': oportunidade.funil_id,
+                'funil_nome': oportunidade.funil.nome if oportunidade.funil else None,
+                'estagio_id': oportunidade.estagio_id,
+                'estagio_nome': oportunidade.estagio.nome if oportunidade.estagio else None,
+            },
+            'mensagem': 'Conta convertida com sucesso e oportunidade movida para Pós-Venda.',
         })
 
     @action(detail=False, methods=['get'])

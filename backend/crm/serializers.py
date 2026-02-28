@@ -1117,6 +1117,8 @@ class OportunidadeSerializer(serializers.ModelSerializer):
 
 class OportunidadeKanbanSerializer(serializers.ModelSerializer):
     conta_nome = serializers.SerializerMethodField()
+    status_cliente = serializers.CharField(source='conta.status_cliente', read_only=True)
+    status_cliente_display = serializers.CharField(source='conta.get_status_cliente_display', read_only=True)
     contato_nome = serializers.SerializerMethodField()
     proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
     estagio_id = serializers.IntegerField(source='estagio.id', read_only=True)
@@ -1128,6 +1130,7 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
         model = Oportunidade
         fields = [
             'id', 'nome', 'valor_estimado', 'contato_nome', 'conta_nome', 
+            'status_cliente', 'status_cliente_display',
             'proprietario_nome', 'estagio', 'estagio_id', 'funil', 'contato_telefone', 
             'whatsapp_nao_lidas', 'adicionais_detalhes', 'data_atualizacao'
         ]

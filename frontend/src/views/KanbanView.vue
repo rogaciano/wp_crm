@@ -164,8 +164,20 @@
               >
                 {{ activeTipoFunil === 'VENDAS' ? 'OPORTUNIDADE' : 'ATENDIMENTO' }}
               </span>
+
+              <span
+                v-if="item.status_cliente_display"
+                class="absolute top-10 right-4 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border"
+                :class="item.status_cliente === 'CLIENTE_ATIVO'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : (item.status_cliente === 'INATIVO'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-sky-50 text-sky-700 border-sky-200')"
+              >
+                {{ item.status_cliente_display }}
+              </span>
               
-              <h4 class="font-black text-gray-800 mb-3 leading-tight group-hover:text-primary-600 transition-colors pr-20">{{ item.nome }}</h4>
+              <h4 class="font-black text-gray-800 mb-3 leading-tight group-hover:text-primary-600 transition-colors pr-24">{{ item.nome }}</h4>
               
               <div class="text-[11px] text-gray-500 space-y-2.5">
                 <p class="flex items-center font-bold text-gray-400">
