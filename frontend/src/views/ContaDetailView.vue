@@ -319,6 +319,10 @@
     :show="showOportunidadeModal"
     :oportunidade="selectedOportunidade"
     :fixed-conta-id="conta?.id"
+    :fixed-contato-principal-id="defaultContatoPrincipalId"
+    :fixed-contatos-ids="contextContatosNovaOportunidade"
+    :fixed-empresas-ids="contextEmpresasNovaOportunidade"
+    :fixed-canal-id="conta?.canal || null"
     @close="showOportunidadeModal = false"
     @saved="refreshOportunidades"
   />
@@ -444,6 +448,25 @@ const valorTotal = computed(() => {
   return oportunidades.value.reduce((sum, opp) => {
     return sum + Number(opp.valor_estimado || 0)
   }, 0)
+})
+
+const defaultContatoPrincipalId = computed(() => {
+  if (!contatos.value.length) return null
+
+  const contatoComFlagPrincipal = contatos.value.find(c => c.principal === true)
+  if (contatoComFlagPrincipal?.id) return contatoComFlagPrincipal.id
+
+  if (contatos.value.length === 1) return contatos.value[0].id
+
+  return null
+})
+
+const contextContatosNovaOportunidade = computed(() => {
+  return contatos.value.map(c => c.id).filter(Boolean)
+})
+
+const contextEmpresasNovaOportunidade = computed(() => {
+  return conta.value?.id ? [conta.value.id] : []
 })
 
 onMounted(async () => {
