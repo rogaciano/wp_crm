@@ -32,6 +32,20 @@ class HierarchyPermission(permissions.BasePermission):
         Verifica se o usuário pode acessar um objeto específico
         """
         user = request.user
+
+        def _user_has_funil_access(funil):
+            if not funil:
+                return True
+            if user.perfil == 'ADMIN':
+                return True
+
+            # Mesmo critério utilizado nos querysets: acesso direto, via canal e funis globais
+            funil_users = funil.usuarios
+            return (
+                funil_users.filter(id=user.id).exists()
+                or (user.canal_id and funil_users.filter(canal_id=user.canal_id).exists())
+                or not funil_users.exists()
+            )
         
         # Admin tem acesso total
         if user.perfil == 'ADMIN':
@@ -40,9 +54,7 @@ class HierarchyPermission(permissions.BasePermission):
         # Vendedor: só seus próprios objetos E deve estar em funil que tem acesso
         if user.perfil == 'VENDEDOR':
             owner_match = getattr(obj, 'proprietario', None) == user
-            funil_match = True
-            if hasattr(obj, 'funil') and obj.funil:
-                funil_match = user.funis_acesso.filter(id=obj.funil.id).exists()
+            funil_match = _user_has_funil_access(getattr(obj, 'funil', None))
             return owner_match and funil_match
         
         # Responsável: objetos do seu canal E de funis que tem acesso
@@ -55,9 +67,7 @@ class HierarchyPermission(permissions.BasePermission):
                 canal_match = (obj.proprietario.canal == user.canal)
             
             # Funil match
-            funil_match = True
-            if hasattr(obj, 'funil') and obj.funil:
-                funil_match = user.funis_acesso.filter(id=obj.funil.id).exists()
+            funil_match = _user_has_funil_access(getattr(obj, 'funil', None))
                 
             return canal_match and funil_match
         
