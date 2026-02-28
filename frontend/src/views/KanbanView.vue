@@ -372,8 +372,6 @@
       </div>
     </div>
 
-    </div> <!-- end kanban view wrapper -->
-
     <!-- Modals (always mounted regardless of view mode) -->
     <OportunidadeModal
       :show="showModal"
