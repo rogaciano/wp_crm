@@ -2,9 +2,14 @@
   <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Oportunidades</h1>
-      <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-sm">
-        + Nova Oportunidade
-      </button>
+      <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        <button @click="router.push('/oportunidades/importar')" class="btn btn-white w-full sm:w-auto shadow-sm">
+          Importar Planilha
+        </button>
+        <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-sm">
+          + Nova Oportunidade
+        </button>
+      </div>
     </div>
 
     <!-- Filtros -->

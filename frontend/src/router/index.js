@@ -80,6 +80,11 @@ const router = createRouter({
           component: () => import('@/views/OportunidadesView.vue')
         },
         {
+          path: '/oportunidades/importar',
+          name: 'oportunidades-importar',
+          component: () => import('@/views/OportunidadesImportView.vue')
+        },
+        {
           path: '/atividades',
           name: 'atividades',
           component: () => import('@/views/AtividadesView.vue')

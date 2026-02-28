@@ -2,6 +2,9 @@
 Views da API do CRM
 """
 import logging
+import re
+import unicodedata
+from decimal import Decimal, InvalidOperation
 from rest_framework import viewsets, status, filters, permissions
 from rest_framework.views import APIView
 from rest_framework.decorators import action
@@ -827,6 +830,653 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                 usuario=self.request.user
             )
     
+    @staticmethod
+    def _normalize_header(value):
+        text = str(value or '').strip().lower()
+        text = ''.join(
+            ch for ch in unicodedata.normalize('NFD', text)
+            if unicodedata.category(ch) != 'Mn'
+        )
+        return re.sub(r'\s+', ' ', text)
+
+    @staticmethod
+    def _normalize_digits(value):
+        return re.sub(r'\D', '', str(value or ''))
+
+    @staticmethod
+    def _normalize_phone_from_import(value):
+        """Normaliza telefone vindo da planilha para apenas dígitos, inclusive notação científica."""
+        if value is None:
+            return ''
+
+        if isinstance(value, int):
+            return str(value)
+
+        if isinstance(value, float):
+            if value.is_integer():
+                return str(int(value))
+            return re.sub(r'\D', '', format(value, 'f'))
+
+        text = str(value).strip()
+        if not text:
+            return ''
+
+        if re.match(r'^[+-]?\d+(\.\d+)?[eE][+-]?\d+$', text):
+            try:
+                decimal_value = Decimal(text)
+                plain = format(decimal_value, 'f')
+                integer_part = plain.split('.')[0]
+                return re.sub(r'\D', '', integer_part)
+            except (InvalidOperation, ValueError):
+                pass
+
+        return re.sub(r'\D', '', text)
+
+    @staticmethod
+    def _normalize_import_text(value):
+        text = str(value or '').strip()
+        if not text:
+            return ''
+
+        text = text.replace('\u00a0', ' ')
+        if 'Ã' in text or 'Â' in text or '�' in text:
+            try:
+                repaired = text.encode('latin1').decode('utf-8')
+                if repaired.strip():
+                    text = repaired.strip()
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                pass
+
+        return text
+
+    @classmethod
+    def _get_row_value(cls, row_values, headers, aliases, fixed_index=None):
+        for alias in aliases:
+            idx = headers.get(cls._normalize_header(alias))
+            if idx is not None and idx < len(row_values):
+                val = row_values[idx]
+                if val is not None and str(val).strip() != '':
+                    return cls._normalize_import_text(val)
+        if fixed_index is not None and fixed_index < len(row_values):
+            val = row_values[fixed_index]
+            if val is not None and str(val).strip() != '':
+                return cls._normalize_import_text(val)
+        return ''
+
+    def _resolve_canal_import(self, request):
+        user = request.user
+        canal_id = request.data.get('canal_id')
+
+        if user.perfil == 'ADMIN':
+            if canal_id:
+                canal = Canal.objects.filter(id=canal_id).first()
+                if not canal:
+                    return None, Response({'error': 'Canal informado não encontrado.'}, status=400)
+                return canal, None
+            if user.canal:
+                return user.canal, None
+            return None, Response({'error': 'Informe canal_id para importação.'}, status=400)
+
+        if user.canal:
+            return user.canal, None
+
+        return None, Response({'error': 'Usuário sem canal vinculado para importar.'}, status=403)
+
+    def _resolve_funil_estagio(self, canal):
+        funil = canal.funil_padrao if canal else None
+        estagio = canal.estagio_inicial if canal else None
+
+        if not funil:
+            funil = Funil.objects.filter(tipo=Funil.TIPO_VENDAS, is_active=True).first()
+
+        if not funil:
+            return None, None
+
+        if not estagio:
+            vinculo = FunilEstagio.objects.filter(funil=funil, is_padrao=True).first() or \
+                      FunilEstagio.objects.filter(funil=funil).order_by('ordem').first()
+            estagio = vinculo.estagio if vinculo else None
+
+        return funil, estagio
+
+    def _resolve_funil_estagio_por_tipo(self, funil_tipo):
+        funil = Funil.objects.filter(tipo=funil_tipo, is_active=True).first()
+        if not funil:
+            return None, None
+
+        vinculo = FunilEstagio.objects.filter(funil=funil, is_padrao=True).first() or \
+                  FunilEstagio.objects.filter(funil=funil).order_by('ordem').first()
+        estagio = vinculo.estagio if vinculo else None
+        return funil, estagio
+
+    @staticmethod
+    def _get_request_ip(request):
+        forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
+        if forwarded:
+            return forwarded.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR')
+
+    def _can_access_import_log(self, user, import_log):
+        if user.perfil == 'ADMIN':
+            return True
+
+        payload = import_log.alteracoes or {}
+        canal_payload = payload.get('canal') or {}
+        canal_id = canal_payload.get('id')
+
+        return import_log.usuario_id == user.id or (user.canal_id and canal_id == user.canal_id)
+
+    def _build_import_log_response_item(self, import_log):
+        payload = import_log.alteracoes or {}
+        created_ids = payload.get('created_ids') or {}
+        rollback = payload.get('rollback') or {}
+
+        return {
+            'lote_id': import_log.id,
+            'arquivo': payload.get('arquivo'),
+            'canal': payload.get('canal'),
+            'funil': payload.get('funil'),
+            'estagio': payload.get('estagio'),
+            'summary': payload.get('summary') or {},
+            'created_counts': {
+                'oportunidades': len(created_ids.get('oportunidades_ids') or []),
+                'contas': len(created_ids.get('contas_ids') or []),
+                'contatos': len(created_ids.get('contatos_ids') or []),
+                'origens': len(created_ids.get('origens_ids') or []),
+            },
+            'revertido': bool(rollback.get('revertido_em')),
+            'rollback': rollback,
+            'usuario': {
+                'id': import_log.usuario_id,
+                'nome': import_log.usuario.get_full_name() if import_log.usuario else None,
+            },
+            'criado_em': import_log.timestamp,
+        }
+
+    @action(detail=False, methods=['post'])
+    def importar_xlsx(self, request):
+        """Importa oportunidades via planilha XLSX (Conta + Contato + Oportunidade)."""
+        try:
+            from openpyxl import load_workbook
+        except Exception as e:
+            return Response(
+                {'error': f'Falha ao importar openpyxl: {e}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        file = request.FILES.get('file')
+        dry_run = str(request.data.get('dry_run', 'true')).lower() in ['1', 'true', 'yes', 'sim']
+        modo_importacao = str(request.data.get('modo_importacao', 'VENDAS') or 'VENDAS').strip().upper()
+
+        if modo_importacao not in ['VENDAS', 'CLIENTE_LEGADO']:
+            return Response({'error': 'modo_importacao inválido. Use VENDAS ou CLIENTE_LEGADO.'}, status=400)
+
+        if modo_importacao == 'CLIENTE_LEGADO' and request.user.perfil != 'ADMIN':
+            return Response({'error': 'Somente ADMIN pode usar o modo CLIENTE_LEGADO.'}, status=403)
+
+        if not file:
+            return Response({'error': 'Arquivo é obrigatório.'}, status=400)
+
+        if not file.name.lower().endswith('.xlsx'):
+            return Response({'error': 'Formato inválido. Envie um arquivo .xlsx'}, status=400)
+
+        canal, canal_error = self._resolve_canal_import(request)
+        if canal_error:
+            return canal_error
+
+        legacy_funis = []
+        if modo_importacao == 'CLIENTE_LEGADO':
+            funil_pos, estagio_pos = self._resolve_funil_estagio_por_tipo(Funil.TIPO_POS_VENDA)
+            if not funil_pos:
+                return Response({'error': 'Nenhum funil de Pós-Venda configurado.'}, status=400)
+            if not estagio_pos:
+                return Response({'error': 'Nenhum estágio inicial encontrado para o funil de Pós-Venda.'}, status=400)
+
+            funil_sup, estagio_sup = self._resolve_funil_estagio_por_tipo(Funil.TIPO_SUPORTE)
+            if not funil_sup:
+                return Response({'error': 'Nenhum funil de Suporte configurado.'}, status=400)
+            if not estagio_sup:
+                return Response({'error': 'Nenhum estágio inicial encontrado para o funil de Suporte.'}, status=400)
+
+            legacy_funis = [
+                {'funil': funil_pos, 'estagio': estagio_pos, 'tipo': Funil.TIPO_POS_VENDA},
+                {'funil': funil_sup, 'estagio': estagio_sup, 'tipo': Funil.TIPO_SUPORTE},
+            ]
+            funil = None
+            estagio = None
+        else:
+            funil, estagio = self._resolve_funil_estagio(canal)
+            if not funil:
+                return Response({'error': 'Nenhum funil de vendas configurado.'}, status=400)
+            if not estagio:
+                return Response({'error': 'Nenhum estágio inicial encontrado para o funil selecionado.'}, status=400)
+
+        try:
+            wb = load_workbook(file, data_only=True)
+            ws = wb.active
+        except Exception as e:
+            return Response({'error': f'Falha ao ler planilha: {e}'}, status=400)
+
+        header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), None)
+        if not header_row:
+            return Response({'error': 'Planilha sem cabeçalho.'}, status=400)
+
+        headers = {
+            self._normalize_header(col): idx
+            for idx, col in enumerate(header_row)
+            if col is not None and str(col).strip()
+        }
+
+        summary = {
+            'processadas': 0,
+            'criadas': 0,
+            'atualizadas': 0,
+            'puladas': 0,
+            'erros': 0,
+            'contas_criadas': 0,
+            'contatos_criados': 0,
+            'origens_criadas': 0,
+        }
+        rows_result = []
+        created_ids = {
+            'oportunidades_ids': set(),
+            'contas_ids': set(),
+            'contatos_ids': set(),
+            'origens_ids': set(),
+        }
+
+        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            row_values = list(row or [])
+
+            nome = self._get_row_value(row_values, headers, ['Nome', 'Contato', 'Nome Contato'], fixed_index=7)
+            cnpj_raw = self._get_row_value(row_values, headers, ['CNPJ'], fixed_index=1)
+            razao_social = self._get_row_value(row_values, headers, ['Razao Social', 'Razão Social'], fixed_index=2)
+            nome_fantasia = self._get_row_value(row_values, headers, ['Nome Fantasia', 'Fantasia'], fixed_index=3)
+            segmento = self._get_row_value(row_values, headers, ['Segmento'], fixed_index=4)
+            cidade = self._get_row_value(row_values, headers, ['Nome Cidade', 'Cidade'], fixed_index=5)
+            estado = self._get_row_value(row_values, headers, ['UF', 'Uf', 'Estado'], fixed_index=6)
+            email = self._get_row_value(row_values, headers, ['Email', 'E-mail'], fixed_index=8)
+            telefone = self._get_row_value(row_values, headers, ['Telefone', 'Celular', 'WhatsApp'], fixed_index=9)
+            fonte_nome = self._get_row_value(row_values, headers, ['Fonte', 'Origem'], fixed_index=10)
+            estande = self._get_row_value(row_values, headers, ['Estande'], fixed_index=0)
+
+            if not any([nome, cnpj_raw, razao_social, nome_fantasia, email, telefone, fonte_nome]):
+                continue
+
+            summary['processadas'] += 1
+
+            if not nome:
+                summary['erros'] += 1
+                rows_result.append({'linha': row_idx, 'status': 'erro', 'mensagem': 'Nome do contato obrigatório.'})
+                continue
+
+            empresa_nome = (nome_fantasia or razao_social).strip()
+            if not empresa_nome and not cnpj_raw:
+                summary['erros'] += 1
+                rows_result.append({'linha': row_idx, 'status': 'erro', 'mensagem': 'Empresa sem CNPJ e sem nome.'})
+                continue
+
+            cnpj = self._normalize_digits(cnpj_raw)
+            if cnpj and len(cnpj) != 14:
+                cnpj = ''
+            telefone = self._normalize_phone_from_import(telefone)
+
+            try:
+                with transaction.atomic():
+                    conta = None
+                    if cnpj:
+                        conta = Conta.objects.filter(cnpj=cnpj).first()
+
+                    if not conta and empresa_nome:
+                        conta = Conta.objects.filter(nome_empresa__iexact=empresa_nome).first()
+
+                    if not conta and not dry_run:
+                        conta = Conta.objects.create(
+                            nome_empresa=empresa_nome or f'Empresa {nome}',
+                            cnpj=cnpj or None,
+                            telefone_principal=telefone or None,
+                            setor=segmento or None,
+                            cidade=cidade or None,
+                            estado=(estado or '').upper()[:2] or None,
+                            canal=canal,
+                            proprietario=request.user
+                        )
+                        created_ids['contas_ids'].add(conta.id)
+                        summary['contas_criadas'] += 1
+
+                    if conta and not dry_run:
+                        dirty = False
+                        if telefone and not conta.telefone_principal:
+                            conta.telefone_principal = telefone
+                            dirty = True
+                        if segmento and not conta.setor:
+                            conta.setor = segmento
+                            dirty = True
+                        if cidade and not conta.cidade:
+                            conta.cidade = cidade
+                            dirty = True
+                        if estado and not conta.estado:
+                            conta.estado = estado.upper()[:2]
+                            dirty = True
+                        if canal and not conta.canal:
+                            conta.canal = canal
+                            dirty = True
+                        if dirty:
+                            conta.save()
+                            summary['atualizadas'] += 1
+
+                    contato = None
+                    if email:
+                        contato = Contato.objects.filter(email__iexact=email).first()
+
+                    if not contato and conta:
+                        contato = Contato.objects.filter(nome__iexact=nome, conta=conta).first()
+
+                    if not contato and not dry_run:
+                        contato = Contato.objects.create(
+                            nome=nome,
+                            email=email or None,
+                            telefone=telefone or None,
+                            celular=telefone or None,
+                            conta=conta,
+                            canal=canal,
+                            proprietario=request.user
+                        )
+                        created_ids['contatos_ids'].add(contato.id)
+                        summary['contatos_criados'] += 1
+
+                    if contato and not dry_run:
+                        contato_dirty = False
+                        if telefone and not contato.telefone:
+                            contato.telefone = telefone
+                            contato_dirty = True
+                        if telefone and not contato.celular:
+                            contato.celular = telefone
+                            contato_dirty = True
+                        if conta and not contato.conta:
+                            contato.conta = conta
+                            contato_dirty = True
+                        if canal and not contato.canal:
+                            contato.canal = canal
+                            contato_dirty = True
+                        if contato_dirty:
+                            contato.save()
+                            summary['atualizadas'] += 1
+
+                    origem = None
+                    if fonte_nome and not dry_run:
+                        origem, created_origem = Origem.objects.get_or_create(
+                            nome=fonte_nome.strip(),
+                            defaults={'ativo': True}
+                        )
+                        if created_origem:
+                            created_ids['origens_ids'].add(origem.id)
+                            summary['origens_criadas'] += 1
+
+                    if modo_importacao == 'CLIENTE_LEGADO':
+                        base_legado = (nome_fantasia or razao_social or empresa_nome or nome).strip()
+                        opp_name = base_legado[:255]
+                        destinos = legacy_funis
+                    else:
+                        opp_suffix = (nome_fantasia or razao_social).strip()
+                        opp_name = f"{nome} - {opp_suffix}" if opp_suffix else nome
+                        opp_name = opp_name[:255]
+                        destinos = [{'funil': funil, 'estagio': estagio, 'tipo': Funil.TIPO_VENDAS}]
+
+                    if dry_run:
+                        preview_destinos = [d['funil'].nome for d in destinos]
+                        summary['criadas'] += len(destinos)
+                        rows_result.append({
+                            'linha': row_idx,
+                            'status': 'preview',
+                            'mensagem': 'Linha válida para importação.',
+                            'oportunidade_nome': opp_name,
+                            'empresa': empresa_nome,
+                            'contato': nome,
+                            'fonte': fonte_nome,
+                            'destinos': preview_destinos,
+                        })
+                        continue
+
+                    criadas_na_linha = 0
+                    puladas_na_linha = 0
+                    oportunidade_principal = None
+                    for destino in destinos:
+                        funil_destino = destino['funil']
+                        estagio_destino = destino['estagio']
+
+                        existing_opp = Oportunidade.objects.filter(
+                            conta=conta,
+                            funil=funil_destino,
+                            nome__iexact=opp_name
+                        ).first()
+                        if existing_opp:
+                            puladas_na_linha += 1
+                            continue
+
+                        oportunidade = Oportunidade.objects.create(
+                            nome=opp_name,
+                            conta=conta,
+                            contato_principal=contato,
+                            funil=funil_destino,
+                            estagio=estagio_destino,
+                            canal=canal,
+                            proprietario=request.user,
+                            fonte=fonte_nome or None,
+                            origem=origem,
+                            descricao=f"Estande: {estande}" if estande else None,
+                        )
+                        created_ids['oportunidades_ids'].add(oportunidade.id)
+
+                        if contato:
+                            oportunidade.contatos.add(contato)
+                        if conta:
+                            oportunidade.empresas.add(conta)
+
+                        if not oportunidade_principal:
+                            oportunidade_principal = oportunidade
+                        criadas_na_linha += 1
+
+                    summary['criadas'] += criadas_na_linha
+                    summary['puladas'] += puladas_na_linha
+
+                    if criadas_na_linha:
+                        rows_result.append({
+                            'linha': row_idx,
+                            'status': 'ok',
+                            'mensagem': f'Importado com sucesso ({criadas_na_linha} oportunidade(s) criada(s), {puladas_na_linha} pulada(s)).',
+                            'oportunidade_id': oportunidade_principal.id if oportunidade_principal else None,
+                            'oportunidade_nome': opp_name,
+                        })
+                    else:
+                        rows_result.append({
+                            'linha': row_idx,
+                            'status': 'preview' if dry_run else 'ok',
+                            'mensagem': 'Nenhuma oportunidade criada: já existia registro equivalente nos funis de destino.',
+                            'oportunidade_nome': opp_name,
+                        })
+
+            except Exception as e:
+                summary['erros'] += 1
+                rows_result.append({'linha': row_idx, 'status': 'erro', 'mensagem': str(e)})
+
+        if summary['processadas'] == 0:
+            return Response({'error': 'Nenhuma linha válida encontrada na planilha.'}, status=400)
+
+        import_lote = None
+        if not dry_run:
+            created_ids_json = {
+                key: sorted(list(value))
+                for key, value in created_ids.items()
+            }
+            import_lote = Log.objects.create(
+                usuario=request.user,
+                acao=Log.ACAO_IMPORT,
+                modelo='IMPORTACAO_XLSX_OPORTUNIDADES',
+                objeto_repr=f"Importação XLSX - {file.name}",
+                alteracoes={
+                    'arquivo': file.name,
+                    'modo_importacao': modo_importacao,
+                    'canal': {'id': canal.id, 'nome': canal.nome} if canal else None,
+                    'funil': {'id': funil.id, 'nome': funil.nome} if funil else None,
+                    'estagio': {'id': estagio.id, 'nome': estagio.nome} if estagio else None,
+                    'destinos': [
+                        {
+                            'funil': {'id': item['funil'].id, 'nome': item['funil'].nome},
+                            'estagio': {'id': item['estagio'].id, 'nome': item['estagio'].nome},
+                            'tipo': item['tipo'],
+                        }
+                        for item in legacy_funis
+                    ] if modo_importacao == 'CLIENTE_LEGADO' else None,
+                    'summary': summary,
+                    'created_ids': created_ids_json,
+                },
+                ip_address=self._get_request_ip(request),
+                user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000] or None,
+                observacao='Lote de importação de oportunidades via XLSX',
+            )
+
+        return Response({
+            'dry_run': dry_run,
+            'modo_importacao': modo_importacao,
+            'canal': {'id': canal.id, 'nome': canal.nome} if canal else None,
+            'funil': {'id': funil.id, 'nome': funil.nome} if funil else None,
+            'estagio': {'id': estagio.id, 'nome': estagio.nome} if estagio else None,
+            'destinos': [
+                {
+                    'funil': {'id': item['funil'].id, 'nome': item['funil'].nome},
+                    'estagio': {'id': item['estagio'].id, 'nome': item['estagio'].nome},
+                    'tipo': item['tipo'],
+                }
+                for item in legacy_funis
+            ] if modo_importacao == 'CLIENTE_LEGADO' else None,
+            'summary': summary,
+            'rows': rows_result[:200],
+            'lote_importacao': {'id': import_lote.id, 'criado_em': import_lote.timestamp} if import_lote else None,
+        })
+
+    @action(detail=False, methods=['get'], url_path='importacao_lotes')
+    def importacao_lotes(self, request):
+        """Lista lotes de importação XLSX de oportunidades."""
+        logs = Log.objects.filter(
+            acao=Log.ACAO_IMPORT,
+            modelo='IMPORTACAO_XLSX_OPORTUNIDADES'
+        ).select_related('usuario').order_by('-timestamp')[:100]
+
+        lotes = []
+        for import_log in logs:
+            if self._can_access_import_log(request.user, import_log):
+                lotes.append(self._build_import_log_response_item(import_log))
+
+        return Response({'results': lotes})
+
+    @action(detail=False, methods=['post'], url_path='reverter_importacao')
+    def reverter_importacao(self, request):
+        """Reverte um lote de importação removendo registros criados no lote, quando seguro."""
+        lote_id = request.data.get('lote_id')
+        if not lote_id:
+            return Response({'error': 'lote_id é obrigatório.'}, status=400)
+
+        try:
+            lote_id = int(lote_id)
+        except (TypeError, ValueError):
+            return Response({'error': 'lote_id inválido.'}, status=400)
+
+        import_log = Log.objects.filter(
+            id=lote_id,
+            acao=Log.ACAO_IMPORT,
+            modelo='IMPORTACAO_XLSX_OPORTUNIDADES'
+        ).select_related('usuario').first()
+
+        if not import_log:
+            return Response({'error': 'Lote de importação não encontrado.'}, status=404)
+
+        if not self._can_access_import_log(request.user, import_log):
+            return Response({'error': 'Sem permissão para reverter este lote.'}, status=403)
+
+        payload = import_log.alteracoes or {}
+        rollback_data = payload.get('rollback') or {}
+        if rollback_data.get('revertido_em'):
+            return Response({'error': 'Este lote já foi revertido.'}, status=400)
+
+        created_ids = payload.get('created_ids') or {}
+        oportunidades_ids = created_ids.get('oportunidades_ids') or []
+        contatos_ids = created_ids.get('contatos_ids') or []
+        contas_ids = created_ids.get('contas_ids') or []
+        origens_ids = created_ids.get('origens_ids') or []
+
+        rollback_summary = {
+            'oportunidades_excluidas': 0,
+            'contatos_excluidos': 0,
+            'contatos_preservados': 0,
+            'contas_excluidas': 0,
+            'contas_preservadas': 0,
+            'origens_excluidas': 0,
+            'origens_preservadas': 0,
+        }
+
+        with transaction.atomic():
+            if oportunidades_ids:
+                qs_oportunidades = Oportunidade.objects.filter(id__in=oportunidades_ids)
+                rollback_summary['oportunidades_excluidas'] = qs_oportunidades.count()
+                qs_oportunidades.delete()
+
+            for contato in Contato.objects.filter(id__in=contatos_ids):
+                if contato.oportunidades.exists() or contato.oportunidades_principais_contato.exists():
+                    rollback_summary['contatos_preservados'] += 1
+                    continue
+                contato.delete()
+                rollback_summary['contatos_excluidos'] += 1
+
+            for conta in Conta.objects.filter(id__in=contas_ids):
+                has_rel = (
+                    conta.oportunidades.exists() or
+                    conta.oportunidades_diretas.exists() or
+                    conta.contatos.exists()
+                )
+                if has_rel:
+                    rollback_summary['contas_preservadas'] += 1
+                    continue
+                conta.delete()
+                rollback_summary['contas_excluidas'] += 1
+
+            for origem in Origem.objects.filter(id__in=origens_ids):
+                if origem.oportunidades.exists():
+                    rollback_summary['origens_preservadas'] += 1
+                    continue
+                origem.delete()
+                rollback_summary['origens_excluidas'] += 1
+
+            payload['rollback'] = {
+                'revertido_em': timezone.now().isoformat(),
+                'revertido_por': {
+                    'id': request.user.id,
+                    'nome': request.user.get_full_name() or request.user.username,
+                },
+                'summary': rollback_summary,
+            }
+            import_log.alteracoes = payload
+            import_log.observacao = 'Lote de importação revertido.'
+            import_log.save(update_fields=['alteracoes', 'observacao'])
+
+            Log.objects.create(
+                usuario=request.user,
+                acao=Log.ACAO_DELETE,
+                modelo='IMPORTACAO_XLSX_OPORTUNIDADES',
+                objeto_id=import_log.id,
+                objeto_repr=import_log.objeto_repr,
+                alteracoes={'lote_id': import_log.id, 'rollback_summary': rollback_summary},
+                ip_address=self._get_request_ip(request),
+                user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000] or None,
+                observacao='Reversão manual de lote de importação XLSX',
+            )
+
+        return Response({
+            'success': True,
+            'lote_id': import_log.id,
+            'rollback_summary': rollback_summary,
+        })
+
     @action(detail=False, methods=['get'])
     def kanban(self, request):
         """Retorna oportunidades agrupadas por estágio para visão Kanban"""
