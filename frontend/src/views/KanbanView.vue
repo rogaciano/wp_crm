@@ -25,6 +25,8 @@
       </div>
     </div>
 
+    <div v-if="showTagFilter" class="fixed inset-0 z-40" @click="showTagFilter = false"></div>
+
     <!-- Floating Toolbar (canto superior direito) -->
     <div class="fixed top-4 right-4 z-50 flex items-center gap-2 bg-white/95 backdrop-blur-sm rounded-2xl p-2 shadow-xl border border-gray-100">
       <!-- Funnel Selector -->
@@ -72,6 +74,51 @@
         <svg class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 6 6a7.5 7.5 0 0 0 10.65 10.65Z" />
         </svg>
+      </div>
+
+      <div class="relative">
+        <button
+          @click="showTagFilter = !showTagFilter"
+          class="bg-gray-50 border-0 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all cursor-pointer flex items-center gap-2"
+          type="button"
+        >
+          <span>Etiquetas</span>
+          <span v-if="selectedTagIds.length" class="px-1.5 py-0.5 rounded-md bg-primary-100 text-primary-700 text-[10px] leading-none">{{ selectedTagIds.length }}</span>
+          <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <div v-if="showTagFilter" class="absolute right-0 mt-2 w-64 bg-white rounded-xl border border-gray-200 shadow-xl p-3 z-50">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Filtrar etiquetas</p>
+            <button
+              v-if="selectedTagIds.length"
+              @click="selectedTagIds = []"
+              type="button"
+              class="text-[10px] font-black uppercase tracking-wide text-primary-600 hover:underline"
+            >
+              Limpar
+            </button>
+          </div>
+
+          <div v-if="tagsOptions.length" class="max-h-48 overflow-y-auto custom-scrollbar space-y-1 pr-1">
+            <label
+              v-for="tag in tagsOptions"
+              :key="`filter-tag-${tag.id}`"
+              class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer"
+            >
+              <input v-model="selectedTagIds" :value="tag.id" type="checkbox" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+              <span
+                class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border"
+                :style="{ backgroundColor: `${tag.cor || '#64748B'}20`, color: tag.cor || '#64748B', borderColor: `${tag.cor || '#64748B'}40` }"
+              >
+                {{ tag.nome }}
+              </span>
+            </label>
+          </div>
+          <p v-else class="text-xs text-gray-400">Nenhuma etiqueta cadastrada.</p>
+        </div>
       </div>
 
       <!-- Botão Nova Oportunidade -->
@@ -460,6 +507,9 @@ const draggedItem = ref(null)
 const activeContextEstagioId = ref(null)
 const selectedEstagio = ref('')
 const searchTerm = ref('')
+const tagsOptions = ref([])
+const selectedTagIds = ref([])
+const showTagFilter = ref(false)
 
 const activeTipoFunil = ref(route.query.tipo || 'VENDAS')
 
@@ -499,25 +549,29 @@ const normalizedSearchTerm = computed(() => normalizeSearchText(searchTerm.value
 
 const kanbanColumns = computed(() => {
   const term = normalizedSearchTerm.value
+  const selectedTags = selectedTagIds.value.map(String)
 
   return kanbanData.value
     .filter(col => !selectedEstagio.value || col.estagio.id === selectedEstagio.value)
     .map(coluna => ({
       ...coluna,
-      items: !term
-        ? (coluna.items || [])
-        : (coluna.items || []).filter(item => {
-            const searchable = [
-              item.nome,
-              item.conta_nome,
-              item.contato_nome,
-              item.origem_nome,
-              item.fonte
-            ]
-              .map(normalizeSearchText)
-              .join(' ')
-            return searchable.includes(term)
-          })
+      items: (coluna.items || []).filter(item => {
+        const searchable = [
+          item.nome,
+          item.conta_nome,
+          item.contato_nome,
+          item.origem_nome,
+          item.fonte,
+          ...(item.tags_detail || []).map(tag => tag.nome)
+        ]
+          .map(normalizeSearchText)
+          .join(' ')
+
+        const matchesSearch = !term || searchable.includes(term)
+        const matchesTags = selectedTags.length === 0 || (item.tags_detail || []).some(tag => selectedTags.includes(String(tag.id)))
+
+        return matchesSearch && matchesTags
+      })
     }))
 })
 
@@ -575,10 +629,20 @@ function updateActiveStage() {
 
 onMounted(async () => {
   await fetchFunnels()
+  await fetchTags()
   if (authStore.isAdmin) {
     await fetchCanais()
   }
 })
+
+async function fetchTags() {
+  try {
+    const response = await api.get('/tags/')
+    tagsOptions.value = response.data.results || response.data
+  } catch (err) {
+    console.error('Erro ao carregar etiquetas:', err)
+  }
+}
 
 async function fetchCanais() {
   try {

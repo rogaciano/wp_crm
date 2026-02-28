@@ -1197,6 +1197,7 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
     contato_telefone = serializers.SerializerMethodField()
     whatsapp_nao_lidas = serializers.SerializerMethodField()
     adicionais_detalhes = OportunidadeAdicionalSerializer(source='oportunidadeadicional_set', many=True, read_only=True)
+    tags_detail = TagSerializer(source='tags', many=True, read_only=True)
 
     class Meta:
         model = Oportunidade
@@ -1204,7 +1205,7 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
             'id', 'nome', 'valor_estimado', 'contato_nome', 'conta_nome', 
             'status_cliente', 'status_cliente_display',
             'proprietario_nome', 'estagio', 'estagio_id', 'funil', 'contato_telefone', 
-            'whatsapp_nao_lidas', 'adicionais_detalhes', 'data_atualizacao'
+            'whatsapp_nao_lidas', 'adicionais_detalhes', 'tags_detail', 'data_atualizacao'
         ]
 
     def get_conta_nome(self, obj):
