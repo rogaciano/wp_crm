@@ -20,6 +20,16 @@
         </div>
         
         <div class="flex items-center gap-3">
+          <button
+            v-if="showNovaOportunidadeVendaAction"
+            @click="criarOportunidadeVenda"
+            :disabled="criandoOportunidadeVenda"
+            class="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+            title="Cria uma nova oportunidade de vendas para esta empresa"
+          >
+            {{ criandoOportunidadeVenda ? 'Criando...' : 'Nova oportunidade' }}
+          </button>
+
           <div v-if="showConverterClienteAction" class="hidden md:flex items-center gap-2">
             <select
               v-model="conversaoStatus"
@@ -826,6 +836,7 @@ const oportunidadeContentTypeId = ref(null)
 const timelineFeedRef = ref(null)
 const conversaoStatus = ref('CLIENTE_ATIVO')
 const convertendoCliente = ref(false)
+const criandoOportunidadeVenda = ref(false)
 
 // Computed
 const daysActive = computed(() => {
@@ -840,6 +851,14 @@ const daysActive = computed(() => {
 
 const showConverterClienteAction = computed(() => {
   return oportunidade.value?.conta && oportunidade.value?.conta_dados?.status_cliente === 'PROSPECT'
+})
+
+const showNovaOportunidadeVendaAction = computed(() => {
+  return (
+    oportunidade.value?.funil_tipo === 'POS_VENDA' &&
+    oportunidade.value?.conta &&
+    oportunidade.value?.conta_dados?.status_cliente !== 'PROSPECT'
+  )
 })
 
 function formatDateShort(dateString) {
@@ -967,6 +986,69 @@ async function deleteAnexo(id) {
   }
 }
 
+function buildNomeNovaOportunidadeVenda() {
+  const empresaNome = oportunidade.value?.conta_dados?.nome_empresa || oportunidade.value?.conta_nome || 'Cliente'
+  return `${empresaNome} - UPSELL`
+}
+
+async function criarOportunidadeVenda() {
+  if (!oportunidade.value?.conta) {
+    alert('A oportunidade precisa ter empresa vinculada para criar uma nova venda.')
+    return
+  }
+
+  const ok = confirm('Criar nova oportunidade de vendas para este cliente?')
+  if (!ok) return
+
+  criandoOportunidadeVenda.value = true
+  try {
+    const funisRes = await api.get('/funis/')
+    const funis = funisRes.data?.results || funisRes.data || []
+    const funilVendas = funis.find(f => f.tipo === 'VENDAS' && f.is_active !== false)
+
+    if (!funilVendas) {
+      alert('Nenhum funil de Vendas ativo encontrado.')
+      return
+    }
+
+    const estagiosRes = await api.get(`/funis/${funilVendas.id}/estagios/`)
+    const estagiosRaw = estagiosRes.data?.results || estagiosRes.data || []
+    const estagios = [...estagiosRaw].sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
+    const estagioInicial = estagios.find(e => e.is_padrao) || estagios[0]
+
+    if (!estagioInicial?.estagio_id) {
+      alert('Nenhum estágio inicial encontrado para o funil de Vendas.')
+      return
+    }
+
+    const payload = {
+      nome: buildNomeNovaOportunidadeVenda(),
+      conta: oportunidade.value.conta,
+      contato_principal: oportunidade.value.contato_principal || null,
+      funil: funilVendas.id,
+      estagio: estagioInicial.estagio_id,
+      canal: oportunidade.value.canal || null,
+      descricao: `Gerada a partir da oportunidade #${oportunidade.value.id} (${oportunidade.value.nome || 'Pós-Venda'}).`
+    }
+
+    const res = await api.post('/oportunidades/', payload)
+    const novaOportunidadeId = res.data?.id
+
+    if (!novaOportunidadeId) {
+      alert('Oportunidade criada, mas não foi possível abrir automaticamente.')
+      router.push({ name: 'oportunidades' })
+      return
+    }
+
+    router.push({ name: 'oportunidade-detail', params: { id: novaOportunidadeId } })
+  } catch (error) {
+    console.error('Erro ao criar nova oportunidade de vendas:', error)
+    alert(error.response?.data?.error || 'Erro ao criar nova oportunidade de vendas.')
+  } finally {
+    criandoOportunidadeVenda.value = false
+  }
+}
+
 async function converterEmCliente() {
   if (!oportunidade.value?.conta) {
     alert('A oportunidade precisa ter empresa vinculada para conversão.')
@@ -985,7 +1067,7 @@ async function converterEmCliente() {
       status_cliente: conversaoStatus.value
     })
     alert(res.data?.mensagem || 'Conversão concluída.')
-    await loadData()
+    router.push({ name: 'oportunidades' })
   } catch (error) {
     console.error('Erro ao converter em cliente:', error)
     alert(error.response?.data?.error || 'Erro ao converter em cliente.')
