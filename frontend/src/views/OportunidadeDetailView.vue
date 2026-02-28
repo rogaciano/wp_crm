@@ -797,20 +797,57 @@
             v-model="novaOportunidadeForm.produto"
             type="text"
             class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="Ex.: Plano Enterprise + Módulo Financeiro"
+            placeholder="Ex.: Projeto de expansão comercial"
           />
           <p v-if="novaOportunidadeErrors.produto" class="text-xs text-red-600 mt-1">{{ novaOportunidadeErrors.produto }}</p>
         </div>
 
         <div>
-          <label class="block text-xs font-black uppercase tracking-wide text-gray-500 mb-1">Valor estimado (opcional)</label>
-          <input
-            v-model="novaOportunidadeForm.valor_estimado"
-            type="text"
-            class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="Ex.: 1999,90"
-          />
-          <p v-if="novaOportunidadeErrors.valor_estimado" class="text-xs text-red-600 mt-1">{{ novaOportunidadeErrors.valor_estimado }}</p>
+          <label class="block text-xs font-black uppercase tracking-wide text-gray-500 mb-1">Plano (opcional)</label>
+          <select v-model="novaOportunidadeForm.plano" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+            <option :value="null">Sem plano</option>
+            <option v-for="plano in planos" :key="plano.id" :value="plano.id">
+              {{ plano.nome }}
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-black uppercase tracking-wide text-gray-500 mb-2">Adicionais (opcional, pode selecionar mais de um)</label>
+          <div class="max-h-48 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100 bg-white">
+            <div v-if="adicionais_opcoes.length === 0" class="px-3 py-3 text-xs text-gray-500">
+              Nenhum adicional cadastrado.
+            </div>
+            <div
+              v-for="adicional in adicionais_opcoes"
+              :key="adicional.id"
+              class="px-3 py-2 flex items-center justify-between gap-2"
+            >
+              <label class="flex items-center gap-2 text-sm text-gray-700 min-w-0">
+                <input
+                  type="checkbox"
+                  :checked="hasNovaOportunidadeAdicional(adicional.id)"
+                  @change="toggleNovaOportunidadeAdicional(adicional.id, $event.target.checked)"
+                  class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                >
+                <span class="truncate">{{ adicional.nome }}</span>
+              </label>
+
+              <input
+                v-if="hasNovaOportunidadeAdicional(adicional.id)"
+                type="number"
+                min="1"
+                :value="getNovaOportunidadeAdicionalQuantidade(adicional.id)"
+                @input="setNovaOportunidadeAdicionalQuantidade(adicional.id, $event.target.value)"
+                class="w-20 px-2 py-1 rounded border border-gray-300 text-xs text-gray-700"
+              >
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2">
+          <div class="text-[11px] font-black uppercase tracking-wide text-indigo-600">Valor estimado calculado</div>
+          <div class="text-lg font-black text-indigo-900">{{ formatCurrencyBRL(valorEstimadoNovaOportunidade) }}</div>
         </div>
 
         <div class="flex justify-end gap-2 pt-2">
@@ -918,11 +955,11 @@ const showNovaOportunidadeModal = ref(false)
 const novaOportunidadeForm = ref({
   tipo_oferta: 'UPSELL',
   produto: '',
-  valor_estimado: ''
+  plano: null,
+  adicionais_itens: []
 })
 const novaOportunidadeErrors = ref({
-  produto: '',
-  valor_estimado: ''
+  produto: ''
 })
 
 // Computed
@@ -946,6 +983,24 @@ const showNovaOportunidadeVendaAction = computed(() => {
     oportunidade.value?.conta &&
     oportunidade.value?.conta_dados?.status_cliente !== 'PROSPECT'
   )
+})
+
+const valorEstimadoNovaOportunidade = computed(() => {
+  let total = 0
+
+  if (novaOportunidadeForm.value.plano) {
+    const plano = planos.value.find(p => Number(p.id) === Number(novaOportunidadeForm.value.plano))
+    total += parseCurrencyValue(plano?.preco_mensal)
+  }
+
+  for (const item of (novaOportunidadeForm.value.adicionais_itens || [])) {
+    const adicional = adicionais_opcoes.value.find(a => Number(a.id) === Number(item.adicional))
+    const preco = parseCurrencyValue(adicional?.preco)
+    const quantidade = Math.max(1, Number(item.quantidade) || 1)
+    total += preco * quantidade
+  }
+
+  return Number(total.toFixed(2))
 })
 
 function formatDateShort(dateString) {
@@ -1078,9 +1133,9 @@ function buildNomeNovaOportunidadeVenda(tipoOferta, produto) {
   return `${empresaNome} - ${tipoOferta} - ${produto}`
 }
 
-function parseValorEstimadoInput(value) {
-  const raw = String(value || '').trim()
-  if (!raw) return null
+function parseCurrencyValue(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return 0
 
   const normalized = raw
     .replace(/\s/g, '')
@@ -1089,14 +1144,75 @@ function parseValorEstimadoInput(value) {
     .replace(/[^0-9.\-]/g, '')
 
   const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : null
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function formatCurrencyBRL(value) {
+  const val = Number(value) || 0
+  return val.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  })
 }
 
 function limparErrosNovaOportunidade() {
   novaOportunidadeErrors.value = {
-    produto: '',
-    valor_estimado: ''
+    produto: ''
   }
+}
+
+function hasNovaOportunidadeAdicional(adicionalId) {
+  return (novaOportunidadeForm.value.adicionais_itens || []).some(item => Number(item.adicional) === Number(adicionalId))
+}
+
+function getNovaOportunidadeAdicionalQuantidade(adicionalId) {
+  const item = (novaOportunidadeForm.value.adicionais_itens || []).find(i => Number(i.adicional) === Number(adicionalId))
+  return item?.quantidade || 1
+}
+
+function setNovaOportunidadeAdicionalQuantidade(adicionalId, quantidadeInput) {
+  const quantidade = Math.max(1, Number(quantidadeInput) || 1)
+  novaOportunidadeForm.value.adicionais_itens = (novaOportunidadeForm.value.adicionais_itens || []).map(item =>
+    Number(item.adicional) === Number(adicionalId)
+      ? { ...item, quantidade }
+      : item
+  )
+}
+
+function toggleNovaOportunidadeAdicional(adicionalId, checked) {
+  const atuais = novaOportunidadeForm.value.adicionais_itens || []
+  if (checked) {
+    if (!atuais.some(item => Number(item.adicional) === Number(adicionalId))) {
+      novaOportunidadeForm.value.adicionais_itens = [...atuais, { adicional: Number(adicionalId), quantidade: 1 }]
+    }
+    return
+  }
+
+  novaOportunidadeForm.value.adicionais_itens = atuais.filter(item => Number(item.adicional) !== Number(adicionalId))
+}
+
+function buildProdutoResumoNovaOportunidade() {
+  const produtoManual = String(novaOportunidadeForm.value.produto || '').trim()
+  if (produtoManual) return produtoManual
+
+  const partes = []
+  if (novaOportunidadeForm.value.plano) {
+    const plano = planos.value.find(p => Number(p.id) === Number(novaOportunidadeForm.value.plano))
+    if (plano?.nome) partes.push(plano.nome)
+  }
+
+  const adicionaisNomes = (novaOportunidadeForm.value.adicionais_itens || []).map(item => {
+    const adicional = adicionais_opcoes.value.find(a => Number(a.id) === Number(item.adicional))
+    if (!adicional?.nome) return null
+    const qtd = Math.max(1, Number(item.quantidade) || 1)
+    return qtd > 1 ? `${adicional.nome} x${qtd}` : adicional.nome
+  }).filter(Boolean)
+
+  if (adicionaisNomes.length) {
+    partes.push(`Adicionais: ${adicionaisNomes.join(', ')}`)
+  }
+
+  return partes.length ? partes.join(' + ') : 'Oferta'
 }
 
 function abrirModalNovaOportunidadeVenda() {
@@ -1109,7 +1225,8 @@ function abrirModalNovaOportunidadeVenda() {
   novaOportunidadeForm.value = {
     tipo_oferta: 'UPSELL',
     produto: '',
-    valor_estimado: ''
+    plano: null,
+    adicionais_itens: []
   }
   showNovaOportunidadeModal.value = true
 }
@@ -1123,19 +1240,16 @@ function validarDadosNovaOportunidadeVenda() {
   limparErrosNovaOportunidade()
 
   const tipoOferta = String(novaOportunidadeForm.value.tipo_oferta || 'UPSELL').trim().toUpperCase()
-  const produto = String(novaOportunidadeForm.value.produto || '').trim()
-  const valorDigitado = String(novaOportunidadeForm.value.valor_estimado || '').trim()
-  const valorEstimado = parseValorEstimadoInput(valorDigitado)
+  const produto = buildProdutoResumoNovaOportunidade()
+  const possuiProdutoManual = String(novaOportunidadeForm.value.produto || '').trim().length > 0
+  const possuiPlano = !!novaOportunidadeForm.value.plano
+  const possuiAdicionais = (novaOportunidadeForm.value.adicionais_itens || []).length > 0
+  const valorEstimado = valorEstimadoNovaOportunidade.value
 
   let invalido = false
 
-  if (!produto) {
-    novaOportunidadeErrors.value.produto = 'Informe o produto/serviço da oportunidade.'
-    invalido = true
-  }
-
-  if (valorDigitado && valorEstimado === null) {
-    novaOportunidadeErrors.value.valor_estimado = 'Valor inválido. Use formato numérico, ex.: 1999,90.'
+  if (!possuiProdutoManual && !possuiPlano && !possuiAdicionais) {
+    novaOportunidadeErrors.value.produto = 'Informe produto/serviço ou selecione plano/adicionais.'
     invalido = true
   }
 
@@ -1181,6 +1295,11 @@ async function criarOportunidadeVenda() {
       contato_principal: oportunidade.value.contato_principal || null,
       contatos: Array.from(new Set([...(oportunidadeForm.value.contatos || []), oportunidade.value.contato_principal].filter(Boolean))),
       empresas: Array.from(new Set([...(oportunidadeForm.value.empresas || []), oportunidade.value.conta].filter(Boolean))),
+      plano: novaOportunidadeForm.value.plano || null,
+      adicionais_itens: (novaOportunidadeForm.value.adicionais_itens || []).map(item => ({
+        adicional: item.adicional,
+        quantidade: Math.max(1, Number(item.quantidade) || 1)
+      })),
       funil: funilVendas.id,
       estagio: estagioInicial.estagio_id,
       canal: oportunidade.value.canal || null,
