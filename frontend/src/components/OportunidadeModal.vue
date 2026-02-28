@@ -482,7 +482,17 @@ const props = defineProps({
   oportunidade: Object,
   fixedContaId: [Number, String],
   fixedFunilId: [Number, String],
-  fixedEstagioId: [Number, String]
+  fixedEstagioId: [Number, String],
+  fixedContatoPrincipalId: [Number, String],
+  fixedContatosIds: {
+    type: Array,
+    default: () => []
+  },
+  fixedEmpresasIds: {
+    type: Array,
+    default: () => []
+  },
+  fixedCanalId: [Number, String]
 })
 
 const emit = defineEmits(['close', 'saved'])
@@ -583,20 +593,29 @@ async function loadOptions() {
 // ...
 
 function resetForm() {
+  const contaId = props.fixedContaId ? parseInt(props.fixedContaId) : null
+  const contatoPrincipalId = props.fixedContatoPrincipalId ? parseInt(props.fixedContatoPrincipalId) : null
+  const contatosFixos = (props.fixedContatosIds || []).map(v => Number(v)).filter(Number.isFinite)
+  const empresasFixas = (props.fixedEmpresasIds || []).map(v => Number(v)).filter(Number.isFinite)
+
+  const contatos = Array.from(new Set([...(contatosFixos || []), ...(contatoPrincipalId ? [contatoPrincipalId] : [])]))
+  const empresas = Array.from(new Set([...(empresasFixas || []), ...(contaId ? [contaId] : [])]))
+
   form.value = {
     nome: '',
-    conta: props.fixedContaId ? parseInt(props.fixedContaId) : null,
-    contato_principal: null,
+    conta: contaId,
+    contato_principal: contatoPrincipalId,
     funil: props.fixedFunilId ? parseInt(props.fixedFunilId) : null,
     estagio: props.fixedEstagioId ? parseInt(props.fixedEstagioId) : null,
     valor_estimado: 0,
     probabilidade: 0,
-    contatos: [],
-    empresas: [],
+    contatos,
+    empresas,
     proprietario: authStore.user?.id || null, // Default to current user
     plano: null,
     adicionais_itens: [],
-    origem: null
+    origem: null,
+    canal: props.fixedCanalId ? parseInt(props.fixedCanalId) : null
   }
   searchContaPrincipal.value = ''
   searchContatoPrincipal.value = ''
@@ -790,10 +809,41 @@ watch(() => props.show, async (newVal) => {
   if (newVal) {
     await loadOptions()
     if (!isEdit.value) {
+      if (props.fixedContatoPrincipalId) {
+        form.value.contato_principal = parseInt(props.fixedContatoPrincipalId)
+        const contato = contatos.value.find(x => x.id === form.value.contato_principal)
+        if (contato) {
+          searchContatoPrincipal.value = contato.nome
+          telefoneContato.value = contato.celular_formatado || contato.telefone_formatado || contato.celular || contato.telefone || ''
+        }
+      }
+
       if (props.fixedContaId) {
         form.value.conta = parseInt(props.fixedContaId)
         const c = contas.value.find(x => x.id === form.value.conta)
         if (c) searchContaPrincipal.value = c.nome_empresa
+      }
+
+      if (props.fixedCanalId) {
+        form.value.canal = parseInt(props.fixedCanalId)
+      }
+
+      if (Array.isArray(props.fixedContatosIds) && props.fixedContatosIds.length) {
+        const contatosFixos = props.fixedContatosIds.map(v => Number(v)).filter(Number.isFinite)
+        form.value.contatos = Array.from(new Set([...(form.value.contatos || []), ...contatosFixos]))
+      }
+
+      if (Array.isArray(props.fixedEmpresasIds) && props.fixedEmpresasIds.length) {
+        const empresasFixas = props.fixedEmpresasIds.map(v => Number(v)).filter(Number.isFinite)
+        form.value.empresas = Array.from(new Set([...(form.value.empresas || []), ...empresasFixas]))
+      }
+
+      if (form.value.contato_principal) {
+        form.value.contatos = Array.from(new Set([...(form.value.contatos || []), form.value.contato_principal]))
+      }
+
+      if (form.value.conta) {
+        form.value.empresas = Array.from(new Set([...(form.value.empresas || []), form.value.conta]))
       }
       
       if (props.fixedFunilId) {
@@ -843,6 +893,9 @@ watch(() => form.value.funil, async (newFunil) => {
 })
 
 watch(() => form.value.canal, async (newCanalId) => {
+    if (props.fixedFunilId || props.fixedEstagioId) {
+        return
+    }
     if (!isEdit.value && newCanalId) {
         const canal = canais.value.find(c => c.id === newCanalId)
         if (canal) {
@@ -970,12 +1023,15 @@ async function handleSubmit() {
     if (!payload.indicador_comissao) payload.indicador_comissao = null
     if (!payload.probabilidade && payload.probabilidade !== 0) payload.probabilidade = 0
     
+    let saved = null
     if (isEdit.value) {
-      await api.put(`/oportunidades/${payload.id}/`, payload)
+      const res = await api.put(`/oportunidades/${payload.id}/`, payload)
+      saved = res?.data || null
     } else {
-      await api.post('/oportunidades/', payload)
+      const res = await api.post('/oportunidades/', payload)
+      saved = res?.data || null
     }
-    emit('saved')
+    emit('saved', saved)
     emit('close')
     resetForm()
   } catch (err) {
