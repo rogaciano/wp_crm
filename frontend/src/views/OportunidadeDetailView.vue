@@ -1161,11 +1161,28 @@ function parseCurrencyValue(value) {
   const raw = String(value ?? '').trim()
   if (!raw) return 0
 
-  const normalized = raw
+  let normalized = raw
     .replace(/\s/g, '')
-    .replace(/\./g, '')
-    .replace(',', '.')
-    .replace(/[^0-9.\-]/g, '')
+    .replace(/[^0-9,.-]/g, '')
+
+  const hasComma = normalized.includes(',')
+  const hasDot = normalized.includes('.')
+
+  if (hasComma && hasDot) {
+    // Formato BR com milhar e decimal: 1.234,56
+    normalized = normalized.replace(/\./g, '').replace(',', '.')
+  } else if (hasComma) {
+    // Formato com vírgula decimal: 40,00
+    normalized = normalized.replace(',', '.')
+  } else {
+    // Formato com ponto decimal: 40.00 (mantém)
+    // Se vier com múltiplos pontos, considera os anteriores como milhar
+    const parts = normalized.split('.')
+    if (parts.length > 2) {
+      const decimal = parts.pop()
+      normalized = `${parts.join('')}.${decimal}`
+    }
+  }
 
   const parsed = Number(normalized)
   return Number.isFinite(parsed) ? parsed : 0
