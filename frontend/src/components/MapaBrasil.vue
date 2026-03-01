@@ -157,23 +157,74 @@ function statusLabel(s) {
   return map[s] || s
 }
 
-function renderMarkers() {
+// === GEOCODING CACHE ===
+const obterCoordenadas = (() => {
+  const cache = JSON.parse(localStorage.getItem('crm_geocache') || '{}')
+  let lastRequestTime = 0
+  const RATE_LIMIT_MS = 1100 // 1.1s para respeitar a API pública do Nominatim
+
+  const delay = (ms) => new Promise(r => setTimeout(r, ms))
+
+  return async (cidade, uf) => {
+    if (!cidade || !uf) return ESTADOS_BR[uf]
+    const key = `${cidade.trim().toUpperCase()}-${uf.toUpperCase()}`
+    
+    // Retorna do cache se existir
+    if (cache[key]) return cache[key]
+
+    // Se não, agenda a requisição respeitando o rate limit
+    const now = Date.now()
+    const timeToWait = Math.max(0, lastRequestTime + RATE_LIMIT_MS - now)
+    lastRequestTime = now + timeToWait
+    if (timeToWait > 0) await delay(timeToWait)
+
+    try {
+       console.log(`Geocodificando: ${cidade}, ${uf}...`)
+       // Tenta buscar "Cidade, UF, Brazil" via Nominatim
+       const url = `https://nominatim.openstreetmap.org/search?city=${encodeURIComponent(cidade)}&state=${encodeURIComponent(uf)}&country=Brazil&format=json&limit=1`
+       const res = await fetch(url)
+       const data = await res.json()
+
+       if (data && data.length > 0) {
+         const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), nome: `${cidade}/${uf}` }
+         cache[key] = coords
+         localStorage.setItem('crm_geocache', JSON.stringify(cache))
+         return coords
+       }
+    } catch (e) {
+       console.warn('Erro ao geocodificar:', e)
+    }
+
+    // Fallback: Centro do Estado
+    const fallback = { ...ESTADOS_BR[uf], nome: `${cidade}/${uf} (Sede)` }
+    cache[key] = fallback
+    localStorage.setItem('crm_geocache', JSON.stringify(cache))
+    return fallback
+  }
+})()
+
+async function renderMarkers() {
   if (!mapInstance) return
   const L = window.L
 
   if (markersLayer) markersLayer.clearLayers()
   else markersLayer = L.layerGroup().addTo(mapInstance)
 
-  const porEstado = {}
+  const porLocal = {}
   props.contas.forEach(conta => {
     const uf = conta.estado?.toUpperCase()
     if (!uf || !ESTADOS_BR[uf]) return
-    if (!porEstado[uf]) porEstado[uf] = []
-    porEstado[uf].push(conta)
+    const cidade = conta.cidade ? conta.cidade.trim() : ''
+    const chave = cidade ? `${cidade.toUpperCase()}-${uf}` : uf
+    
+    if (!porLocal[chave]) porLocal[chave] = { uf, cidade, contas: [] }
+    porLocal[chave].contas.push(conta)
   })
 
-  Object.entries(porEstado).forEach(([uf, contas]) => {
-    const { lat, lng, nome } = ESTADOS_BR[uf]
+  for (const [chave, dados] of Object.entries(porLocal)) {
+    const { uf, cidade, contas } = dados
+    // Tenta buscar a latitude/longitude da cidade (ou cai pro estado como fallback)
+    const { lat, lng, nome } = cidade ? await obterCoordenadas(cidade, uf) : ESTADOS_BR[uf]
     const cor = resolverCorConta(contas[0])
 
     const icone = criarIconeConta(cor, contas.length)
@@ -194,34 +245,45 @@ function renderMarkers() {
         ${linhas}${maisLabel}
       </div>`
 
+    // Verifica de novo pois pode ter sido destruído no await
+    if (!mapInstance || !markersLayer) return
+
     const marker = L.marker([lat, lng], { icon: icone })
       .bindPopup(popupContent, { maxWidth: 300 })
       .addTo(markersLayer)
 
     marker.on('click', () => emit('selectEstado', { uf, nome, contas, tipo: 'contas' }))
-  })
+  }
 }
 
-function renderOportunidades() {
+async function renderOportunidades() {
   if (!mapInstance || !props.mostrarOportunidades) return
   const L = window.L
 
   if (oppsLayer) oppsLayer.clearLayers()
   else oppsLayer = L.layerGroup().addTo(mapInstance)
 
-  const porEstado = {}
+  const porLocal = {}
   props.oportunidades.forEach(opp => {
+    // O backend já passa a cidade na oportunidade?
+    // Atualmente as oportunidades só retornam `estado` e `empresa_nome`.
+    // Se não houver cidade na prop da oportunidade, ele cairá na capital do Estado.
+    // Daria pra extrair da conta, mas requer ajuste do backend se não estiver retornando a cidade da opp no momento.
+    // Vamos agrupar pelo dado que temos (estado ou cidade futura)
     const uf = opp.estado?.toUpperCase()
     if (!uf || !ESTADOS_BR[uf]) return
-    if (!porEstado[uf]) porEstado[uf] = []
-    porEstado[uf].push(opp)
+    const cidade = opp.cidade ? opp.cidade.trim() : ''
+    const chave = cidade ? `${cidade.toUpperCase()}-${uf}` : uf
+    
+    if (!porLocal[chave]) porLocal[chave] = { uf, cidade, opps: [] }
+    porLocal[chave].opps.push(opp)
   })
 
-  Object.entries(porEstado).forEach(([uf, opps]) => {
-    const { lat, lng, nome } = ESTADOS_BR[uf]
+  for (const [chave, dados] of Object.entries(porLocal)) {
+    const { uf, cidade, opps } = dados
+    const { lat, lng, nome } = cidade ? await obterCoordenadas(cidade, uf) : ESTADOS_BR[uf]
     const cor = resolverCorOpp(opps[0])
 
-    // Offset ligeiro para não sobrepor o marcador de contas
     const icone = criarIconeOportunidade(cor, opps.length)
 
     const linhas = opps.slice(0, 6).map(o =>
@@ -241,10 +303,12 @@ function renderOportunidades() {
         ${linhas}${maisLabel}
       </div>`
 
-    L.marker([lat + 0.4, lng - 0.4], { icon: icone })
+    if (!mapInstance || !oppsLayer) return
+
+    L.marker([lat + 0.1, lng - 0.1], { icon: icone })
       .bindPopup(popupContent, { maxWidth: 300 })
       .addTo(oppsLayer)
-  })
+  }
 }
 
 function renderCanais() {

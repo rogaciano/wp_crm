@@ -649,15 +649,19 @@ class MapaCanalView(APIView):
 
         opps = []
         for opp in opps_qs:
-            # Pega o estado da conta principal ou da primeira empresa vinculada
+            # Pega o estado e cidade da conta principal ou da primeira empresa vinculada
             estado = None
+            cidade = None
             empresa_nome = None
+            
             if opp.conta and opp.conta.estado:
                 estado = opp.conta.estado.upper()
+                cidade = opp.conta.cidade
                 empresa_nome = opp.conta.nome_empresa
             else:
                 for emp in opp.empresas.filter(estado__isnull=False).exclude(estado='')[:1]:
                     estado = emp.estado.upper()
+                    cidade = emp.cidade
                     empresa_nome = emp.nome_empresa
 
             if not estado:
@@ -667,6 +671,7 @@ class MapaCanalView(APIView):
                 'id': opp.id,
                 'nome': opp.nome,
                 'estado': estado,
+                'cidade': cidade or '',
                 'empresa_nome': empresa_nome or '',
                 'valor_estimado': float(opp.valor_estimado) if opp.valor_estimado else 0,
                 'estagio_nome': opp.estagio.nome,
