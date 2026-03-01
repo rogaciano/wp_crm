@@ -346,30 +346,54 @@ function renderCanais() {
   })
 }
 
-async function initMap() {
-  const L = await import('leaflet')
-  await import('leaflet/dist/leaflet.css')
-  window.L = L.default || L
+function loadLeaflet() {
+  return new Promise((resolve, reject) => {
+    if (window.L) return resolve(window.L)
+    
+    // Adiciona o CSS
+    if (!document.querySelector('link[href*="leaflet.css"]')) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(link)
+    }
 
-  delete window.L.Icon.Default.prototype._getIconUrl
-  window.L.Icon.Default.mergeOptions({
+    // Adiciona o JS
+    const script = document.createElement('script')
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+    script.onload = () => resolve(window.L)
+    script.onerror = reject
+    document.head.appendChild(script)
+  })
+}
+
+async function initMap() {
+  if (!mapContainer.value) return
+
+  // Carrega pacotes do Leaflet via CDN
+  const L = await loadLeaflet()
+
+  // Evita reinicialização do erro "Map container is already initialized"
+  if (mapInstance) {
+    mapInstance.remove()
+    mapInstance = null
+  }
+
+  // Cria o mapa centrado no Brasil
+  mapInstance = L.map(mapContainer.value).setView([-15.7801, -47.9292], 4)
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    subdomains: 'abcd',
+    maxZoom: 20
+  }).addTo(mapInstance)
+
+  // Configuração global manual para ícones do Leaflet (Evita erro 404 de assets Vite/Rollup)
+  L.Icon.Default.mergeOptions({
     iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
   })
-
-  mapInstance = window.L.map(mapContainer.value, {
-    center: [-14.235, -51.925],
-    zoom: 4,
-    zoomControl: true,
-    attributionControl: false,
-  })
-
-  window.L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '© OpenStreetMap © CartoDB',
-    subdomains: 'abcd',
-    maxZoom: 19,
-  }).addTo(mapInstance)
 
   window.__mapaSelectConta = (id) => {
     const conta = props.contas.find(c => c.id === id)
