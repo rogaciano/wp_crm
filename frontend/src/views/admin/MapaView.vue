@@ -236,6 +236,7 @@ async function carregarOportunidades() {
             id: opp.id,
             nome: opp.nome,
             estado: contaMatch.estado.toUpperCase(),
+            cidade: contaMatch.cidade || '',
             empresa_nome: contaMatch.nome_empresa,
             valor_estimado: parseFloat(opp.valor_estimado) || 0,
             estagio_nome: opp.estagio_nome || '',
