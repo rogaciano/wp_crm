@@ -550,6 +550,45 @@ class ContaViewSet(viewsets.ModelViewSet):
             logger.error(f"Erro ao consultar CNPJ {cnpj_limpo}: {str(e)}")
             return Response({'status': 'ERROR', 'message': 'Erro ao consultar CNPJ'}, status=500)
 
+    @action(detail=False, methods=['get'])
+    def sem_endereco(self, request):
+        """Lista contas com endereço incompleto (qualquer campo vazio)"""
+        qs = self.get_queryset().filter(
+            Q(endereco='') | Q(endereco__isnull=True) |
+            Q(cidade='') | Q(cidade__isnull=True) |
+            Q(estado='') | Q(estado__isnull=True) |
+            Q(cep='') | Q(cep__isnull=True)
+        ).order_by('nome_empresa')
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def atualizar_lote(self, request):
+        """Atualiza campos de endereço em lote via lista de {id, ...campos}"""
+        CAMPOS_PERMITIDOS = {'nome_empresa', 'marca', 'endereco', 'cidade', 'estado', 'cep', 'telefone_principal', 'email', 'setor'}
+        updates = request.data
+        if not isinstance(updates, list):
+            return Response({'error': 'Esperado uma lista de atualizações'}, status=400)
+
+        qs = self.get_queryset()
+        resultados = []
+        for item in updates:
+            conta_id = item.get('id')
+            if not conta_id:
+                resultados.append({'id': None, 'status': 'error', 'msg': 'id ausente'})
+                continue
+            try:
+                conta = qs.get(pk=conta_id)
+                dados = {k: v for k, v in item.items() if k in CAMPOS_PERMITIDOS and v}
+                for campo, valor in dados.items():
+                    setattr(conta, campo, valor)
+                conta.save(update_fields=list(dados.keys()))
+                resultados.append({'id': conta_id, 'status': 'ok'})
+            except Exception as e:
+                logger.error(f"Erro ao atualizar conta {conta_id} em lote: {e}")
+                resultados.append({'id': conta_id, 'status': 'error', 'msg': str(e)})
+
+        return Response(resultados)
 
 
 class ContaMapaView(APIView):

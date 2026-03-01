@@ -2,9 +2,14 @@
   <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Contas</h1>
-      <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-sm">
-        + Nova Conta/Empresa
-      </button>
+      <div class="flex gap-2 flex-wrap w-full sm:w-auto">
+        <button @click="showBatchModal = true" class="btn btn-secondary w-full sm:w-auto text-sm">
+          Endereços em Lote
+        </button>
+        <button @click="openCreateModal" class="btn btn-primary w-full sm:w-auto shadow-sm">
+          + Nova Conta/Empresa
+        </button>
+      </div>
     </div>
 
     <!-- Filtros -->
@@ -127,6 +132,13 @@
       @close="closeModal"
       @saved="handleSaved"
     />
+
+    <!-- Modal: Atualização em Lote de Endereços -->
+    <CnpjBatchModal
+      :show="showBatchModal"
+      @close="showBatchModal = false"
+      @saved="loadContas"
+    />
   </div>
 </template>
 
@@ -135,12 +147,14 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/services/api'
 import ContaModal from '@/components/ContaModal.vue'
+import CnpjBatchModal from '@/components/CnpjBatchModal.vue'
 
 const router = useRouter()
 const contas = ref([])
 const canais = ref([])
 const loading = ref(false)
 const showModal = ref(false)
+const showBatchModal = ref(false)
 const selectedConta = ref(null)
 const searchQuery = ref('')
 const selectedCanal = ref(null)
