@@ -11,11 +11,14 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
   },
   "dependencies": {
+    "@vue-leaflet/vue-leaflet": "^0.10.1",
     "@vueuse/core": "^10.6.1",
     "axios": "^1.6.2",
     "chart.js": "^4.5.1",
     "date-fns": "^4.1.0",
     "dompurify": "^3.3.1",
+    "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3",
     "pinia": "^2.1.7",
     "vue": "^3.3.8",
     "vue-chartjs": "^5.3.3",

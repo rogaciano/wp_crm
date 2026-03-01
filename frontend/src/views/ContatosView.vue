@@ -101,6 +101,17 @@
         </select>
       </div>
 
+      <div class="w-full sm:w-44 md:w-52">
+        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Situação Comercial</label>
+        <select v-model="selectedSituacaoComercial" class="input h-11" @change="loadContatos(1)">
+          <option :value="undefined">Todas</option>
+          <option value="PROSPECT">Oportunidade</option>
+          <option value="CLIENTE_ATIVO">Cliente Ativo</option>
+          <option value="INATIVO">Ex-cliente</option>
+          <option value="UPGRADE">Cliente com Upgrade</option>
+        </select>
+      </div>
+
       <button v-if="hasActiveFilters" @click="clearFilters" class="h-11 px-4 text-gray-400 hover:text-red-500 font-bold text-xs truncate transition-colors">
         Limpar Filtros
       </button>
@@ -329,6 +340,7 @@ const selectedCanal = ref(undefined)
 const selectedTag = ref(undefined)
 const selectedProprietario = ref(undefined)
 const selectedConta = ref(undefined)
+const selectedSituacaoComercial = ref(undefined)
 
 const todasTags = ref([])
 const todosCanais = ref([])
@@ -350,6 +362,7 @@ const hasActiveFilters = computed(() => {
          selectedTag.value !== undefined || 
          selectedProprietario.value !== undefined ||
          selectedConta.value !== undefined ||
+         selectedSituacaoComercial.value !== undefined ||
          searchQuery.value !== ''
 })
 
@@ -357,7 +370,8 @@ const hasActiveExtraFilters = computed(() => {
   return selectedCanal.value !== undefined || 
          selectedTag.value !== undefined || 
          selectedProprietario.value !== undefined ||
-         selectedConta.value !== undefined
+         selectedConta.value !== undefined ||
+         selectedSituacaoComercial.value !== undefined
 })
 
 const tipoColors = [
@@ -429,6 +443,11 @@ async function loadContatos(page = 1) {
     if (selectedTag.value !== undefined) params.tags = selectedTag.value
     if (selectedProprietario.value !== undefined) params.proprietario = selectedProprietario.value
     if (selectedConta.value !== undefined) params.conta = selectedConta.value
+    if (selectedSituacaoComercial.value === 'UPGRADE') {
+      params.apenas_upgrade = true
+    } else if (selectedSituacaoComercial.value !== undefined) {
+      params.conta_status_cliente = selectedSituacaoComercial.value
+    }
 
     const response = await api.get('/contatos/', { params })
     if (response.data.results) {
@@ -475,6 +494,7 @@ function clearFilters() {
   selectedTag.value = undefined
   selectedProprietario.value = undefined
   selectedConta.value = undefined
+  selectedSituacaoComercial.value = undefined
   searchQuery.value = ''
   loadContatos(1)
 }

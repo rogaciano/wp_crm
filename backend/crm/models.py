@@ -76,6 +76,17 @@ class Canal(models.Model):
         null=True,
         help_text="Número conectado ao WhatsApp"
     )
+    estado = models.CharField(
+        max_length=2,
+        blank=True,
+        null=True,
+        help_text="Estado (UF) onde este canal atua (ex: PE, SP, RJ)"
+    )
+    cor = models.CharField(
+        max_length=7,
+        default='#F97316',
+        help_text="Cor hexadecimal do canal para exibição no mapa (ex: #F97316)"
+    )
 
     class Meta:
         verbose_name = 'Canal'

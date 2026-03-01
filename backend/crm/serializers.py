@@ -149,7 +149,7 @@ class CanalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Canal
         fields = [
-            'id', 'nome', 'slug', 'responsavel', 'responsavel_nome', 'total_vendedores',
+            'id', 'nome', 'slug', 'estado', 'cor', 'responsavel', 'responsavel_nome', 'total_vendedores',
             'funil_padrao', 'funil_padrao_nome', 'estagio_inicial', 'estagio_inicial_nome',
             'evolution_instance_name', 'evolution_is_connected', 'evolution_last_status',
             'evolution_phone_number', 'data_criacao'

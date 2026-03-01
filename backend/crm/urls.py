@@ -8,7 +8,7 @@ from .views import (
     ContatoViewSet, EstagioFunilViewSet, OportunidadeViewSet, AtividadeViewSet,
     DiagnosticoViewSet, PlanoViewSet, PlanoAdicionalViewSet, FunilViewSet, TipoContatoViewSet,
     TipoRedeSocialViewSet, WhatsappViewSet, WhatsappWebhookView, LogViewSet, OrganogramaViewSet,
-    TagViewSet, OportunidadeAnexoViewSet, TimelineViewSet
+    TagViewSet, OportunidadeAnexoViewSet, TimelineViewSet, ContaMapaView, MapaCanalView
 )
 from .views_dashboard import DashboardViewSet
 
@@ -40,4 +40,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path('webhooks/whatsapp/', WhatsappWebhookView.as_view(), name='whatsapp-webhook'),
     path('webhook/whatsapp/', WhatsappWebhookView.as_view(), name='whatsapp-webhook-alias'),  # alias sem 's'
+    path('contas/mapa/', ContaMapaView.as_view(), name='contas-mapa'),
+    path('mapa/canal/', MapaCanalView.as_view(), name='mapa-canal'),
 ]
+

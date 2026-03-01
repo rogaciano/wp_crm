@@ -13,7 +13,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.throttling import AnonRateThrottle
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Q, Sum, Count, Avg
+from django.db.models import Q, Sum, Count, Avg, Exists, OuterRef
 from django_filters.rest_framework import DjangoFilterBackend
 
 
@@ -25,6 +25,19 @@ class WebhookThrottle(AnonRateThrottle):
     scope = 'webhook'
 
 logger = logging.getLogger(__name__)
+
+
+def parse_bool_param(raw_value):
+    """Converte query param de boolean para True/False/None."""
+    if raw_value is None:
+        return None
+
+    value = str(raw_value).strip().lower()
+    if value in {'1', 'true', 't', 'yes', 'sim'}:
+        return True
+    if value in {'0', 'false', 'f', 'no', 'nao', 'não'}:
+        return False
+    return None
 
 from .models import (
     Canal, User, Conta, Contato, TipoContato, TipoRedeSocial, Funil, EstagioFunil, FunilEstagio, Oportunidade, OportunidadeAnexo, Atividade, Origem,
@@ -439,7 +452,7 @@ class ContaViewSet(viewsets.ModelViewSet):
     serializer_class = ContaSerializer
     permission_classes = [HierarchyPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['setor', 'estado', 'tags']
+    filterset_fields = ['setor', 'estado', 'tags', 'status_cliente']
     search_fields = ['nome_empresa', 'cnpj', 'email']
     ordering_fields = ['nome_empresa', 'data_criacao']
     
@@ -447,16 +460,42 @@ class ContaViewSet(viewsets.ModelViewSet):
         user = self.request.user
         
         if user.perfil == 'ADMIN':
-            return Conta.objects.all()
+            queryset = Conta.objects.all()
         elif user.perfil == 'RESPONSAVEL':
-            return Conta.objects.filter(
+            queryset = Conta.objects.filter(
                 Q(proprietario__canal=user.canal) | Q(canal=user.canal)
             ).distinct()
         else: # VENDEDOR
             # Vê do seu canal
-            return Conta.objects.filter(
+            queryset = Conta.objects.filter(
                 Q(proprietario__canal=user.canal) | Q(canal=user.canal)
             ).distinct()
+
+        opps_abertas = Oportunidade.objects.filter(
+            Q(conta_id=OuterRef('pk')) | Q(empresas__id=OuterRef('pk')),
+            estagio__tipo=EstagioFunil.TIPO_ABERTO,
+        )
+        opps_abertas_vendas = opps_abertas.filter(funil__tipo=Funil.TIPO_VENDAS)
+
+        queryset = queryset.annotate(
+            tem_oportunidade_aberta=Exists(opps_abertas),
+            tem_oportunidade_upgrade=Exists(opps_abertas_vendas),
+        )
+
+        tem_oportunidade_aberta = parse_bool_param(self.request.query_params.get('tem_oportunidade_aberta'))
+        if tem_oportunidade_aberta is True:
+            queryset = queryset.filter(tem_oportunidade_aberta=True)
+        elif tem_oportunidade_aberta is False:
+            queryset = queryset.filter(tem_oportunidade_aberta=False)
+
+        apenas_upgrade = parse_bool_param(self.request.query_params.get('apenas_upgrade'))
+        if apenas_upgrade is True:
+            queryset = queryset.filter(
+                status_cliente=Conta.STATUS_CLIENTE_ATIVO,
+                tem_oportunidade_upgrade=True,
+            )
+
+        return queryset
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -510,6 +549,144 @@ class ContaViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"Erro ao consultar CNPJ {cnpj_limpo}: {str(e)}")
             return Response({'status': 'ERROR', 'message': 'Erro ao consultar CNPJ'}, status=500)
+
+
+
+class ContaMapaView(APIView):
+    """Retorna contas com dados de localização para o mapa do Brasil"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Permissões de visibilidade
+        if user.perfil == 'ADMIN':
+            qs = Conta.objects.all()
+        else:
+            qs = Conta.objects.filter(
+                Q(proprietario__canal=user.canal) | Q(canal=user.canal)
+            ).distinct()
+
+        # Filtros opcionais
+        canal_id = request.query_params.get('canal_id')
+        if canal_id:
+            qs = qs.filter(canal_id=canal_id)
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status_cliente=status_filter)
+
+        # Apenas contas com estado informado
+        qs = qs.filter(estado__isnull=False).exclude(estado='').select_related('canal')
+
+        data = [
+            {
+                'id': c.id,
+                'nome_empresa': c.nome_empresa,
+                'cidade': c.cidade or '',
+                'estado': c.estado,
+                'canal_id': c.canal_id,
+                'canal_nome': c.canal.nome if c.canal else 'Sem Canal',
+                'canal_cor': c.canal.cor if c.canal else '#64748b',
+                'status_cliente': c.status_cliente,
+            }
+            for c in qs
+        ]
+        return Response(data)
+
+
+class MapaCanalView(APIView):
+    """Retorna contas e oportunidades do canal do usuário logado para o mapa"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Determina o canal do usuário
+        if user.perfil == 'ADMIN':
+            # Admin sem canal específico → retorna vazio (use ContaMapaView)
+            canal = None
+        else:
+            canal = user.canal
+
+        if not canal:
+            return Response({
+                'canal': None,
+                'contas': [],
+                'oportunidades': [],
+            })
+
+        # Contas do canal com estado — apenas Clientes Ativos no mapa
+        contas_qs = Conta.objects.filter(
+            Q(canal=canal) | Q(proprietario__canal=canal)
+        ).filter(
+            estado__isnull=False,
+            status_cliente='CLIENTE_ATIVO'
+        ).exclude(estado='').distinct()
+
+        contas = [
+            {
+                'id': c.id,
+                'nome_empresa': c.nome_empresa,
+                'cidade': c.cidade or '',
+                'estado': c.estado.upper() if c.estado else '',
+                'status_cliente': c.status_cliente,
+                'canal_id': canal.id,
+                'canal_nome': canal.nome,
+                'canal_cor': canal.cor,
+            }
+            for c in contas_qs
+        ]
+
+        # Oportunidades do canal — apenas funil de Vendas em estágio Aberto (de Entrada)
+        opps_qs = Oportunidade.objects.filter(
+            Q(canal=canal) | Q(proprietario__canal=canal)
+        ).filter(
+            Q(conta__estado__isnull=False) | Q(empresas__estado__isnull=False),
+            funil__tipo=Funil.TIPO_VENDAS,
+            estagio__tipo=EstagioFunil.TIPO_ABERTO,
+        ).select_related('conta', 'estagio').prefetch_related('empresas').distinct()
+
+        opps = []
+        for opp in opps_qs:
+            # Pega o estado da conta principal ou da primeira empresa vinculada
+            estado = None
+            empresa_nome = None
+            if opp.conta and opp.conta.estado:
+                estado = opp.conta.estado.upper()
+                empresa_nome = opp.conta.nome_empresa
+            else:
+                for emp in opp.empresas.filter(estado__isnull=False).exclude(estado='')[:1]:
+                    estado = emp.estado.upper()
+                    empresa_nome = emp.nome_empresa
+
+            if not estado:
+                continue
+
+            opps.append({
+                'id': opp.id,
+                'nome': opp.nome,
+                'estado': estado,
+                'empresa_nome': empresa_nome or '',
+                'valor_estimado': float(opp.valor_estimado) if opp.valor_estimado else 0,
+                'estagio_nome': opp.estagio.nome,
+                'estagio_cor': opp.estagio.cor,
+                'canal_id': canal.id,
+                'canal_nome': canal.nome,
+                'canal_cor': canal.cor,
+            })
+
+        return Response({
+            'canal': {
+                'id': canal.id,
+                'nome': canal.nome,
+                'estado': canal.estado,
+                'cor': canal.cor,
+            },
+            'contas': contas,
+            'oportunidades': opps,
+        })
+
 
 
 class TipoContatoViewSet(viewsets.ModelViewSet):
@@ -592,6 +769,28 @@ class ContatoViewSet(viewsets.ModelViewSet):
             else:
                 # Filtrar por tipo específico
                 queryset = queryset.filter(tipo_contato=tipo_contato_param)
+
+        conta_status_cliente = self.request.query_params.get('conta_status_cliente')
+        if conta_status_cliente in {
+            Conta.STATUS_PROSPECT,
+            Conta.STATUS_CLIENTE_ATIVO,
+            Conta.STATUS_INATIVO,
+        }:
+            queryset = queryset.filter(conta__status_cliente=conta_status_cliente)
+
+        apenas_upgrade = parse_bool_param(self.request.query_params.get('apenas_upgrade'))
+        if apenas_upgrade is True:
+            opps_abertas_vendas_conta = Oportunidade.objects.filter(
+                Q(conta_id=OuterRef('conta_id')) | Q(empresas__id=OuterRef('conta_id')),
+                estagio__tipo=EstagioFunil.TIPO_ABERTO,
+                funil__tipo=Funil.TIPO_VENDAS,
+            )
+            queryset = queryset.annotate(
+                conta_tem_oportunidade_upgrade=Exists(opps_abertas_vendas_conta)
+            ).filter(
+                conta__status_cliente=Conta.STATUS_CLIENTE_ATIVO,
+                conta_tem_oportunidade_upgrade=True,
+            )
 
         return queryset
 

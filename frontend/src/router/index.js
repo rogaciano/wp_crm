@@ -96,6 +96,12 @@ const router = createRouter({
           meta: { requiresGestor: true }
         },
         {
+          path: '/meu-canal/mapa',
+          name: 'meu-canal-mapa',
+          component: () => import('@/views/MapaCanalView.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
           path: '/config/funis',
           name: 'admin-funis',
           component: () => import('@/views/admin/FunisView.vue'),
@@ -153,6 +159,12 @@ const router = createRouter({
           path: '/config/tags',
           name: 'admin-tags',
           component: () => import('@/views/admin/TagsView.vue'),
+          meta: { requiresAdmin: true }
+        },
+        {
+          path: '/config/mapa',
+          name: 'admin-mapa',
+          component: () => import('@/views/admin/MapaView.vue'),
           meta: { requiresAdmin: true }
         }
       ]

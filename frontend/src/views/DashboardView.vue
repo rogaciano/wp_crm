@@ -226,6 +226,21 @@
         </div>
       </div>
 
+      <!-- Mapa Geográfico (admin only) -->
+      <div v-if="authStore.isAdmin" class="bg-white border border-zinc-200 rounded-md shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 bg-zinc-900 rounded-full"></span>
+            <h3 class="text-sm font-bold text-zinc-900 font-display">Distribuição Geográfica de Clientes</h3>
+          </div>
+          <router-link to="/config/mapa" class="text-xs font-bold text-primary-600 hover:text-primary-700 flex items-center gap-1">
+            Ver mapa completo
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+          </router-link>
+        </div>
+        <MapaBrasil :contas="mapaContas" height="380px" />
+      </div>
+
     </div>
   </div>
 </template>
@@ -249,6 +264,7 @@ import {
 } from 'chart.js'
 import { Bar, Radar, Line, Doughnut } from 'vue-chartjs'
 import { useAuthStore } from '@/stores/auth'
+import MapaBrasil from '@/components/MapaBrasil.vue'
 
 ChartJS.register(
   Title, Tooltip, Legend, BarElement, CategoryScale, 
@@ -276,6 +292,8 @@ const dashboardData = ref({
   maturidade_media: {}, contatos_por_tipo: [], contatos_por_canal: [],
   vendas_por_plano: [], vendas_por_canal: []
 })
+
+const mapaContas = ref([])
 
 const canais = ref([])
 const canalFiltro = ref(null)
@@ -318,9 +336,21 @@ async function fetchDashboard() {
 function loadDashboard() { fetchDashboard() }
 
 onMounted(async () => {
-  if (authStore.isAdmin) await fetchCanais()
+  if (authStore.isAdmin) {
+    await fetchCanais()
+    fetchContasMapa()
+  }
   await fetchDashboard()
 })
+
+async function fetchContasMapa() {
+  try {
+    const res = await api.get('/contas/mapa/')
+    mapaContas.value = res.data
+  } catch (e) {
+    console.error('Erro ao carregar mapa:', e)
+  }
+}
 
 watch(periodo, fetchDashboard)
 

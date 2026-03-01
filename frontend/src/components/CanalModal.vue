@@ -44,6 +44,46 @@
         <p class="mt-1 text-xs text-gray-500 italic">O responsável terá acesso a todos os dados deste canal.</p>
       </div>
 
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Estado (UF)
+          <span class="text-gray-400 font-normal">- para exibir no mapa</span>
+        </label>
+        <select v-model="form.estado" class="input">
+          <option value="">Selecione o estado...</option>
+          <option v-for="uf in ESTADOS" :key="uf.sigla" :value="uf.sigla">{{ uf.sigla }} - {{ uf.nome }}</option>
+        </select>
+      </div>
+
+      <!-- Cor do canal no mapa -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Cor do Canal no Mapa
+        </label>
+        <div class="flex items-center gap-3">
+          <input
+            type="color"
+            v-model="form.cor"
+            class="w-12 h-10 rounded-lg border border-zinc-300 cursor-pointer p-0.5"
+          />
+          <span class="text-sm text-zinc-600 font-mono font-medium">{{ form.cor }}</span>
+          <div class="w-6 h-6 rounded-full border-2 border-white shadow" :style="{ backgroundColor: form.cor }"></div>
+        </div>
+        <!-- Paleta rápida -->
+        <div class="flex gap-2 mt-2 flex-wrap">
+          <button
+            v-for="c in PALETA_RAPIDA"
+            :key="c"
+            type="button"
+            @click="form.cor = c"
+            class="w-7 h-7 rounded-full border-2 transition-transform hover:scale-110"
+            :style="{ backgroundColor: c, borderColor: form.cor === c ? '#111' : 'transparent' }"
+            :title="c"
+          />
+        </div>
+        <p class="mt-1 text-xs text-gray-400">Esta cor será usada nos pins do mapa para identificar clientes deste canal.</p>
+      </div>
+
       <!-- Funil e Estágio Padrão -->
       <div class="border-t pt-4 mt-4">
         <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -100,9 +140,30 @@ const users = ref([])
 const funis = ref([])
 const estagiosDoFunil = ref([])
 
+const ESTADOS = [
+  { sigla: 'AC', nome: 'Acre' }, { sigla: 'AL', nome: 'Alagoas' }, { sigla: 'AP', nome: 'Amapá' },
+  { sigla: 'AM', nome: 'Amazonas' }, { sigla: 'BA', nome: 'Bahia' }, { sigla: 'CE', nome: 'Ceará' },
+  { sigla: 'DF', nome: 'Distrito Federal' }, { sigla: 'ES', nome: 'Espírito Santo' }, { sigla: 'GO', nome: 'Goiás' },
+  { sigla: 'MA', nome: 'Maranhão' }, { sigla: 'MT', nome: 'Mato Grosso' }, { sigla: 'MS', nome: 'Mato Grosso do Sul' },
+  { sigla: 'MG', nome: 'Minas Gerais' }, { sigla: 'PA', nome: 'Pará' }, { sigla: 'PB', nome: 'Paraíba' },
+  { sigla: 'PR', nome: 'Paraná' }, { sigla: 'PE', nome: 'Pernambuco' }, { sigla: 'PI', nome: 'Piauí' },
+  { sigla: 'RJ', nome: 'Rio de Janeiro' }, { sigla: 'RN', nome: 'Rio Grande do Norte' },
+  { sigla: 'RS', nome: 'Rio Grande do Sul' }, { sigla: 'RO', nome: 'Rondônia' }, { sigla: 'RR', nome: 'Roraima' },
+  { sigla: 'SC', nome: 'Santa Catarina' }, { sigla: 'SP', nome: 'São Paulo' }, { sigla: 'SE', nome: 'Sergipe' },
+  { sigla: 'TO', nome: 'Tocantins' },
+]
+
+const PALETA_RAPIDA = [
+  '#F97316', '#10B981', '#3B82F6', '#8B5CF6',
+  '#EF4444', '#EAB308', '#EC4899', '#06B6D4',
+  '#0F172A', '#14B8A6', '#6366F1', '#84CC16',
+]
+
 const form = ref({
   nome: '',
   slug: '',
+  estado: '',
+  cor: '#F97316',
   responsavel: '',
   funil_padrao: '',
   estagio_inicial: ''
@@ -179,6 +240,7 @@ watch(() => props.canal, async (newCanal) => {
     form.value = { 
       ...newCanal,
       slug: newCanal.slug || '',
+      cor: newCanal.cor || '#F97316',
       funil_padrao: newCanal.funil_padrao || '',
       estagio_inicial: newCanal.estagio_inicial || ''
     }
@@ -198,6 +260,8 @@ function resetForm() {
   form.value = {
     nome: '',
     slug: '',
+    estado: '',
+    cor: '#F97316',
     responsavel: '',
     funil_padrao: '',
     estagio_inicial: ''

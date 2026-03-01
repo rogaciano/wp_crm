@@ -27,6 +27,17 @@
             {{ canal.nome }}
           </option>
         </select>
+        <select
+          v-model="selectedVisaoComercial"
+          @change="loadContas"
+          class="input sm:w-56"
+        >
+          <option value="">Todas as Visões</option>
+          <option value="PROSPECT">Oportunidades</option>
+          <option value="CLIENTE_ATIVO">Clientes Ativos</option>
+          <option value="INATIVO">Ex-clientes</option>
+          <option value="UPGRADE">Clientes com Upgrade</option>
+        </select>
       </div>
     </div>
 
@@ -59,7 +70,15 @@
               <tr v-for="conta in contas" :key="conta.id" class="hover:bg-gray-50/80 transition-colors">
                 <td class="px-4 py-3 align-top">
                   <p class="font-bold text-gray-900">{{ conta.nome_empresa }}</p>
-                  <p class="text-xs text-gray-500">CNPJ: {{ conta.cnpj || 'Não informado' }}</p>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <p class="text-xs text-gray-500">CNPJ: {{ conta.cnpj || 'Não informado' }}</p>
+                    <span
+                      class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide"
+                      :class="statusBadgeClass(conta.status_cliente)"
+                    >
+                      {{ conta.status_cliente_display || statusLabel(conta.status_cliente) }}
+                    </span>
+                  </div>
                 </td>
                 <td class="px-4 py-3 align-top text-sm text-gray-700">
                   {{ formatMarcas(conta) }}
@@ -125,6 +144,7 @@ const showModal = ref(false)
 const selectedConta = ref(null)
 const searchQuery = ref('')
 const selectedCanal = ref(null)
+const selectedVisaoComercial = ref('')
 
 onMounted(async () => {
   await loadCanais()
@@ -146,6 +166,11 @@ async function loadContas() {
     const params = { search: searchQuery.value, page_size: 1000 }
     if (selectedCanal.value) {
       params.canal = selectedCanal.value
+    }
+    if (selectedVisaoComercial.value === 'UPGRADE') {
+      params.apenas_upgrade = true
+    } else if (selectedVisaoComercial.value) {
+      params.status_cliente = selectedVisaoComercial.value
     }
     const response = await api.get('/contas/', { params })
     contas.value = response.data.results || response.data
@@ -187,5 +212,17 @@ function formatMarcas(conta) {
   const nomes = marcas.map((m) => m.nome).filter(Boolean)
   if (conta.marca) nomes.unshift(conta.marca)
   return [...new Set(nomes)].join(', ') || '-'
+}
+
+function statusLabel(status) {
+  if (status === 'CLIENTE_ATIVO') return 'Cliente Ativo'
+  if (status === 'INATIVO') return 'Ex-cliente'
+  return 'Oportunidade'
+}
+
+function statusBadgeClass(status) {
+  if (status === 'CLIENTE_ATIVO') return 'bg-emerald-100 text-emerald-700'
+  if (status === 'INATIVO') return 'bg-gray-200 text-gray-700'
+  return 'bg-blue-100 text-blue-700'
 }
 </script>

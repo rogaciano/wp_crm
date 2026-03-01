@@ -4,6 +4,7 @@ Signals para capturar ações e criar logs automaticamente
 from django.db.models.signals import post_save, post_delete, pre_save, m2m_changed
 from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in, user_logged_out
+from django.utils import timezone
 from .models import Log, Conta, Contato, Oportunidade, Atividade, TipoRedeSocial, ContatoRedeSocial, OportunidadeAdicional
 from .middleware import get_current_request, get_current_user
 import json
@@ -281,6 +282,23 @@ def automatizar_pos_venda_suporte(sender, instance, created, **kwargs):
     from .models import Funil, EstagioFunil, FunilEstagio
     # Verifica se o estágio atual é do tipo GANHO
     if instance.estagio.tipo == 'GANHO':
+        # Regra de negócio: oportunidade ganha torna a conta Cliente Ativo automaticamente
+        if instance.conta:
+            conta = instance.conta
+            campos_update = []
+
+            if conta.status_cliente != Conta.STATUS_CLIENTE_ATIVO:
+                conta.status_cliente = Conta.STATUS_CLIENTE_ATIVO
+                campos_update.append('status_cliente')
+
+            if not conta.data_ativacao_cliente:
+                conta.data_ativacao_cliente = timezone.now()
+                campos_update.append('data_ativacao_cliente')
+
+            if campos_update:
+                campos_update.append('data_atualizacao')
+                conta.save(update_fields=campos_update)
+
         # Verifica se já era GANHO antes para evitar duplicidade (usando o cache do sinal capture_old_values)
         if hasattr(instance, '_old_values'):
             # O capture_old_values armazena o objeto completo para campos ForeignKey
