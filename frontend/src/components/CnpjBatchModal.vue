@@ -29,7 +29,7 @@
           <svg v-else class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z"/>
           </svg>
-          {{ buscando ? (pausando ? `Aguardando... (${progresso}/${totalParaBuscar})` : `Buscando ${progresso}/${totalParaBuscar}...`) : `Buscar ${totalParaBuscar} selecionada${totalParaBuscar !== 1 ? 's' : ''}` }}
+          {{ buscando ? (pausando ? `Aguardando ${countdown}s... (${progresso}/${totalParaBuscar})` : `Buscando ${progresso}/${totalParaBuscar}...`) : `Buscar ${totalParaBuscar} selecionada${totalParaBuscar !== 1 ? 's' : ''}` }}
         </button>
 
         <button
@@ -240,6 +240,7 @@ const confirmando = ref(false)
 const rows = ref([])
 const progresso = ref(0)
 const pausando = ref(false)
+const countdown = ref(0)
 const resultadoFinal = ref(null)
 
 // --- Computed: coluna Buscar ---
@@ -340,10 +341,14 @@ async function buscarSelecionados() {
     }
 
     progresso.value++
-    // A cada 3 requisições, pausa 5s para não ser bloqueado pela ReceitaWS
+    // A cada 3 requisições, pausa 60s para não ser bloqueado pela ReceitaWS
     if (progresso.value % 3 === 0 && progresso.value < alvo.length) {
       pausando.value = true
-      await sleep(5000)
+      countdown.value = 60
+      while (countdown.value > 0) {
+        await sleep(1000)
+        countdown.value--
+      }
       pausando.value = false
     } else {
       await sleep(1200)
@@ -418,6 +423,7 @@ function reset() {
   buscando.value = false
   confirmando.value = false
   pausando.value = false
+  countdown.value = 0
   progresso.value = 0
   resultadoFinal.value = null
 }
