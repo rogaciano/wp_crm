@@ -134,11 +134,19 @@ watch(() => props.canais, (canaisArr) => {
   })
 }, { immediate: true })
 
+function iconSizeForZoom() {
+  const zoom = mapInstance ? mapInstance.getZoom() : 7
+  // zoom 4 (Brasil) → 10px | zoom 10 (cidade) → 22px | zoom 16+ → 32px
+  return Math.round(Math.max(10, Math.min(32, zoom * 2.2 - 2)))
+}
+
 function criarIconeConta(cor, count) {
   const L = window.L
-  const size = count > 1 ? 36 : 28
+  const base = iconSizeForZoom()
+  const size = count > 1 ? base + 8 : base
+  const fontSize = Math.max(9, Math.round(size * 0.38))
   const html = count > 1
-    ? `<div style="width:${size}px;height:${size}px;background:${cor};border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,0.3)">${count}</div>`
+    ? `<div style="width:${size}px;height:${size}px;background:${cor};border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:${fontSize}px;box-shadow:0 2px 8px rgba(0,0,0,0.3)">${count}</div>`
     : `<div style="width:${size}px;height:${size}px;background:${cor};border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`
 
   return L.divIcon({ html, className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2)] })
@@ -146,8 +154,9 @@ function criarIconeConta(cor, count) {
 
 function criarIconeOportunidade(cor, count) {
   const L = window.L
-  const size = 30
-  const inner = count > 1 ? `<span style="transform:rotate(-45deg);display:block;font-weight:bold;font-size:11px;color:white;text-align:center;line-height:${size}px">${count}</span>` : ''
+  const size = iconSizeForZoom()
+  const fontSize = Math.max(9, Math.round(size * 0.38))
+  const inner = count > 1 ? `<span style="transform:rotate(-45deg);display:block;font-weight:bold;font-size:${fontSize}px;color:white;text-align:center;line-height:${size}px">${count}</span>` : ''
   const html = `<div style="width:${size}px;height:${size}px;background:${cor};border:3px solid white;border-radius:4px;transform:rotate(45deg);box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center">${inner}</div>`
   return L.divIcon({ html, className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2)] })
 }
@@ -161,42 +170,66 @@ function statusLabel(s) {
 const obterCoordenadas = (() => {
   const cache = JSON.parse(localStorage.getItem('crm_geocache') || '{}')
   let lastRequestTime = 0
-  const RATE_LIMIT_MS = 1100 // 1.1s para respeitar a API pública do Nominatim
+  const RATE_LIMIT_MS = 1100
 
   const delay = (ms) => new Promise(r => setTimeout(r, ms))
 
-  return async (cidade, uf) => {
-    if (!cidade || !uf) return ESTADOS_BR[uf]
-    const key = `${cidade.trim().toUpperCase()}-${uf.toUpperCase()}`
-    
-    // Retorna do cache se existir
-    if (cache[key]) return cache[key]
-
-    // Se não, agenda a requisição respeitando o rate limit
+  async function fetchNominatim(url, key, nomeFallback) {
     const now = Date.now()
     const timeToWait = Math.max(0, lastRequestTime + RATE_LIMIT_MS - now)
     lastRequestTime = now + timeToWait
     if (timeToWait > 0) await delay(timeToWait)
+    const res = await fetch(url)
+    const data = await res.json()
+    if (data && data.length > 0) {
+      const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), nome: nomeFallback }
+      cache[key] = coords
+      localStorage.setItem('crm_geocache', JSON.stringify(cache))
+      return coords
+    }
+    return null
+  }
+
+  return async (cidade, uf, endereco = '') => {
+    if (!uf || !ESTADOS_BR[uf]) return ESTADOS_BR[uf]
+
+    // Chave de cache: endereço completo tem precedência, depois cidade
+    const keyRua = endereco ? `RUA-${endereco.trim().toUpperCase()}-${uf}` : null
+    const keyCidade = cidade ? `${cidade.trim().toUpperCase()}-${uf.toUpperCase()}` : null
+
+    // 1. Tenta cache de endereço de rua
+    if (keyRua && cache[keyRua]) return cache[keyRua]
+    // 2. Tenta cache de cidade
+    if (keyCidade && cache[keyCidade]) return cache[keyCidade]
 
     try {
-       console.log(`Geocodificando: ${cidade}, ${uf}...`)
-       // Tenta buscar "Cidade, UF, Brazil" via Nominatim
-       const url = `https://nominatim.openstreetmap.org/search?city=${encodeURIComponent(cidade)}&state=${encodeURIComponent(uf)}&country=Brazil&format=json&limit=1`
-       const res = await fetch(url)
-       const data = await res.json()
+      // 3. Geocodifica por endereço completo (rua + cidade + estado)
+      if (endereco && cidade) {
+        const q = encodeURIComponent(`${endereco}, ${cidade}, ${uf}, Brazil`)
+        const coords = await fetchNominatim(
+          `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`,
+          keyRua,
+          `${endereco}, ${cidade}/${uf}`
+        )
+        if (coords) return coords
+      }
 
-       if (data && data.length > 0) {
-         const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), nome: `${cidade}/${uf}` }
-         cache[key] = coords
-         localStorage.setItem('crm_geocache', JSON.stringify(cache))
-         return coords
-       }
+      // 4. Geocodifica por cidade
+      if (cidade) {
+        const coords = await fetchNominatim(
+          `https://nominatim.openstreetmap.org/search?city=${encodeURIComponent(cidade)}&state=${encodeURIComponent(uf)}&country=Brazil&format=json&limit=1`,
+          keyCidade,
+          `${cidade}/${uf}`
+        )
+        if (coords) return coords
+      }
     } catch (e) {
-       console.warn('Erro ao geocodificar:', e)
+      console.warn('Erro ao geocodificar:', e)
     }
 
-    // Fallback: Centro do Estado
-    const fallback = { ...ESTADOS_BR[uf], nome: `${cidade}/${uf} (Sede)` }
+    // 5. Fallback: centro do estado
+    const key = keyCidade || keyRua || uf
+    const fallback = { ...ESTADOS_BR[uf], nome: cidade ? `${cidade}/${uf} (Sede)` : ESTADOS_BR[uf].nome }
     cache[key] = fallback
     localStorage.setItem('crm_geocache', JSON.stringify(cache))
     return fallback
@@ -221,10 +254,11 @@ async function renderMarkers() {
     porLocal[chave].contas.push(conta)
   })
 
-  for (const [chave, dados] of Object.entries(porLocal)) {
+  for (const [, dados] of Object.entries(porLocal)) {
     const { uf, cidade, contas } = dados
-    // Tenta buscar a latitude/longitude da cidade (ou cai pro estado como fallback)
-    const { lat, lng, nome } = cidade ? await obterCoordenadas(cidade, uf) : ESTADOS_BR[uf]
+    // Tenta geocodificar por endereço completo → cidade → estado (fallback)
+    const endereco = dados.contas[0]?.endereco || ''
+    const { lat, lng, nome } = await obterCoordenadas(cidade, uf, endereco)
     const cor = resolverCorConta(contas[0])
 
     const icone = criarIconeConta(cor, contas.length)
@@ -257,11 +291,14 @@ async function renderMarkers() {
 }
 
 async function renderOportunidades() {
-  if (!mapInstance || !props.mostrarOportunidades) return
+  if (!mapInstance) return
   const L = window.L
 
+  // Sempre limpa o layer — independente de mostrarOportunidades
   if (oppsLayer) oppsLayer.clearLayers()
   else oppsLayer = L.layerGroup().addTo(mapInstance)
+
+  if (!props.mostrarOportunidades) return
 
   const porLocal = {}
   props.oportunidades.forEach(opp => {
@@ -279,9 +316,10 @@ async function renderOportunidades() {
     porLocal[chave].opps.push(opp)
   })
 
-  for (const [chave, dados] of Object.entries(porLocal)) {
+  for (const [, dados] of Object.entries(porLocal)) {
     const { uf, cidade, opps } = dados
-    const { lat, lng, nome } = cidade ? await obterCoordenadas(cidade, uf) : ESTADOS_BR[uf]
+    const enderecoOpp = dados.opps[0]?.endereco || ''
+    const { lat, lng, nome } = await obterCoordenadas(cidade, uf, enderecoOpp)
     const cor = resolverCorOpp(opps[0])
 
     const icone = criarIconeOportunidade(cor, opps.length)
@@ -412,6 +450,16 @@ async function initMap() {
   renderMarkers()
   renderOportunidades()
   renderCanais()
+
+  // Re-renderiza markers ao mudar zoom para ajustar tamanho (geocoding vem do cache, é rápido)
+  let zoomTimer = null
+  mapInstance.on('zoomend', () => {
+    clearTimeout(zoomTimer)
+    zoomTimer = setTimeout(() => {
+      renderMarkers()
+      renderOportunidades()
+    }, 150)
+  })
 }
 
 // Função pública para zoom num estado
@@ -434,6 +482,7 @@ watch(() => props.contas, () => { if (mapInstance) renderMarkers() }, { deep: tr
 watch(() => props.oportunidades, () => { if (mapInstance) renderOportunidades() }, { deep: true })
 watch(() => props.canais, () => { if (mapInstance) renderCanais() }, { deep: true })
 watch(() => props.zoomEstado, (uf) => { if (uf) zoomParaEstado(uf) })
+watch(() => props.mostrarOportunidades, () => { if (mapInstance) renderOportunidades() })
 </script>
 
 <style scoped>

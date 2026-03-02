@@ -622,6 +622,7 @@ class ContaMapaView(APIView):
             {
                 'id': c.id,
                 'nome_empresa': c.nome_empresa,
+                'endereco': c.endereco or '',
                 'cidade': c.cidade or '',
                 'estado': c.estado,
                 'canal_id': c.canal_id,
@@ -667,6 +668,7 @@ class MapaCanalView(APIView):
             {
                 'id': c.id,
                 'nome_empresa': c.nome_empresa,
+                'endereco': c.endereco or '',
                 'cidade': c.cidade or '',
                 'estado': c.estado.upper() if c.estado else '',
                 'status_cliente': c.status_cliente,
@@ -693,14 +695,17 @@ class MapaCanalView(APIView):
             cidade = None
             empresa_nome = None
             
+            endereco = ''
             if opp.conta and opp.conta.estado:
                 estado = opp.conta.estado.upper()
                 cidade = opp.conta.cidade
+                endereco = opp.conta.endereco or ''
                 empresa_nome = opp.conta.nome_empresa
             else:
                 for emp in opp.empresas.filter(estado__isnull=False).exclude(estado='')[:1]:
                     estado = emp.estado.upper()
                     cidade = emp.cidade
+                    endereco = emp.endereco or ''
                     empresa_nome = emp.nome_empresa
 
             if not estado:
@@ -711,6 +716,7 @@ class MapaCanalView(APIView):
                 'nome': opp.nome,
                 'estado': estado,
                 'cidade': cidade or '',
+                'endereco': endereco,
                 'empresa_nome': empresa_nome or '',
                 'valor_estimado': float(opp.valor_estimado) if opp.valor_estimado else 0,
                 'estagio_nome': opp.estagio.nome,
