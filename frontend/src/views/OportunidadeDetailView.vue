@@ -396,7 +396,14 @@
                         <h3 v-else class="font-bold text-gray-400 truncate">
                            Sem Contato
                         </h3>
-                        <button class="text-gray-400 hover:text-gray-600">•••</button>
+                        <button
+                          v-if="oportunidade.contato_principal"
+                          type="button"
+                          @click="desvincularContatoPrincipal"
+                          class="text-xs font-bold text-red-500 hover:text-red-600"
+                        >
+                          Desvincular
+                        </button>
                      </div>
                      
                      <div class="mt-3 space-y-1">
@@ -476,27 +483,30 @@
                    type="text"
                    class="w-full py-2 px-3 bg-gray-50 border border-gray-100 rounded-lg focus:border-primary-500 focus:bg-white text-gray-900 text-sm focus:outline-none transition-colors"
                    placeholder="Digite para buscar contato existente..."
-                   @focus="showContatoExistenteDropdown = true"
+                   @focus="onContatoExistenteFocus"
+                   @input="onContatoExistenteInput"
+                   @blur="onContatoExistenteBlur"
                  >
-                 <div
-                   v-if="showContatoExistenteDropdown && filteredContatosExistentes.length > 0"
-                   class="absolute z-50 mt-1 w-full bg-white shadow-xl rounded-lg border border-gray-100 max-h-48 overflow-y-auto custom-scrollbar"
-                 >
-                   <div
-                     v-for="c in filteredContatosExistentes"
-                     :key="`exist-${c.id}`"
-                     @click="vincularContatoPrincipalExistente(c)"
-                     class="p-2 hover:bg-primary-50 cursor-pointer border-b border-gray-50 text-xs"
-                   >
-                     <span class="font-bold text-gray-900">{{ c.nome }}</span>
-                     <span class="text-gray-400"> ({{ c.conta_nome || 'Sem empresa' }})</span>
-                   </div>
-                 </div>
                  <div
                    v-if="showContatoExistenteDropdown"
-                   class="fixed inset-0 z-40 bg-transparent"
-                   @click="showContatoExistenteDropdown = false"
-                 ></div>
+                   class="absolute z-50 mt-1 w-full bg-white shadow-xl rounded-lg border border-gray-100 max-h-48 overflow-y-auto custom-scrollbar"
+                 >
+                   <div v-if="loadingContatosExistentes" class="p-2 text-xs text-gray-400">Buscando contatos...</div>
+                   <template v-else>
+                     <div
+                       v-for="c in filteredContatosExistentes"
+                       :key="`exist-${c.id}`"
+                       @mousedown.prevent="vincularContatoPrincipalExistente(c)"
+                       class="p-2 hover:bg-primary-50 cursor-pointer border-b border-gray-50 text-xs"
+                     >
+                       <span class="font-bold text-gray-900">{{ c.nome }}</span>
+                       <span class="text-gray-400"> ({{ c.conta_nome || 'Sem empresa' }})</span>
+                     </div>
+                     <div v-if="!filteredContatosExistentes.length" class="p-2 text-xs text-gray-400">
+                       Nenhum contato encontrado.
+                     </div>
+                   </template>
+                 </div>
                </div>
             </div>
 
@@ -1001,6 +1011,9 @@ const searchM2MContato = ref('')
 const showM2MContatosDropdown = ref(false)
 const searchContatoExistente = ref('')
 const showContatoExistenteDropdown = ref(false)
+const contatosExistentesOptions = ref([])
+const loadingContatosExistentes = ref(false)
+let contatoExistenteSearchTimeout = null
 const filteredM2MContatos = computed(() => {
   if (!searchM2MContato.value) return contatos.value.slice(0, 10)
   return contatos.value.filter(c => 
@@ -1011,13 +1024,13 @@ const filteredM2MContatos = computed(() => {
 
 const filteredContatosExistentes = computed(() => {
   const termo = searchContatoExistente.value.trim().toLowerCase()
-  const base = contatos.value.filter(c => c.id !== oportunidade.value?.contato_principal)
-  if (!termo) return base.slice(0, 10)
+  const base = contatosExistentesOptions.value.filter(c => c.id !== oportunidade.value?.contato_principal)
+  if (!termo) return base
   return base.filter(c => {
     const nome = (c.nome || '').toLowerCase()
     const contaNome = (c.conta_nome || '').toLowerCase()
     return nome.includes(termo) || contaNome.includes(termo)
-  }).slice(0, 10)
+  })
 })
 
 const searchM2MEmpresa = ref('')
@@ -1055,11 +1068,64 @@ async function vincularContatoPrincipalExistente(contato) {
     await api.patch(`/oportunidades/${oportunidade.value.id}/`, payload)
     showContatoExistenteDropdown.value = false
     searchContatoExistente.value = ''
+    contatosExistentesOptions.value = []
     await refreshData()
   } catch (error) {
     console.error('Erro ao vincular contato existente:', error)
     alert(error.response?.data?.detail || 'Erro ao vincular contato existente.')
   }
+}
+
+async function desvincularContatoPrincipal() {
+  if (!oportunidade.value?.id || !oportunidade.value?.contato_principal) return
+  if (!confirm('Tem certeza que deseja desvincular o contato principal desta oportunidade?')) return
+
+  try {
+    await api.patch(`/oportunidades/${oportunidade.value.id}/`, {
+      contato_principal: null,
+    })
+    await refreshData()
+  } catch (error) {
+    console.error('Erro ao desvincular contato principal:', error)
+    alert(error.response?.data?.detail || 'Erro ao desvincular contato principal.')
+  }
+}
+
+async function searchContatosExistentes(term = '') {
+  loadingContatosExistentes.value = true
+  try {
+    const params = {
+      page_size: 50,
+      search: term || undefined,
+    }
+    const response = await api.get('/contatos/', { params })
+    const results = response.data.results || response.data
+    contatosExistentesOptions.value = (results || []).filter(c => c.id !== oportunidade.value?.contato_principal)
+  } catch (error) {
+    console.error('Erro ao buscar contatos existentes:', error)
+    contatosExistentesOptions.value = []
+  } finally {
+    loadingContatosExistentes.value = false
+  }
+}
+
+function onContatoExistenteFocus() {
+  showContatoExistenteDropdown.value = true
+  searchContatosExistentes(searchContatoExistente.value.trim())
+}
+
+function onContatoExistenteInput() {
+  showContatoExistenteDropdown.value = true
+  if (contatoExistenteSearchTimeout) clearTimeout(contatoExistenteSearchTimeout)
+  contatoExistenteSearchTimeout = setTimeout(() => {
+    searchContatosExistentes(searchContatoExistente.value.trim())
+  }, 250)
+}
+
+function onContatoExistenteBlur() {
+  setTimeout(() => {
+    showContatoExistenteDropdown.value = false
+  }, 120)
 }
 
 function removeContatoM2M(id) {
