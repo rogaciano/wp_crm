@@ -468,6 +468,36 @@
                   <div class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-lg leading-none pb-0.5">+</div>
                   Adicionar contato
                </button>
+
+               <div v-if="!oportunidade.contato_principal" class="mt-3 relative" @click.stop>
+                 <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Ou vincular contato existente</label>
+                 <input
+                   v-model="searchContatoExistente"
+                   type="text"
+                   class="w-full py-2 px-3 bg-gray-50 border border-gray-100 rounded-lg focus:border-primary-500 focus:bg-white text-gray-900 text-sm focus:outline-none transition-colors"
+                   placeholder="Digite para buscar contato existente..."
+                   @focus="showContatoExistenteDropdown = true"
+                 >
+                 <div
+                   v-if="showContatoExistenteDropdown && filteredContatosExistentes.length > 0"
+                   class="absolute z-50 mt-1 w-full bg-white shadow-xl rounded-lg border border-gray-100 max-h-48 overflow-y-auto custom-scrollbar"
+                 >
+                   <div
+                     v-for="c in filteredContatosExistentes"
+                     :key="`exist-${c.id}`"
+                     @click="vincularContatoPrincipalExistente(c)"
+                     class="p-2 hover:bg-primary-50 cursor-pointer border-b border-gray-50 text-xs"
+                   >
+                     <span class="font-bold text-gray-900">{{ c.nome }}</span>
+                     <span class="text-gray-400"> ({{ c.conta_nome || 'Sem empresa' }})</span>
+                   </div>
+                 </div>
+                 <div
+                   v-if="showContatoExistenteDropdown"
+                   class="fixed inset-0 z-40 bg-transparent"
+                   @click="showContatoExistenteDropdown = false"
+                 ></div>
+               </div>
             </div>
 
             <!-- Seção Empresa (Editável) -->
@@ -969,12 +999,25 @@ const contas = ref([])
 // M2M Search Logic
 const searchM2MContato = ref('')
 const showM2MContatosDropdown = ref(false)
+const searchContatoExistente = ref('')
+const showContatoExistenteDropdown = ref(false)
 const filteredM2MContatos = computed(() => {
   if (!searchM2MContato.value) return contatos.value.slice(0, 10)
   return contatos.value.filter(c => 
     c.nome.toLowerCase().includes(searchM2MContato.value.toLowerCase()) &&
     !(oportunidadeForm.value.contatos || []).includes(c.id)
   ).slice(0, 10)
+})
+
+const filteredContatosExistentes = computed(() => {
+  const termo = searchContatoExistente.value.trim().toLowerCase()
+  const base = contatos.value.filter(c => c.id !== oportunidade.value?.contato_principal)
+  if (!termo) return base.slice(0, 10)
+  return base.filter(c => {
+    const nome = (c.nome || '').toLowerCase()
+    const contaNome = (c.conta_nome || '').toLowerCase()
+    return nome.includes(termo) || contaNome.includes(termo)
+  }).slice(0, 10)
 })
 
 const searchM2MEmpresa = ref('')
@@ -995,6 +1038,28 @@ function addContatoM2M(c) {
   }
   searchM2MContato.value = ''
   showM2MContatosDropdown.value = false
+}
+
+async function vincularContatoPrincipalExistente(contato) {
+  if (!oportunidade.value?.id || !contato?.id) return
+
+  try {
+    const payload = {
+      contato_principal: contato.id,
+    }
+
+    if (!oportunidade.value.conta && contato.conta) {
+      payload.conta = contato.conta
+    }
+
+    await api.patch(`/oportunidades/${oportunidade.value.id}/`, payload)
+    showContatoExistenteDropdown.value = false
+    searchContatoExistente.value = ''
+    await refreshData()
+  } catch (error) {
+    console.error('Erro ao vincular contato existente:', error)
+    alert(error.response?.data?.detail || 'Erro ao vincular contato existente.')
+  }
 }
 
 function removeContatoM2M(id) {
@@ -1176,8 +1241,8 @@ async function loadAuxData() {
             api.get('/adicionais-plano/'),
             api.get('/atividades/content_types/'),
             api.get('/canais/'),
-            api.get('/contatos/'),
-            api.get('/contas/')
+            api.get('/contatos/', { params: { page_size: 1000 } }),
+            api.get('/contas/', { params: { page_size: 1000 } })
         ])
         usuarios.value = usersRes.data.results || usersRes.data
         planos.value = planosRes.data.results || planosRes.data

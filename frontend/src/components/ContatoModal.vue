@@ -59,12 +59,53 @@
             Empresa (Conta)
           </label>
           <div class="flex gap-2" @click.stop>
-            <select v-model="form.conta" class="input flex-1">
-              <option value="">Selecione uma conta...</option>
-              <option v-for="conta in contas" :key="conta.id" :value="conta.id">
-                {{ conta.nome_empresa }}
-              </option>
-            </select>
+            <div class="relative flex-1" @click.stop>
+              <input
+                v-model="searchConta"
+                type="text"
+                class="input"
+                :disabled="!!props.fixedContaId"
+                placeholder="Digite para buscar empresa..."
+                @focus="onContaInputFocus"
+                @input="onContaInput"
+              />
+              <button
+                v-if="form.conta && !props.fixedContaId"
+                type="button"
+                class="absolute inset-y-0 right-2 text-gray-400 hover:text-red-500"
+                @click="clearContaSelection"
+                title="Limpar empresa selecionada"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              <div
+                v-if="showContaDropdown"
+                class="absolute z-50 mt-1 w-full bg-white shadow-xl rounded-lg border border-gray-100 max-h-56 overflow-y-auto"
+              >
+                <div v-if="loadingContas" class="p-2 text-xs text-gray-400">Buscando empresas...</div>
+                <template v-else>
+                  <div
+                    v-for="conta in contas"
+                    :key="conta.id"
+                    class="p-2 hover:bg-primary-50 cursor-pointer border-b border-gray-50 text-xs"
+                    @click="selectConta(conta)"
+                  >
+                    <div class="font-bold text-gray-900">{{ conta.nome_empresa }}</div>
+                    <div class="text-gray-400">{{ conta.cnpj || 'Sem CNPJ' }}</div>
+                  </div>
+                  <div v-if="!contas.length" class="p-2 text-xs text-gray-400">Nenhuma empresa encontrada.</div>
+                </template>
+              </div>
+
+              <div
+                v-if="showContaDropdown"
+                class="fixed inset-0 z-40 bg-transparent"
+                @click="showContaDropdown = false"
+              ></div>
+            </div>
             <button 
               type="button"
               @click="showNovaEmpresaModal = true"
@@ -435,6 +476,10 @@ const canais = ref([])
 const tiposRedeSocial = ref([])
 const tagsDisponiveis = ref([])
 const showNovaEmpresaModal = ref(false)
+const searchConta = ref('')
+const showContaDropdown = ref(false)
+const loadingContas = ref(false)
+let contaSearchTimeout = null
 
 // Foto do contato
 const fotoPreview = ref(null)
@@ -460,6 +505,10 @@ const form = ref({
   tags: []
 })
 
+watch(() => form.value.conta, () => {
+  syncContaSearchBySelection()
+})
+
 watch(() => props.show, async (newVal) => {
   if (newVal) {
     // Carregar opções de forma independente para evitar bloqueios
@@ -472,6 +521,8 @@ watch(() => props.show, async (newVal) => {
     if (props.fixedContaId) {
       form.value.conta = props.fixedContaId
     }
+
+    syncContaSearchBySelection()
 
     // Se tem telefone inicial (vindo da oportunidade), adicionar automaticamente
     if (props.initialTelefone && !isEdit.value) {
@@ -522,11 +573,63 @@ watch(() => props.contato, (newContato) => {
 }, { immediate: true })
 
 async function loadContas() {
+  await searchContas(searchConta.value)
+}
+
+async function searchContas(term = '') {
+  loadingContas.value = true
   try {
-    const response = await api.get('/contas/')
+    const response = await api.get('/contas/', {
+      params: {
+        search: term || undefined,
+        page_size: 100,
+      }
+    })
     contas.value = response.data.results || response.data
   } catch (error) {
     console.error('Erro ao carregar contas:', error)
+  } finally {
+    loadingContas.value = false
+  }
+}
+
+function onContaInputFocus() {
+  if (props.fixedContaId) return
+  showContaDropdown.value = true
+  searchContas(searchConta.value)
+}
+
+function onContaInput() {
+  if (props.fixedContaId) return
+  showContaDropdown.value = true
+  form.value.conta = ''
+  if (contaSearchTimeout) clearTimeout(contaSearchTimeout)
+  contaSearchTimeout = setTimeout(() => {
+    searchContas(searchConta.value)
+  }, 250)
+}
+
+function selectConta(conta) {
+  form.value.conta = conta.id
+  searchConta.value = conta.nome_empresa
+  showContaDropdown.value = false
+}
+
+function clearContaSelection() {
+  form.value.conta = ''
+  searchConta.value = ''
+  showContaDropdown.value = true
+  searchContas('')
+}
+
+function syncContaSearchBySelection() {
+  if (!form.value.conta) {
+    if (!showContaDropdown.value) searchConta.value = ''
+    return
+  }
+  const selected = contas.value.find(c => String(c.id) === String(form.value.conta))
+  if (selected) {
+    searchConta.value = selected.nome_empresa
   }
 }
 
@@ -680,6 +783,8 @@ function resetForm() {
   }
   fotoPreview.value = null
   fotoFile.value = null
+  searchConta.value = ''
+  showContaDropdown.value = false
 }
 
 async function handleSubmit() {
