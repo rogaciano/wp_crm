@@ -68,6 +68,7 @@
                 placeholder="Digite para buscar empresa..."
                 @focus="onContaInputFocus"
                 @input="onContaInput"
+                @blur="onContaInputBlur"
               />
               <button
                 v-if="form.conta && !props.fixedContaId"
@@ -91,7 +92,7 @@
                     v-for="conta in contas"
                     :key="conta.id"
                     class="p-2 hover:bg-primary-50 cursor-pointer border-b border-gray-50 text-xs"
-                    @click="selectConta(conta)"
+                    @mousedown.prevent="selectConta(conta)"
                   >
                     <div class="font-bold text-gray-900">{{ conta.nome_empresa }}</div>
                     <div class="text-gray-400">{{ conta.cnpj || 'Sem CNPJ' }}</div>
@@ -99,12 +100,6 @@
                   <div v-if="!contas.length" class="p-2 text-xs text-gray-400">Nenhuma empresa encontrada.</div>
                 </template>
               </div>
-
-              <div
-                v-if="showContaDropdown"
-                class="fixed inset-0 z-40 bg-transparent"
-                @click="showContaDropdown = false"
-              ></div>
             </div>
             <button 
               type="button"
@@ -607,6 +602,12 @@ function onContaInput() {
   contaSearchTimeout = setTimeout(() => {
     searchContas(searchConta.value)
   }, 250)
+}
+
+function onContaInputBlur() {
+  setTimeout(() => {
+    showContaDropdown.value = false
+  }, 120)
 }
 
 function selectConta(conta) {
