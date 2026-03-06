@@ -565,7 +565,7 @@ async function loadOptions() {
   try {
     const [cRes, ctRes, fnRes, cnRes, uRes, pRes, adcRes, orRes] = await Promise.all([
       api.get('/contas/'),
-      api.get('/contatos/'),
+      api.get('/contatos/', { params: { page_size: 1000 } }),
       api.get('/funis/'),
       api.get('/canais/'),
       api.get('/usuarios/'),
@@ -634,7 +634,11 @@ const anexos = ref([])
 const diagnosticos = ref([])
 
 const indicadores = computed(() => {
-  return contatos.value.filter(c => c.tipo_contato_nome?.toUpperCase() === 'INDICADOR')
+  return contatos.value.filter((c) => {
+    const tipoLegacy = String(c?.tipo || '').toUpperCase()
+    const tipoContatoNome = String(c?.tipo_contato_nome || '').toUpperCase()
+    return tipoLegacy.includes('INDICADOR') || tipoContatoNome.includes('INDICADOR')
+  })
 })
 
 // Comercial Options

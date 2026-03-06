@@ -878,7 +878,11 @@ const planos = ref([])
 const adicionais_opcoes = ref([])
 const canais = ref([])
 const contatos = ref([])
-const indicadores = computed(() => contatos.value.filter(c => c.tipo === 'INDICADOR' || c.tipo_contato_nome?.toUpperCase() === 'INDICADOR'))
+const indicadores = computed(() => contatos.value.filter((c) => {
+  const tipoLegacy = String(c?.tipo || '').toUpperCase()
+  const tipoContatoNome = String(c?.tipo_contato_nome || '').toUpperCase()
+  return tipoLegacy.includes('INDICADOR') || tipoContatoNome.includes('INDICADOR')
+}))
 
 // Forms e Estados
 const oportunidadeForm = ref({
