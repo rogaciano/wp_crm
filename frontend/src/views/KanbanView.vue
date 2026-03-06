@@ -751,7 +751,11 @@ async function deleteOportunidade(id) {
 }
 
 function editItem(item) {
-  router.push({ name: 'oportunidade-detail', params: { id: item.id } })
+  router.push({
+    name: 'oportunidade-detail',
+    params: { id: item.id },
+    query: { from: 'kanban' }
+  })
 }
 
 function closeModal() {

@@ -212,11 +212,12 @@
                   <div class="w-2/3">
                      <select 
                         v-model="oportunidadeForm.plano"
+                        @change="recalcularValorEstimado"
                         class="w-full py-1 bg-transparent border-b border-transparent group-hover:border-gray-200 focus:border-primary-500 text-gray-900 text-sm focus:outline-none appearance-none cursor-pointer"
                      >
                         <option :value="null">Selecione...</option>
                         <option v-for="plano in planos" :key="plano.id" :value="plano.id">
-                           {{ plano.nome }} (R$ {{ plano.preco_mensal }})
+                          {{ plano.nome }} (R$ {{ plano.preco_mensal }})
                         </option>
                      </select>
                   </div>
@@ -240,14 +241,29 @@
                      <!-- Dropdown Content -->
                      <div v-if="showAdicionaisDropdown" class="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-md z-50 p-2 max-h-60 overflow-y-auto">
                         <div class="space-y-1">
-                           <div v-for="adc in adicionais_opcoes" :key="adc.id" class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer" @click.stop="toggleAdicional(adc.id, !hasAdicional(adc.id))">
+                           <div v-for="adc in adicionais_opcoes" :key="adc.id" class="p-1 hover:bg-gray-50 rounded">
+                              <div class="flex items-center gap-2">
                               <input 
                                  type="checkbox" 
                                  :value="adc.id" 
                                  :checked="hasAdicional(adc.id)"
-                                 class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4 pointer-events-none"
+                                 @change="toggleAdicional(adc.id, $event.target.checked)"
+                                 class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
                               />
-                              <span class="text-sm text-gray-700 select-none">{{ adc.nome }}</span>
+                              <span class="text-sm text-gray-700 select-none flex-1">{{ adc.nome }}</span>
+                              <span class="text-[11px] text-gray-400">R$ {{ Number(adc.preco || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+                              </div>
+                              <div v-if="hasAdicional(adc.id)" class="mt-1 ml-6 flex items-center gap-2">
+                                <label class="text-[11px] text-gray-500">Qtd.</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  :value="getAdicionalQuantidade(adc.id)"
+                                  @input="setAdicionalQuantidade(adc.id, $event.target.value)"
+                                  class="w-20 px-2 py-0.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                                />
+                              </div>
                            </div>
                         </div>
                      </div>
@@ -988,6 +1004,20 @@ function hasAdicional(adicionalId) {
     return oportunidadeForm.value.adicionais_itens.some(item => item.adicional === adicionalId);
 }
 
+function getAdicionalQuantidade(adicionalId) {
+  const item = (oportunidadeForm.value.adicionais_itens || []).find((it) => it.adicional === adicionalId)
+  return Number(item?.quantidade || 1)
+}
+
+function setAdicionalQuantidade(adicionalId, quantidade) {
+  const qtd = Math.max(1, parseInt(quantidade, 10) || 1)
+  const itens = oportunidadeForm.value.adicionais_itens || []
+  const item = itens.find((it) => it.adicional === adicionalId)
+  if (!item) return
+  item.quantidade = qtd
+  recalcularValorEstimado()
+}
+
 function toggleAdicional(adicionalId, checked) {
     if (!oportunidadeForm.value.adicionais_itens) oportunidadeForm.value.adicionais_itens = [];
     
@@ -999,7 +1029,22 @@ function toggleAdicional(adicionalId, checked) {
     } else {
         oportunidadeForm.value.adicionais_itens = oportunidadeForm.value.adicionais_itens.filter(item => item.adicional !== adicionalId);
     }
-    // Não faz auto-save - usuário precisa clicar em Salvar
+    recalcularValorEstimado()
+}
+
+function recalcularValorEstimado() {
+  const planoSelecionado = planos.value.find((p) => p.id === oportunidadeForm.value.plano)
+  const valorPlano = Number(planoSelecionado?.preco_mensal || 0)
+
+  const totalAdicionais = (oportunidadeForm.value.adicionais_itens || []).reduce((acc, item) => {
+    const adicional = adicionais_opcoes.value.find((op) => op.id === item.adicional)
+    if (!adicional) return acc
+    const preco = Number(adicional.preco || 0)
+    const qtd = Math.max(1, Number(item.quantidade || 1))
+    return acc + (preco * qtd)
+  }, 0)
+
+  oportunidadeForm.value.valor_estimado = Number((valorPlano + totalAdicionais).toFixed(2))
 }
 
 const showAdicionaisDropdown = ref(false)
@@ -1289,13 +1334,23 @@ function formatSelectedAdicionais() {
     // Mapeia IDs para Nomes
     const names = oportunidadeForm.value.adicionais_itens.map(item => {
         const found = adicionais_opcoes.value.find(op => op.id === item.adicional)
-        return found ? found.nome : ''
+        if (!found) return ''
+        const qtd = Math.max(1, Number(item.quantidade || 1))
+        return qtd > 1 ? `${found.nome} x${qtd}` : found.nome
     }).filter(n => n)
     
     if (names.length === 0) return ''
     if (names.length <= 2) return names.join(', ')
     return `${names.length} selecionados`
 }
+
+watch(
+  () => [oportunidadeForm.value.plano, oportunidadeForm.value.adicionais_itens],
+  () => {
+    recalcularValorEstimado()
+  },
+  { deep: true }
+)
 
 // Carregamento Inicial
 onMounted(async () => {
@@ -1418,9 +1473,15 @@ async function loadData() {
 }
 
 // Ações
+function getReturnRoute() {
+  const from = String(route.query.from || '').toLowerCase()
+  if (from === 'kanban') return { name: 'kanban' }
+  return { name: 'oportunidades' }
+}
+
 function goBack() {
   if (confirm('Deseja sair? As alterações não salvas serão perdidas.')) {
-    router.push('/kanban')
+    router.push(getReturnRoute())
   }
 }
 
@@ -1448,8 +1509,8 @@ async function saveChanges() {
      
      await api.patch(`/oportunidades/${oportunidade.value.id}/`, payload)
      
-     // Sucesso - volta para o Kanban
-     router.push('/kanban')
+     // Sucesso - volta para a origem (kanban ou lista)
+     router.push(getReturnRoute())
   } catch (error) {
     console.error('Erro ao salvar:', error)
     alert('Erro ao salvar alterações: ' + (error.response?.data?.detail || error.message))

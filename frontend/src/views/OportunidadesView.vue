@@ -491,7 +491,11 @@ function openCreateModal() {
 }
 
 function openEditModal(oportunidade) {
-  router.push({ name: 'oportunidade-detail', params: { id: oportunidade.id } })
+  router.push({
+    name: 'oportunidade-detail',
+    params: { id: oportunidade.id },
+    query: { from: 'oportunidades' }
+  })
 }
 
 function closeModal() {
