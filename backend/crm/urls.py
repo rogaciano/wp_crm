@@ -37,10 +37,10 @@ router.register(r'timeline', TimelineViewSet, basename='timeline')
 router.register(r'organograma', OrganogramaViewSet, basename='organograma')
 
 urlpatterns = [
+    path('contas/mapa/', ContaMapaView.as_view(), name='contas-mapa'),
+    path('mapa/canal/', MapaCanalView.as_view(), name='mapa-canal'),
     path('', include(router.urls)),
     path('webhooks/whatsapp/', WhatsappWebhookView.as_view(), name='whatsapp-webhook'),
     path('webhook/whatsapp/', WhatsappWebhookView.as_view(), name='whatsapp-webhook-alias'),  # alias sem 's'
-    path('contas/mapa/', ContaMapaView.as_view(), name='contas-mapa'),
-    path('mapa/canal/', MapaCanalView.as_view(), name='mapa-canal'),
 ]
 

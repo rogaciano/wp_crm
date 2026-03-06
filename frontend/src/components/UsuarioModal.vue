@@ -66,6 +66,26 @@
         <input v-model="form.is_active" type="checkbox" id="is_active" class="rounded text-primary-600 focus:ring-primary-500" />
         <label for="is_active" class="text-sm font-medium text-gray-700">Usuário Ativo</label>
       </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Permissões de Funis</label>
+        <div class="max-h-36 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
+          <label
+            v-for="funil in funis"
+            :key="funil.id"
+            class="flex items-center gap-2 text-sm text-gray-700"
+          >
+            <input
+              type="checkbox"
+              :value="funil.id"
+              v-model="form.funis_acesso"
+              class="rounded text-primary-600 focus:ring-primary-500"
+            />
+            <span>{{ funil.nome }} <span class="text-xs text-gray-400">({{ getTipoFunilLabel(funil.tipo) }})</span></span>
+          </label>
+          <div v-if="!funis.length" class="text-xs text-gray-400">Nenhum funil disponível.</div>
+        </div>
+      </div>
     </form>
   </BaseModal>
 </template>
@@ -85,6 +105,7 @@ const emit = defineEmits(['close', 'saved'])
 const loading = ref(false)
 const isEdit = ref(false)
 const canais = ref([])
+const funis = ref([])
 
 const form = ref({
   first_name: '',
@@ -96,10 +117,12 @@ const form = ref({
   telefone: '',
   password: '',
   is_active: true,
+  funis_acesso: [],
 })
 
 onMounted(() => {
   loadCanais()
+  loadFunis()
 })
 
 async function loadCanais() {
@@ -111,11 +134,30 @@ async function loadCanais() {
   }
 }
 
+async function loadFunis() {
+  try {
+    const response = await api.get('/funis/')
+    funis.value = response.data.results || response.data
+  } catch (error) {
+    console.error('Erro ao carregar funis:', error)
+  }
+}
+
+function getTipoFunilLabel(tipo) {
+  const labels = {
+    VENDAS: 'Vendas',
+    POS_VENDA: 'Pós-Venda',
+    SUPORTE: 'Suporte'
+  }
+  return labels[tipo] || tipo
+}
+
 watch(() => props.usuario, (newUsuario) => {
   if (newUsuario) {
     isEdit.value = true
     form.value = { 
       ...newUsuario,
+      funis_acesso: (newUsuario.funis_acesso || []).map(id => Number(id)),
       password: '' // Não carregar hash da senha
     }
   } else {
@@ -134,7 +176,8 @@ function resetForm() {
     canal: '',
     telefone: '',
     password: '',
-    is_active: true
+    is_active: true,
+    funis_acesso: []
   }
 }
 

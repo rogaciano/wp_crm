@@ -175,7 +175,11 @@ class UserSerializer(serializers.ModelSerializer):
     canal_nome = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
     avatar_url = serializers.SerializerMethodField()
-    funis_acesso = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    funis_acesso = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Funil.objects.all(),
+        required=False,
+    )
     
     def get_canal_nome(self, obj):
         return obj.canal.nome if obj.canal else "N/A"

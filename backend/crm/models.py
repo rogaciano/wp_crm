@@ -157,6 +157,13 @@ class User(AbstractUser):
         if self.perfil in [self.PERFIL_RESPONSAVEL, self.PERFIL_VENDEDOR]:
             if not self.canal:
                 raise ValueError(f"{self.get_perfil_display()} deve estar associado a um Canal")
+
+        # Perfil ADMIN deve conseguir acessar Django Admin (is_staff)
+        if self.perfil == self.PERFIL_ADMIN:
+            self.is_staff = True
+        elif not self.is_superuser:
+            self.is_staff = False
+
         super().save(*args, **kwargs)
 
 
