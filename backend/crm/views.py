@@ -14,6 +14,7 @@ from rest_framework.throttling import AnonRateThrottle
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q, Sum, Count, Avg, Exists, OuterRef
+from django.contrib.auth.models import Permission
 from django_filters.rest_framework import DjangoFilterBackend
 
 
@@ -327,6 +328,29 @@ class UserViewSet(viewsets.ModelViewSet):
         """Retorna informações do usuário logado"""
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='auth-permissions')
+    def auth_permissions(self, request):
+        """Lista permissões de auth para gestão (view/add/change/delete por modelo)."""
+        if request.user.perfil != 'ADMIN':
+            return Response({'detail': 'Sem permissão.'}, status=status.HTTP_403_FORBIDDEN)
+
+        allowed_prefixes = ('view_', 'add_', 'change_', 'delete_')
+        permissions_qs = Permission.objects.select_related('content_type').filter(
+            codename__startswith=allowed_prefixes
+        ).order_by('content_type__app_label', 'content_type__model', 'codename')
+
+        data = [
+            {
+                'id': perm.id,
+                'codename': perm.codename,
+                'name': perm.name,
+                'app_label': perm.content_type.app_label,
+                'model': perm.content_type.model,
+            }
+            for perm in permissions_qs
+        ]
+        return Response(data)
 
 
 class FunilViewSet(viewsets.ModelViewSet):

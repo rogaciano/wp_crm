@@ -5,6 +5,7 @@ import re
 from rest_framework import serializers
 from django.db import transaction
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.models import Group, Permission
 from .models import (
     Canal, User, Conta, Contato, TipoContato, TipoRedeSocial, ContatoRedeSocial,
     Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade, Origem,
@@ -180,6 +181,16 @@ class UserSerializer(serializers.ModelSerializer):
         queryset=Funil.objects.all(),
         required=False,
     )
+    groups = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Group.objects.all(),
+        required=False,
+    )
+    user_permissions = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Permission.objects.all(),
+        required=False,
+    )
     
     def get_canal_nome(self, obj):
         return obj.canal.nome if obj.canal else "N/A"
@@ -202,9 +213,10 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'perfil', 'canal', 'canal_nome', 'telefone', 'avatar', 'avatar_url',
-            'password', 'is_active', 'date_joined', 'funis_acesso'
+            'password', 'is_active', 'date_joined', 'funis_acesso',
+            'groups', 'user_permissions'
         ]
-        read_only_fields = ['date_joined', 'funis_acesso']
+        read_only_fields = ['date_joined']
         extra_kwargs = {
             'password': {'write_only': True}
         }

@@ -86,12 +86,50 @@
           <div v-if="!funis.length" class="text-xs text-gray-400">Nenhum funil disponível.</div>
         </div>
       </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Autorizações (Django Auth)</label>
+        <div class="max-h-56 overflow-y-auto border border-gray-200 rounded-lg p-2">
+          <div v-if="loadingAuthPermissions" class="text-xs text-gray-400 p-1">Carregando permissões...</div>
+          <template v-else>
+            <div
+              v-for="item in groupedAuthPermissions"
+              :key="item.key"
+              class="py-2 border-b border-gray-100 last:border-b-0"
+            >
+              <div class="text-xs font-bold text-gray-700 mb-1">
+                {{ item.label }}
+                <span class="text-[10px] text-gray-400 font-normal">({{ item.appLabel }})</span>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <label class="flex items-center gap-1.5 text-xs text-gray-600" v-if="item.viewId">
+                  <input type="checkbox" :value="item.viewId" v-model="form.user_permissions" class="rounded text-primary-600 focus:ring-primary-500" />
+                  Visualizar
+                </label>
+                <label class="flex items-center gap-1.5 text-xs text-gray-600" v-if="item.addId">
+                  <input type="checkbox" :value="item.addId" v-model="form.user_permissions" class="rounded text-primary-600 focus:ring-primary-500" />
+                  Criar
+                </label>
+                <label class="flex items-center gap-1.5 text-xs text-gray-600" v-if="item.changeId">
+                  <input type="checkbox" :value="item.changeId" v-model="form.user_permissions" class="rounded text-primary-600 focus:ring-primary-500" />
+                  Editar
+                </label>
+                <label class="flex items-center gap-1.5 text-xs text-gray-600" v-if="item.deleteId">
+                  <input type="checkbox" :value="item.deleteId" v-model="form.user_permissions" class="rounded text-primary-600 focus:ring-primary-500" />
+                  Excluir
+                </label>
+              </div>
+            </div>
+            <div v-if="!groupedAuthPermissions.length" class="text-xs text-gray-400 p-1">Nenhuma permissão disponível.</div>
+          </template>
+        </div>
+      </div>
     </form>
   </BaseModal>
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import BaseModal from './BaseModal.vue'
 import api from '@/services/api'
 
@@ -106,6 +144,8 @@ const loading = ref(false)
 const isEdit = ref(false)
 const canais = ref([])
 const funis = ref([])
+const authPermissions = ref([])
+const loadingAuthPermissions = ref(false)
 
 const form = ref({
   first_name: '',
@@ -118,11 +158,39 @@ const form = ref({
   password: '',
   is_active: true,
   funis_acesso: [],
+  groups: [],
+  user_permissions: [],
 })
 
 onMounted(() => {
   loadCanais()
   loadFunis()
+  loadAuthPermissions()
+})
+
+const groupedAuthPermissions = computed(() => {
+  const map = new Map()
+  for (const perm of authPermissions.value) {
+    const key = `${perm.app_label}.${perm.model}`
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        appLabel: perm.app_label,
+        model: perm.model,
+        label: getModelLabel(perm.model),
+        viewId: null,
+        addId: null,
+        changeId: null,
+        deleteId: null,
+      })
+    }
+    const item = map.get(key)
+    if (perm.codename.startsWith('view_')) item.viewId = perm.id
+    if (perm.codename.startsWith('add_')) item.addId = perm.id
+    if (perm.codename.startsWith('change_')) item.changeId = perm.id
+    if (perm.codename.startsWith('delete_')) item.deleteId = perm.id
+  }
+  return Array.from(map.values())
 })
 
 async function loadCanais() {
@@ -143,6 +211,19 @@ async function loadFunis() {
   }
 }
 
+async function loadAuthPermissions() {
+  loadingAuthPermissions.value = true
+  try {
+    const response = await api.get('/usuarios/auth-permissions/')
+    authPermissions.value = response.data || []
+  } catch (error) {
+    console.error('Erro ao carregar permissões auth:', error)
+    authPermissions.value = []
+  } finally {
+    loadingAuthPermissions.value = false
+  }
+}
+
 function getTipoFunilLabel(tipo) {
   const labels = {
     VENDAS: 'Vendas',
@@ -152,12 +233,20 @@ function getTipoFunilLabel(tipo) {
   return labels[tipo] || tipo
 }
 
+function getModelLabel(model) {
+  return String(model || '')
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
 watch(() => props.usuario, (newUsuario) => {
   if (newUsuario) {
     isEdit.value = true
     form.value = { 
       ...newUsuario,
       funis_acesso: (newUsuario.funis_acesso || []).map(id => Number(id)),
+      groups: (newUsuario.groups || []).map(id => Number(id)),
+      user_permissions: (newUsuario.user_permissions || []).map(id => Number(id)),
       password: '' // Não carregar hash da senha
     }
   } else {
@@ -177,7 +266,9 @@ function resetForm() {
     telefone: '',
     password: '',
     is_active: true,
-    funis_acesso: []
+    funis_acesso: [],
+    groups: [],
+    user_permissions: []
   }
 }
 
