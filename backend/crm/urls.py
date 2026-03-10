@@ -11,6 +11,7 @@ from .views import (
     TagViewSet, OportunidadeAnexoViewSet, TimelineViewSet, ContaMapaView, MapaCanalView
 )
 from .views_dashboard import DashboardViewSet
+from .views_atendimento import InboxConversasView, InboxCanaisView
 
 router = DefaultRouter()
 router.register(r'whatsapp', WhatsappViewSet, basename='whatsapp')
@@ -39,8 +40,10 @@ router.register(r'organograma', OrganogramaViewSet, basename='organograma')
 urlpatterns = [
     path('contas/mapa/', ContaMapaView.as_view(), name='contas-mapa'),
     path('mapa/canal/', MapaCanalView.as_view(), name='mapa-canal'),
+    path('atendimento/conversas/', InboxConversasView.as_view(), name='atendimento-conversas'),
+    path('atendimento/canais/', InboxCanaisView.as_view(), name='atendimento-canais'),
     path('', include(router.urls)),
     path('webhooks/whatsapp/', WhatsappWebhookView.as_view(), name='whatsapp-webhook'),
-    path('webhook/whatsapp/', WhatsappWebhookView.as_view(), name='whatsapp-webhook-alias'),  # alias sem 's'
+    path('webhook/whatsapp/', WhatsappWebhookView.as_view(), name='whatsapp-webhook-alias'),
 ]
 

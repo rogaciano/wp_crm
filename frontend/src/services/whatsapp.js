@@ -81,12 +81,18 @@ export const whatsappService = {
         return api.get('/whatsapp/instance_info/')
     },
 
-    // ==================== HELPERS ====================
+    // ==================== ATENDIMENTO (INBOX) ====================
 
-    formatNumber(number) {
-        if (!number) return ''
-        return number.replace(/\D/g, '')
-    }
+    // Lista conversas do canal (inbox multiatendimento)
+    getConversas(params) {
+        // params: { canal_id?, funil_tipo?, search? }
+        return api.get('/atendimento/conversas/', { params })
+    },
+
+    // Lista canais disponíveis (para seletor admin)
+    getCanaisAtendimento() {
+        return api.get('/atendimento/canais/')
+    },
 }
 
 export default whatsappService

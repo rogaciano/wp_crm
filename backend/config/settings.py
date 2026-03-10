@@ -14,6 +14,7 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(','
 
 # Application definition
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -22,6 +23,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     
     # Third party
+    'channels',
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
@@ -65,6 +67,24 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
+
+# Django Channels — WebSocket em tempo real
+REDIS_URL = config('REDIS_URL', default='')
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {'hosts': [REDIS_URL]},
+        }
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        }
+    }
+
 
 # Database
 DB_ENGINE = config('DB_ENGINE', default='django.db.backends.mysql')

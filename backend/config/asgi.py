@@ -1,11 +1,24 @@
 """
-ASGI config for CRM project.
+ASGI config for CRM project — supports HTTP and WebSocket (Django Channels).
 """
 
 import os
 
-from django.core.asgi import get_asgi_application
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
-os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings'
+django_asgi_app = None
 
-application = get_asgi_application()
+def get_application():
+    from django.core.asgi import get_asgi_application
+    from channels.routing import ProtocolTypeRouter, URLRouter
+    from crm.ws_middleware import JWTAuthMiddleware
+    from crm.routing import websocket_urlpatterns
+
+    return ProtocolTypeRouter({
+        'http': get_asgi_application(),
+        'websocket': JWTAuthMiddleware(
+            URLRouter(websocket_urlpatterns)
+        ),
+    })
+
+application = get_application()

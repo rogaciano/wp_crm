@@ -96,6 +96,12 @@ const router = createRouter({
           meta: { requiresGestor: true }
         },
         {
+          path: '/atendimento',
+          name: 'atendimento',
+          component: () => import('@/views/AtendimentoView.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
           path: '/meu-canal/mapa',
           name: 'meu-canal-mapa',
           component: () => import('@/views/MapaCanalView.vue'),

@@ -1,5 +1,69 @@
 <template>
-  <Transition name="slide">
+  <!-- Modo embutido: renderiza direto no layout pai sem overlay -->
+  <div v-if="mode === 'embedded'" class="flex flex-col flex-1 overflow-hidden">
+    <!-- Messages Area (embedded) -->
+    <div 
+      ref="messageContainer" 
+      class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#e5ddd5] chat-bg scroll-smooth"
+      @scroll="handleScroll"
+    >
+      <!-- conteúdo reutiliza o mesmo bloco de mensagens via slot referência -->
+      <div v-if="loading && messages.length === 0" class="flex justify-center py-4">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      </div>
+      <template v-else>
+        <div v-if="messages.length === 0" class="text-center py-10">
+          <div class="bg-white/80 inline-block px-4 py-2 rounded-lg text-xs text-gray-500 shadow-sm italic">Nenhuma mensagem encontrada.</div>
+        </div>
+        <div v-for="(msg, index) in messages" :key="msg.id || index" :class="['flex', msg.de_mim ? 'justify-end' : 'justify-start']">
+          <div :class="['max-w-[85%] px-3 py-2 rounded-lg shadow-sm relative', msg.de_mim ? 'bg-[#dcf8c6] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none']">
+            <div v-if="msg.tipo_mensagem === 'image' && msg.media_base64" class="mb-2">
+              <img :src="msg.media_base64" alt="Imagem" class="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity" @click="openImage(msg.media_base64)" />
+            </div>
+            <div v-if="msg.tipo_mensagem === 'audio'" class="mb-2">
+              <audio v-if="audioUrls[msg.id]" :src="audioUrls[msg.id]" controls class="w-full max-w-[200px] sm:max-w-[250px] h-8"></audio>
+              <div class="flex items-center space-x-2 mt-1">
+                <button v-if="isAudioPending(msg)" @click="handleTranscribeAudio(msg)" :disabled="transcribingId === msg.id" class="text-xs bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded-full flex items-center space-x-1 disabled:opacity-50 transition-colors">
+                  <span>{{ transcribingId === msg.id ? 'Transcrevendo...' : 'Transcrever' }}</span>
+                </button>
+                <button v-if="!audioUrls[msg.id]" @click="handlePlayAudio(msg)" :disabled="loadingAudioId === msg.id" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded-full flex items-center space-x-1 disabled:opacity-50 transition-colors">
+                  <span>{{ loadingAudioId === msg.id ? 'Carregando...' : 'Ouvir' }}</span>
+                </button>
+              </div>
+            </div>
+            <p v-if="!(msg.tipo_mensagem === 'image' && msg.media_base64 && msg.texto?.startsWith('📷'))" class="text-sm whitespace-pre-wrap break-words">{{ msg.texto }}</p>
+            <div class="flex items-center justify-end space-x-1 mt-1">
+              <span class="text-[9px] text-gray-400">{{ formatTime(msg.timestamp) }}</span>
+              <svg v-if="msg.de_mim" class="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59 21 7z"/></svg>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+    <!-- Input Area (embedded) -->
+    <div class="p-3 bg-gray-50 border-t border-gray-200">
+      <div v-if="selectedImage" class="mb-2 relative inline-block">
+        <img :src="selectedImagePreview" class="h-16 w-16 object-cover rounded-lg border-2 border-emerald-500" />
+        <button @click="clearImage" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">✕</button>
+      </div>
+      <form @submit.prevent="send" class="flex items-end space-x-2">
+        <button type="button" @click="triggerFileInput" :disabled="sending" class="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+        </button>
+        <input type="file" ref="fileInput" @change="handleFileSelect" accept="image/*" class="hidden" />
+        <div class="flex-1">
+          <textarea v-model="newMessage" rows="1" @keydown.enter.exact.prevent="send" :placeholder="selectedImage ? 'Legenda...' : 'Digite uma mensagem...'" class="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none outline-none max-h-32 shadow-sm" ref="inputRef"></textarea>
+        </div>
+        <button type="submit" :disabled="(!newMessage.trim() && !selectedImage) || sending" class="p-2.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 transition-all shadow-md disabled:bg-gray-300">
+          <svg v-if="!sending" class="w-4 h-4 rotate-90" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          <div v-else class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modo Drawer (original) -->
+  <Transition v-else name="slide">
     <div v-if="show" class="fixed inset-y-0 right-0 w-full sm:w-80 md:w-96 lg:w-[28rem] bg-white shadow-2xl z-[100] flex flex-col border-l border-gray-100">
       <!-- Header -->
       <div class="p-4 bg-emerald-600 text-white flex items-center justify-between shadow-md">
@@ -266,10 +330,11 @@ import { whatsappService } from '@/services/whatsapp'
 import api from '@/services/api'
 
 const props = defineProps({
-  show: Boolean,
+  show: { type: Boolean, default: false },
   number: String,
   title: String,
-  oportunidade: [Number, String]
+  oportunidade: [Number, String],
+  mode: { type: String, default: 'drawer' },  // 'drawer' | 'embedded'
 })
 
 const emit = defineEmits(['close', 'messagesRead'])

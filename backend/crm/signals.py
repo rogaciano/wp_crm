@@ -384,3 +384,75 @@ def automatizar_pos_venda_suporte(sender, instance, created, **kwargs):
                 # Copia contatos secundários (M2M)
                 if instance.contatos.exists():
                     nova_sup.contatos.set(instance.contatos.all())
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# WebSocket: Broadcast de Nova Mensagem WhatsApp para o Canal correspondente
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _broadcast_nova_mensagem(mensagem):
+    """
+    Envia evento WebSocket para o grupo do canal quando uma nova mensagem chega.
+    Chamado de forma assíncrona para não bloquear o webhook.
+    """
+    import logging
+    from asgiref.sync import async_to_sync
+    from channels.layers import get_channel_layer
+    from .models import Canal, Contato
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Identifica o canal pela instância Evolution
+        canal = Canal.objects.filter(
+            evolution_instance_name=mensagem.instancia
+        ).first()
+
+        if not canal:
+            logger.warning(f'[WS] Canal não encontrado para instância: {mensagem.instancia}')
+            return
+
+        group_name = f'atendimento_canal_{canal.id}'
+
+        # Tenta resolver nome do contato pelo número remetente
+        numero = mensagem.numero_remetente
+        contato = Contato.objects.filter(
+            celular__icontains=numero[-8:]
+        ).first()
+        nome_contato = contato.nome if contato else numero
+
+        # Monta payload para o frontend
+        funil_tipo = None
+        if mensagem.oportunidade and mensagem.oportunidade.funil:
+            funil_tipo = mensagem.oportunidade.funil.tipo
+
+        payload = {
+            'numero': numero,
+            'nome_contato': nome_contato,
+            'ultima_mensagem': (mensagem.texto or '')[:100],
+            'ultima_mensagem_timestamp': mensagem.timestamp.isoformat(),
+            'funil_tipo': funil_tipo,
+            'canal_id': canal.id,
+            'oportunidade_id': mensagem.oportunidade_id,
+            'de_mim': mensagem.de_mim,
+        }
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(group_name, {
+            'type': 'nova_mensagem',
+            'conversa': payload,
+        })
+
+        logger.info(f'[WS] Broadcast enviado para grupo {group_name}: {numero}')
+
+    except Exception as e:
+        logger.error(f'[WS] Erro ao broadcast de mensagem: {e}')
+
+
+@receiver(post_save, sender='crm.WhatsappMessage')
+def broadcast_whatsapp_message(sender, instance, created, **kwargs):
+    """
+    Signal: ao salvar nova mensagem recebida (não de_mim), broadcast via WebSocket.
+    """
+    if created and not instance.de_mim:
+        _broadcast_nova_mensagem(instance)
