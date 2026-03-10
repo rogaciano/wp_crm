@@ -1,11 +1,50 @@
 from rest_framework import viewsets, permissions
 from rest_framework.response import Response
-from django.db.models import Sum, Avg, Count, Q
+from django.db.models import Sum, Avg, Count, Q, F
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
-from datetime import timedelta
-from .models import Conta, Contato, TipoContato, Canal, Oportunidade, Atividade, DiagnosticoResultado, EstagioFunil
+from datetime import timedelta, date
+from .models import Conta, Contato, TipoContato, Canal, Oportunidade, Atividade, DiagnosticoResultado, EstagioFunil, Plano, PlanoAdicional, OportunidadeAdicional
 from .permissions import HierarchyPermission
+
+
+def _calcular_periodo(modo, hoje=None):
+    """
+    Retorna (data_inicio, data_fim) para o período solicitado.
+    Para 'comparativo' retorna também o período anterior equivalente.
+    """
+    if hoje is None:
+        hoje = date.today()
+
+    if modo == 'mes_anterior':
+        primeiro_dia_mes_atual = hoje.replace(day=1)
+        data_fim = primeiro_dia_mes_atual - timedelta(days=1)
+        data_inicio = data_fim.replace(day=1)
+        return data_inicio, data_fim, None, None
+
+    elif modo == 'ano_atual':
+        data_inicio = date(hoje.year, 1, 1)
+        data_fim = hoje
+        return data_inicio, data_fim, None, None
+
+    elif modo == 'ano_anterior':
+        data_inicio = date(hoje.year - 1, 1, 1)
+        data_fim = date(hoje.year - 1, 12, 31)
+        return data_inicio, data_fim, None, None
+
+    elif modo == 'comparativo':
+        # Ano atual até hoje vs mesmo período do ano anterior
+        data_inicio = date(hoje.year, 1, 1)
+        data_fim = hoje
+        data_inicio_ant = date(hoje.year - 1, 1, 1)
+        data_fim_ant = date(hoje.year - 1, hoje.month, hoje.day)
+        return data_inicio, data_fim, data_inicio_ant, data_fim_ant
+
+    else:  # mes_atual (padrão)
+        data_inicio = hoje.replace(day=1)
+        data_fim = hoje
+        return data_inicio, data_fim, None, None
+
 
 class DashboardViewSet(viewsets.ViewSet):
     """
@@ -15,12 +54,23 @@ class DashboardViewSet(viewsets.ViewSet):
 
     def list(self, request):
         user = request.user
-        periodo_dias = int(request.query_params.get('periodo', 30))
-        canal_id = request.query_params.get('canal_id')  # Filtro opcional de canal
-        data_inicio = timezone.now() - timedelta(days=periodo_dias)
+        canal_id = request.query_params.get('canal_id')
 
-        # Debug: Log do usuário e período
-        print(f"Dashboard - Usuário: {user.username}, Perfil: {user.perfil}, Período: {periodo_dias} dias, Canal: {canal_id}")
+        # Novo sistema de período por modo (mantém retrocompatibilidade)
+        periodo_modo = request.query_params.get('periodo_modo', None)
+        if periodo_modo:
+            hoje = date.today()
+            dt_inicio, dt_fim, dt_inicio_ant, dt_fim_ant = _calcular_periodo(periodo_modo, hoje)
+            data_inicio = timezone.make_aware(
+                timezone.datetime.combine(dt_inicio, timezone.datetime.min.time())
+            )
+        else:
+            periodo_dias = int(request.query_params.get('periodo', 30))
+            data_inicio = timezone.now() - timedelta(days=periodo_dias)
+            dt_inicio = data_inicio.date()
+            dt_fim = date.today()
+            dt_inicio_ant = None
+            dt_fim_ant = None
 
         # Filtros de Hierarquia base
         # 1. Filtro para coisas criadas no período (Oportunidades novas)
@@ -228,25 +278,81 @@ class DashboardViewSet(viewsets.ViewSet):
             total=Count('contatos', filter=Q(contatos__in=contatos_base))
         ).filter(total__gt=0).order_by('-total').values('id', 'nome', 'total')
 
-        # 9. Vendas por Plano (Oportunidades GANHAS agrupadas por plano)
-        from .models import Plano
-        vendas_plano_filter = Q(oportunidades__estagio__tipo='GANHO')
-        if canal_id:
-            vendas_plano_filter &= Q(oportunidades__canal_id=canal_id)
-        vendas_por_plano = Plano.objects.annotate(
-            total_vendas=Count('oportunidades', filter=vendas_plano_filter),
-            valor_total=Sum('oportunidades__valor_estimado', filter=vendas_plano_filter)
-        ).filter(total_vendas__gt=0).order_by('-valor_total').values('id', 'nome', 'total_vendas', 'valor_total')
+        # ── Helper: monta filtro de fechamento GANHO dentro de um range de datas ──
+        def _fechamento_range_filter(di, df, prefix=''):
+            """Retorna Q para oportunidades GANHO fechadas entre di e df."""
+            p = prefix
+            return Q(**{f'{p}estagio__tipo': 'GANHO'}) & (
+                Q(**{f'{p}data_fechamento_real__gte': di, f'{p}data_fechamento_real__lte': df}) |
+                Q(**{f'{p}data_fechamento_real__isnull': True, f'{p}data_criacao__date__gte': di, f'{p}data_criacao__date__lte': df})
+            )
 
-        # 10. Vendas por Canal (Oportunidades GANHAS agrupadas por canal - usa filtro de período)
-        vendas_canal_filter = Q(oportunidades__estagio__tipo='GANHO') & Q(
-            Q(oportunidades__data_fechamento_real__gte=data_inicio.date()) |
-            Q(oportunidades__data_fechamento_real__isnull=True, oportunidades__data_criacao__gte=data_inicio)
-        )
-        vendas_por_canal = Canal.objects.annotate(
+        # 9. Vendas por Plano (GANHAS no período)
+        def _vendas_por_plano(di, df):
+            vf = _fechamento_range_filter(di, df, prefix='oportunidades__')
+            if canal_id:
+                vf &= Q(oportunidades__canal_id=canal_id)
+            if hierarquia_opp_prefixed:
+                vf &= hierarquia_opp_prefixed
+            return list(
+                Plano.objects.annotate(
+                    total_vendas=Count('oportunidades', filter=vf),
+                    valor_total=Sum('oportunidades__valor_estimado', filter=vf)
+                ).filter(total_vendas__gt=0).order_by('-valor_total').values(
+                    'id', 'nome', 'preco_mensal', 'total_vendas', 'valor_total'
+                )
+            )
+
+        vendas_por_plano = _vendas_por_plano(dt_inicio, dt_fim)
+
+        # 10. Vendas por Adicional (GANHAS no período)
+        hierarquia_opp_adicional = prefix_q(opp_filter, 'oportunidade__')
+
+        def _vendas_por_adicional(di, df):
+            base = OportunidadeAdicional.objects.filter(
+                _fechamento_range_filter(di, df, prefix='oportunidade__')
+            )
+            if canal_id:
+                base = base.filter(oportunidade__canal_id=canal_id)
+            if hierarquia_opp_adicional:
+                base = base.filter(hierarquia_opp_adicional)
+            return list(
+                base.values(
+                    'adicional__id', 'adicional__nome', 'adicional__preco', 'adicional__unidade'
+                ).annotate(
+                    total_vendas=Count('oportunidade', distinct=True),
+                    total_quantidade=Sum('quantidade'),
+                    valor_total=Sum(F('adicional__preco') * F('quantidade'))
+                ).order_by('-valor_total')
+            )
+
+        vendas_por_adicional = _vendas_por_adicional(dt_inicio, dt_fim)
+
+        # 11. Vendas por Canal (GANHAS no período)
+        vendas_canal_filter = _fechamento_range_filter(dt_inicio, dt_fim, prefix='oportunidades__')
+        vendas_por_canal = list(Canal.objects.annotate(
             total_vendas=Count('oportunidades', filter=vendas_canal_filter),
             valor_total=Sum('oportunidades__valor_estimado', filter=vendas_canal_filter)
-        ).filter(total_vendas__gt=0).order_by('-valor_total').values('id', 'nome', 'total_vendas', 'valor_total')
+        ).filter(total_vendas__gt=0).order_by('-valor_total').values('id', 'nome', 'total_vendas', 'valor_total'))
+
+        # 12. Comparativo (período anterior) — só se modo = comparativo
+        vendas_por_plano_anterior = []
+        vendas_por_adicional_anterior = []
+        kpis_anterior = {}
+        if dt_inicio_ant and dt_fim_ant:
+            vendas_por_plano_anterior = _vendas_por_plano(dt_inicio_ant, dt_fim_ant)
+            vendas_por_adicional_anterior = _vendas_por_adicional(dt_inicio_ant, dt_fim_ant)
+            # KPIs do período anterior para comparação
+            fech_ant = _fechamento_range_filter(dt_inicio_ant, dt_fim_ant)
+            opps_fech_ant = Oportunidade.objects.filter(opp_filter & fech_ant)
+            stats_ant = opps_fech_ant.aggregate(
+                receita_ganha=Sum('valor_estimado'),
+                total_ganhas=Count('id'),
+            )
+            kpis_anterior = {
+                'receita_ganha': float(stats_ant['receita_ganha'] or 0),
+                'total_ganhas': stats_ant['total_ganhas'] or 0,
+            }
 
         resultado = {
             'kpis': {
@@ -265,11 +371,22 @@ class DashboardViewSet(viewsets.ViewSet):
             'atividades_atrasadas_lista': list(atrasadas_lista),
             'contatos_por_tipo': list(contatos_por_tipo),
             'contatos_por_canal': list(contatos_por_canal),
-            'vendas_por_plano': list(vendas_por_plano),
-            'vendas_por_canal': list(vendas_por_canal)
+            'vendas_por_plano': vendas_por_plano,
+            'vendas_por_adicional': vendas_por_adicional,
+            'vendas_por_canal': vendas_por_canal,
+            'periodo_info': {
+                'modo': periodo_modo or 'legacy',
+                'inicio': str(dt_inicio),
+                'fim': str(dt_fim),
+                'inicio_anterior': str(dt_inicio_ant) if dt_inicio_ant else None,
+                'fim_anterior': str(dt_fim_ant) if dt_fim_ant else None,
+            },
         }
-        
-        print(f"Resultado final - KPIs: {resultado['kpis']}")
-        print(f"Funil items: {len(funil)}, Tendência items: {len(tendencia)}, Origens: {len(origens)}")
+
+        # Dados comparativos (só presentes no modo comparativo)
+        if dt_inicio_ant:
+            resultado['vendas_por_plano_anterior'] = vendas_por_plano_anterior
+            resultado['vendas_por_adicional_anterior'] = vendas_por_adicional_anterior
+            resultado['kpis_anterior'] = kpis_anterior
         
         return Response(resultado)

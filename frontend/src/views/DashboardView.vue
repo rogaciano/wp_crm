@@ -26,17 +26,20 @@
         </div>
         
         <!-- Filtro de Período -->
-        <div class="flex items-center bg-white p-1 rounded-md border border-zinc-200 shadow-sm">
+        <div class="flex items-center bg-white p-1 rounded-md border border-zinc-200 shadow-sm flex-wrap">
           <button 
             v-for="p in periodos" 
             :key="p.valor"
-            @click="periodo = p.valor"
-            :class="['px-4 py-1.5 text-xs font-semibold rounded-sm transition-all', 
-                     periodo === p.valor ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900']"
+            @click="periodoModo = p.valor"
+            :class="['px-3 py-1.5 text-[11px] font-semibold rounded-sm transition-all whitespace-nowrap', 
+                     periodoModo === p.valor ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900']"
           >
             {{ p.label }}
           </button>
         </div>
+        <span v-if="dashboardData.periodo_info" class="text-[10px] text-zinc-400 font-medium">
+          {{ dashboardData.periodo_info.inicio }} a {{ dashboardData.periodo_info.fim }}
+        </span>
       </div>
     </div>
 
@@ -167,6 +170,144 @@
 
       </div>
 
+      <!-- Vendas por Plano -->
+      <div class="bg-white border border-zinc-200 rounded-md p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-sm font-bold text-zinc-900 font-display flex items-center gap-2">
+            <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+            Vendas por Plano
+          </h3>
+          <span class="text-xs text-zinc-400 font-medium">Oportunidades ganhas no período</span>
+        </div>
+        <div v-if="dashboardData.vendas_por_plano && dashboardData.vendas_por_plano.length > 0">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-zinc-100">
+                <th class="text-left py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Plano</th>
+                <th class="text-right py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Qtd</th>
+                <th class="text-right py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Valor Total</th>
+                <th v-if="dashboardData.vendas_por_plano_anterior" class="text-right py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Anterior</th>
+                <th v-if="dashboardData.vendas_por_plano_anterior" class="text-right py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Var.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="p in dashboardData.vendas_por_plano" :key="p.id" class="border-b border-zinc-50 hover:bg-zinc-50/50">
+                <td class="py-2.5 font-bold text-zinc-900">{{ p.nome }}</td>
+                <td class="py-2.5 text-right text-zinc-600 font-medium">{{ p.total_vendas }}</td>
+                <td class="py-2.5 text-right font-bold text-emerald-600">R$ {{ Number(p.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</td>
+                <td v-if="dashboardData.vendas_por_plano_anterior" class="py-2.5 text-right text-zinc-500">
+                  {{ getPlanoAnterior(p.id)?.total_vendas || 0 }} · R$ {{ Number(getPlanoAnterior(p.id)?.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+                </td>
+                <td v-if="dashboardData.vendas_por_plano_anterior" class="py-2.5 text-right">
+                  <span :class="varClass(p.valor_total, getPlanoAnterior(p.id)?.valor_total)">
+                    {{ varLabel(p.valor_total, getPlanoAnterior(p.id)?.valor_total) }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="border-t border-zinc-200">
+                <td class="py-2.5 font-bold text-zinc-900">Total</td>
+                <td class="py-2.5 text-right font-bold text-zinc-900">{{ totalVendasPlano.qtd }}</td>
+                <td class="py-2.5 text-right font-bold text-emerald-700">R$ {{ totalVendasPlano.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</td>
+                <td v-if="dashboardData.vendas_por_plano_anterior" class="py-2.5 text-right font-bold text-zinc-600">
+                  {{ totalVendasPlanoAnterior.qtd }} · R$ {{ totalVendasPlanoAnterior.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+                </td>
+                <td v-if="dashboardData.vendas_por_plano_anterior" class="py-2.5 text-right">
+                  <span :class="varClass(totalVendasPlano.valor, totalVendasPlanoAnterior.valor)">
+                    {{ varLabel(totalVendasPlano.valor, totalVendasPlanoAnterior.valor) }}
+                  </span>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div v-else class="text-center py-8 text-zinc-400 text-sm">Sem vendas por plano no período</div>
+      </div>
+
+      <!-- Vendas por Adicional -->
+      <div class="bg-white border border-zinc-200 rounded-md p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-sm font-bold text-zinc-900 font-display flex items-center gap-2">
+            <span class="w-2 h-2 bg-violet-500 rounded-full"></span>
+            Vendas por Adicional
+          </h3>
+          <span class="text-xs text-zinc-400 font-medium">Adicionais contratados em vendas ganhas</span>
+        </div>
+        <div v-if="dashboardData.vendas_por_adicional && dashboardData.vendas_por_adicional.length > 0">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-zinc-100">
+                <th class="text-left py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Adicional</th>
+                <th class="text-right py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Vendas</th>
+                <th class="text-right py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Qtd Total</th>
+                <th class="text-right py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Receita</th>
+                <th v-if="dashboardData.vendas_por_adicional_anterior" class="text-right py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Anterior</th>
+                <th v-if="dashboardData.vendas_por_adicional_anterior" class="text-right py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Var.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="a in dashboardData.vendas_por_adicional" :key="a.adicional__id" class="border-b border-zinc-50 hover:bg-zinc-50/50">
+                <td class="py-2.5">
+                  <span class="font-bold text-zinc-900">{{ a.adicional__nome }}</span>
+                  <span class="text-[10px] text-zinc-400 ml-1">(R$ {{ Number(a.adicional__preco || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}/{{ a.adicional__unidade || 'un' }})</span>
+                </td>
+                <td class="py-2.5 text-right text-zinc-600 font-medium">{{ a.total_vendas }}</td>
+                <td class="py-2.5 text-right text-zinc-600 font-medium">{{ a.total_quantidade }}</td>
+                <td class="py-2.5 text-right font-bold text-violet-600">R$ {{ Number(a.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</td>
+                <td v-if="dashboardData.vendas_por_adicional_anterior" class="py-2.5 text-right text-zinc-500">
+                  {{ getAdicionalAnterior(a.adicional__id)?.total_quantidade || 0 }}un · R$ {{ Number(getAdicionalAnterior(a.adicional__id)?.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+                </td>
+                <td v-if="dashboardData.vendas_por_adicional_anterior" class="py-2.5 text-right">
+                  <span :class="varClass(a.valor_total, getAdicionalAnterior(a.adicional__id)?.valor_total)">
+                    {{ varLabel(a.valor_total, getAdicionalAnterior(a.adicional__id)?.valor_total) }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="border-t border-zinc-200">
+                <td class="py-2.5 font-bold text-zinc-900">Total</td>
+                <td class="py-2.5 text-right font-bold text-zinc-900">{{ totalVendasAdicional.vendas }}</td>
+                <td class="py-2.5 text-right font-bold text-zinc-900">{{ totalVendasAdicional.qtd }}</td>
+                <td class="py-2.5 text-right font-bold text-violet-700">R$ {{ totalVendasAdicional.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</td>
+                <td v-if="dashboardData.vendas_por_adicional_anterior" colspan="2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div v-else class="text-center py-8 text-zinc-400 text-sm">Sem vendas de adicionais no período</div>
+      </div>
+
+      <!-- Comparativo KPI (só no modo comparativo) -->
+      <div v-if="dashboardData.kpis_anterior" class="bg-white border border-zinc-200 rounded-md p-6 shadow-sm">
+        <h3 class="text-sm font-bold text-zinc-900 font-display flex items-center gap-2 mb-6">
+          <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
+          Comparativo Ano Anterior
+          <span class="text-[10px] text-zinc-400 font-normal ml-2">
+            {{ dashboardData.periodo_info?.inicio }} – {{ dashboardData.periodo_info?.fim }}
+            vs
+            {{ dashboardData.periodo_info?.inicio_anterior }} – {{ dashboardData.periodo_info?.fim_anterior }}
+          </span>
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div class="text-center">
+            <p class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Receita Atual</p>
+            <p class="text-2xl font-bold text-emerald-600 font-display">R$ {{ Number(dashboardData.kpis?.receita_ganha || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</p>
+          </div>
+          <div class="text-center">
+            <p class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Receita Anterior</p>
+            <p class="text-2xl font-bold text-zinc-600 font-display">R$ {{ Number(dashboardData.kpis_anterior?.receita_ganha || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</p>
+          </div>
+          <div class="text-center">
+            <p class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Variação</p>
+            <p class="text-2xl font-bold font-display" :class="varClass(dashboardData.kpis?.receita_ganha, dashboardData.kpis_anterior?.receita_ganha)">
+              {{ varLabel(dashboardData.kpis?.receita_ganha, dashboardData.kpis_anterior?.receita_ganha) }}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Advanced Reports Section -->
       <div class="bg-white border border-zinc-200 rounded-md p-6 shadow-sm">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -278,19 +419,20 @@ ChartJS.defaults.color = '#71717a'
 ChartJS.defaults.scale.grid.color = '#f4f4f5'
 
 const authStore = useAuthStore()
-const periodo = ref(30)
+const periodoModo = ref('mes_atual')
 const periodos = [
-  { label: '7D', valor: 7 },
-  { label: '30D', valor: 30 },
-  { label: '90D', valor: 90 },
-  { label: '1 Ano', valor: 365 }
+  { label: 'Mês Atual', valor: 'mes_atual' },
+  { label: 'Mês Anterior', valor: 'mes_anterior' },
+  { label: 'Ano Atual', valor: 'ano_atual' },
+  { label: 'Ano Anterior', valor: 'ano_anterior' },
+  { label: 'Comparativo', valor: 'comparativo' }
 ]
 
 const loaded = ref(false)
 const dashboardData = ref({
   kpis: {}, funil: [], tendencia: [], origens: [],
   maturidade_media: {}, contatos_por_tipo: [], contatos_por_canal: [],
-  vendas_por_plano: [], vendas_por_canal: []
+  vendas_por_plano: [], vendas_por_adicional: [], vendas_por_canal: []
 })
 
 const mapaContas = ref([])
@@ -322,7 +464,7 @@ async function fetchCanais() {
 async function fetchDashboard() {
   loaded.value = false
   try {
-    const params = { periodo: periodo.value }
+    const params = { periodo_modo: periodoModo.value }
     if (canalFiltro.value) params.canal_id = canalFiltro.value
     const response = await api.get('/dashboard/', { params })
     dashboardData.value = response.data
@@ -352,7 +494,56 @@ async function fetchContasMapa() {
   }
 }
 
-watch(periodo, fetchDashboard)
+watch(periodoModo, fetchDashboard)
+
+// ── Vendas por Plano ──
+const totalVendasPlano = computed(() => {
+  const items = dashboardData.value.vendas_por_plano || []
+  return {
+    qtd: items.reduce((s, i) => s + (i.total_vendas || 0), 0),
+    valor: items.reduce((s, i) => s + Number(i.valor_total || 0), 0)
+  }
+})
+const totalVendasPlanoAnterior = computed(() => {
+  const items = dashboardData.value.vendas_por_plano_anterior || []
+  return {
+    qtd: items.reduce((s, i) => s + (i.total_vendas || 0), 0),
+    valor: items.reduce((s, i) => s + Number(i.valor_total || 0), 0)
+  }
+})
+function getPlanoAnterior(id) {
+  return (dashboardData.value.vendas_por_plano_anterior || []).find(p => p.id === id)
+}
+
+// ── Vendas por Adicional ──
+const totalVendasAdicional = computed(() => {
+  const items = dashboardData.value.vendas_por_adicional || []
+  return {
+    vendas: items.reduce((s, i) => s + (i.total_vendas || 0), 0),
+    qtd: items.reduce((s, i) => s + (i.total_quantidade || 0), 0),
+    valor: items.reduce((s, i) => s + Number(i.valor_total || 0), 0)
+  }
+})
+function getAdicionalAnterior(id) {
+  return (dashboardData.value.vendas_por_adicional_anterior || []).find(a => a.adicional__id === id)
+}
+
+// ── Helpers comparativo ──
+function varLabel(atual, anterior) {
+  const a = Number(atual || 0)
+  const b = Number(anterior || 0)
+  if (b === 0 && a === 0) return '—'
+  if (b === 0) return '+100%'
+  const pct = ((a - b) / b * 100).toFixed(1)
+  return (pct > 0 ? '+' : '') + pct + '%'
+}
+function varClass(atual, anterior) {
+  const a = Number(atual || 0)
+  const b = Number(anterior || 0)
+  if (a > b) return 'text-emerald-600 font-bold text-xs'
+  if (a < b) return 'text-red-600 font-bold text-xs'
+  return 'text-zinc-400 font-bold text-xs'
+}
 
 const totalPipeline = computed(() => {
   return (dashboardData.value.funil || []).reduce((acc, curr) => acc + (Number(curr?.valor) || 0), 0)
