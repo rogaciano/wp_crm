@@ -11,7 +11,13 @@
       "Bash(npm install:*)",
       "Bash(python manage.py:*)",
       "Bash(python:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(python3 -c \":*)",
+      "Bash(SKILL_CREATOR=\"C:/Users/rogac/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/ff33edbc-8c42-48b7-8f8a-4bbd16d730c3/269042c2-dc98-4181-90e0-47f46663dd52/skills/skill-creator\")",
+      "Bash(SKILL_SRC=\"C:/Users/rogac/AppData/Local/Temp/django-fullstack\")",
+      "Bash(OUT_DIR=\"C:/Users/rogac/Desktop\")",
+      "Bash(__NEW_LINE_25ebff7ea3cab9e6__ cd \"$SKILL_CREATOR\")",
+      "Bash(PYTHONIOENCODING=utf-8 python3 -m scripts.package_skill \"$SKILL_SRC\" \"$OUT_DIR\")"
     ]
   }
 }

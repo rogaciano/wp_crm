@@ -460,7 +460,8 @@ const lineChartData = computed(() => {
   const t = dashboardData.value.tendencia || []
   return {
     labels: t.map(i => {
-      const d = new Date(i.mes + 'T00:00:00')
+      const mesStr = (i.mes || '').substring(0, 7) // extrai "YYYY-MM" com segurança
+      const d = new Date(mesStr + '-01T12:00:00Z')
       return d.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase()
     }),
     datasets: [
