@@ -112,14 +112,14 @@ class InboxConversasView(APIView):
                 .first()
             )
 
-            # Tenta resolver nome do contato
+            # Tenta resolver nome do contato (inclui conta_id para classificação)
             contato = (
                 Contato.objects
                 .filter(
                     Q(celular__icontains=numero[-8:]) |
                     Q(telefone__icontains=numero[-8:])
                 )
-                .values('id', 'nome')
+                .values('id', 'nome', 'conta_id')
                 .first()
             )
 
@@ -131,6 +131,17 @@ class InboxConversasView(APIView):
                 opp = Oportunidade.objects.filter(id=oportunidade_id).select_related('funil').first()
                 if opp and opp.funil:
                     funil_tipo_conv = opp.funil.tipo
+
+            # Se não tem oportunidade pela mensagem, tenta pelo contato
+            if not oportunidade_id and contato:
+                from .models import Oportunidade
+                opp_contato = Oportunidade.objects.filter(
+                    Q(conta__contatos__id=contato['id']) |
+                    Q(contato_principal_id=contato['id'])
+                ).order_by('-data_criacao').values('id', 'funil__tipo').first()
+                if opp_contato:
+                    oportunidade_id = opp_contato['id']
+                    funil_tipo_conv = opp_contato.get('funil__tipo')
 
             texto_preview = ''
             if ultima_msg:
@@ -149,6 +160,7 @@ class InboxConversasView(APIView):
                 'numero': numero,
                 'nome_contato': contato['nome'] if contato else numero,
                 'contato_id': contato['id'] if contato else None,
+                'conta_id': contato.get('conta_id') if contato else None,
                 'ultima_mensagem': texto_preview,
                 'ultima_mensagem_timestamp': item['ultima_timestamp'].isoformat() if item['ultima_timestamp'] else None,
                 'de_mim': ultima_msg.get('de_mim', False) if ultima_msg else False,
