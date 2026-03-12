@@ -1291,6 +1291,14 @@ class WhatsappMessageSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class WhatsappMessageSlimSerializer(WhatsappMessageSerializer):
+    """Serializer leve para listagem — exclui media_base64 para evitar respostas enormes."""
+
+    class Meta(WhatsappMessageSerializer.Meta):
+        exclude = ['media_base64']
+        fields = None
+
+
 class LogSerializer(serializers.ModelSerializer):
     """Serializer para logs de auditoria"""
     usuario_nome = serializers.CharField(source='usuario.get_full_name', read_only=True)

@@ -51,7 +51,8 @@ from .serializers import (
     ContatoSerializer, TipoContatoSerializer, TipoRedeSocialSerializer, EstagioFunilSerializer, FunilEstagioSerializer, OportunidadeSerializer,
     OportunidadeKanbanSerializer, AtividadeSerializer, OportunidadeAnexoSerializer,
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
-    PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer, LogSerializer,
+    PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer,
+    WhatsappMessageSlimSerializer, LogSerializer,
     TagSerializer
 )
 from .services.ai_service import gerar_analise_diagnostico
@@ -2631,6 +2632,12 @@ class WhatsappViewSet(viewsets.ModelViewSet):
     ordering_fields = ['timestamp']
     pagination_class = None  # Chat não usa paginação — retorna todo o histórico do contato
 
+    def list(self, request, *args, **kwargs):
+        """Usa serializer slim (sem media_base64) para evitar payloads enormes na listagem."""
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = WhatsappMessageSlimSerializer(queryset, many=True)
+        return Response(serializer.data)
+
     def _get_evolution_service_for_entity(self, opp_id=None):
         """
         Retorna um EvolutionService configurado para o canal da Oportunidade.
@@ -2719,7 +2726,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                 queryset = queryset.exclude(q_block)
             
             # Limite rígido de mensagens para evitar travamento do navegador
-            max_msgs = int(self.request.query_params.get('limit', 200))
+            max_msgs = int(self.request.query_params.get('limit', 100))
             total = queryset.count()
             if total > max_msgs:
                 # Retorna apenas as N mais recentes, mantendo ordem cronológica

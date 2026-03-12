@@ -17,8 +17,11 @@
         </div>
         <div v-for="(msg, index) in messages" :key="msg.id || index" :class="['flex', msg.de_mim ? 'justify-end' : 'justify-start']">
           <div :class="['max-w-[85%] px-3 py-2 rounded-lg shadow-sm relative', msg.de_mim ? 'bg-[#dcf8c6] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none']">
-            <div v-if="msg.tipo_mensagem === 'image' && msg.media_base64" class="mb-2">
-              <img :src="msg.media_base64" alt="Imagem" class="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity" @click="openImage(msg.media_base64)" />
+            <div v-if="msg.tipo_mensagem === 'image'" class="mb-2">
+              <img v-if="imageUrls[msg.id] || msg.media_base64" :src="imageUrls[msg.id] || msg.media_base64" alt="Imagem" class="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity" @click="openImage(imageUrls[msg.id] || msg.media_base64)" />
+              <button v-else @click="handleLoadImage(msg)" :disabled="loadingImageId === msg.id" class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded-full flex items-center space-x-1 disabled:opacity-50 transition-colors">
+                <span>{{ loadingImageId === msg.id ? 'Carregando...' : '📷 Ver imagem' }}</span>
+              </button>
             </div>
             <div v-if="msg.tipo_mensagem === 'audio'" class="mb-2">
               <audio v-if="audioUrls[msg.id]" :src="audioUrls[msg.id]" controls class="w-full max-w-[200px] sm:max-w-[250px] h-8"></audio>
@@ -31,7 +34,7 @@
                 </button>
               </div>
             </div>
-            <p v-if="!(msg.tipo_mensagem === 'image' && msg.media_base64 && msg.texto?.startsWith('📷'))" class="text-sm whitespace-pre-wrap break-words">{{ msg.texto }}</p>
+            <p v-if="!(msg.tipo_mensagem === 'image' && (imageUrls[msg.id] || msg.media_base64) && msg.texto?.startsWith('📷'))" class="text-sm whitespace-pre-wrap break-words">{{ msg.texto }}</p>
             <div class="flex items-center justify-end space-x-1 mt-1">
               <span class="text-[9px] text-gray-400">{{ formatTime(msg.timestamp) }}</span>
               <svg v-if="msg.de_mim" class="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59 21 7z"/></svg>
@@ -173,13 +176,22 @@
                           msg.de_mim ? 'bg-[#dcf8c6] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none']">
               
               <!-- Imagem -->
-              <div v-if="msg.tipo_mensagem === 'image' && msg.media_base64" class="mb-2">
-                <img 
-                  :src="msg.media_base64" 
-                  alt="Imagem" 
+              <div v-if="msg.tipo_mensagem === 'image'" class="mb-2">
+                <img
+                  v-if="imageUrls[msg.id] || msg.media_base64"
+                  :src="imageUrls[msg.id] || msg.media_base64"
+                  alt="Imagem"
                   class="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                  @click="openImage(msg.media_base64)"
+                  @click="openImage(imageUrls[msg.id] || msg.media_base64)"
                 />
+                <button
+                  v-else
+                  @click="handleLoadImage(msg)"
+                  :disabled="loadingImageId === msg.id"
+                  class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded-full flex items-center space-x-1 disabled:opacity-50 transition-colors"
+                >
+                  <span>{{ loadingImageId === msg.id ? 'Carregando...' : '📷 Ver imagem' }}</span>
+                </button>
               </div>
               
               <!-- Áudio com controles -->
@@ -238,7 +250,7 @@
               
               <!-- Texto ou Caption (omite placeholder quando a imagem já está visível) -->
               <p
-                v-if="!(msg.tipo_mensagem === 'image' && msg.media_base64 && msg.texto?.startsWith('📷'))"
+                v-if="!(msg.tipo_mensagem === 'image' && (imageUrls[msg.id] || msg.media_base64) && msg.texto?.startsWith('📷'))"
                 class="text-sm whitespace-pre-wrap break-words"
               >{{ msg.texto }}</p>
 
@@ -362,7 +374,11 @@ const transcribingId = ref(null)
 const loadingAudioId = ref(null)
 const audioUrls = ref({})
 
-// Controle de imagens
+// Controle de imagens recebidas (carregadas sob demanda)
+const loadingImageId = ref(null)
+const imageUrls = ref({})
+
+// Controle de imagens para envio
 const fileInput = ref(null)
 const selectedImage = ref(null)
 const selectedImagePreview = ref('')
@@ -665,6 +681,22 @@ const getErrorMessage = (errorCode) => {
   return errorMessages[errorCode] || 'Erro ao processar áudio. Tente novamente.'
 }
 
+// Carrega imagem sob demanda (base64 não vem na listagem para evitar payloads enormes)
+const handleLoadImage = async (msg) => {
+  if (loadingImageId.value === msg.id || imageUrls.value[msg.id]) return
+  loadingImageId.value = msg.id
+  try {
+    const response = await whatsappService.getMessage(msg.id)
+    if (response.data.media_base64) {
+      imageUrls.value[msg.id] = response.data.media_base64
+    }
+  } catch (error) {
+    console.error('[WhatsappChat] Erro ao carregar imagem:', error)
+  } finally {
+    loadingImageId.value = null
+  }
+}
+
 // Reproduz um áudio (baixa sem transcrever)
 const handlePlayAudio = async (msg) => {
   if (loadingAudioId.value === msg.id) return
@@ -808,14 +840,7 @@ watch(() => props.show, async (newVal) => {
 
     // 2) Tarefas pesadas em background (não bloqueiam a UI)
     loadOportunidades().catch(() => {})
-    syncMessages().then(() => {
-      // Processa mídias pendentes após sync
-      whatsappService.processPendingMedia(props.number).then(mediaResult => {
-        if (mediaResult.data.processed_audio > 0 || mediaResult.data.processed_images > 0) {
-          loadMessages(true)
-        }
-      }).catch(() => {})
-    }).catch(() => {})
+    syncMessages().then(() => loadMessages(true)).catch(() => {})
   }
 })
 
@@ -829,13 +854,7 @@ onMounted(async () => {
     scrollToBottom()
     nextTick(() => inputRef.value?.focus())
     loadOportunidades().catch(() => {})
-    syncMessages().then(() => {
-      whatsappService.processPendingMedia(props.number).then(mediaResult => {
-        if (mediaResult.data.processed_audio > 0 || mediaResult.data.processed_images > 0) {
-          loadMessages(true)
-        }
-      }).catch(() => {})
-    }).catch(() => {})
+    syncMessages().then(() => loadMessages(true)).catch(() => {})
   }
 
   interval = setInterval(async () => {
@@ -868,13 +887,7 @@ watch(() => props.number, async (newNum, oldNum) => {
     scrollToBottom()
 
     loadOportunidades().catch(() => {})
-    syncMessages().then(() => {
-      whatsappService.processPendingMedia(props.number).then(mediaResult => {
-        if (mediaResult.data.processed_audio > 0 || mediaResult.data.processed_images > 0) {
-          loadMessages(true)
-        }
-      }).catch(() => {})
-    }).catch(() => {})
+    syncMessages().then(() => loadMessages(true)).catch(() => {})
   }
 })
 </script>
