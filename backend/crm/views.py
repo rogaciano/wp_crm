@@ -2709,6 +2709,14 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             
             queryset = self.queryset.filter(q_filter).filter(timestamp__gte=data_limite)
             
+            # Limite rígido de mensagens para evitar travamento do navegador
+            max_msgs = int(self.request.query_params.get('limit', 200))
+            total = queryset.count()
+            if total > max_msgs:
+                # Retorna apenas as N mais recentes, mantendo ordem cronológica
+                ids_recentes = queryset.order_by('-timestamp').values_list('id', flat=True)[:max_msgs]
+                queryset = queryset.filter(id__in=ids_recentes)
+            
             return queryset.order_by('timestamp')
 
         return super().get_queryset()
