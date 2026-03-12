@@ -346,6 +346,7 @@ const props = defineProps({
   number: String,
   title: String,
   oportunidade: [Number, String],
+  canalId: [Number, String],  // canal do multiatendimento (fallback quando não há oportunidade)
   mode: { type: String, default: 'drawer' },  // 'drawer' | 'embedded'
 })
 
@@ -464,6 +465,7 @@ const syncMessages = async () => {
     const response = await whatsappService.syncMessages({
       number: props.number,
       oportunidade: currentOportunidadeId.value,
+      canal_id: props.canalId,
       limit: 50
     })
 
@@ -610,16 +612,18 @@ const send = async () => {
         mediaType: 'image',
         fileName: selectedImage.value.name,
         caption: newMessage.value,
-        oportunidade: props.oportunidade
+        oportunidade: props.oportunidade,
+        canal_id: props.canalId
       })
-      
+
       clearImage()
     } else {
       // Envia texto
       response = await whatsappService.sendMessage({
         number: props.number,
         text: newMessage.value,
-        oportunidade: currentOportunidadeId.value
+        oportunidade: currentOportunidadeId.value,
+        canal_id: props.canalId
       })
     }
     

@@ -2638,24 +2638,31 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         serializer = WhatsappMessageSlimSerializer(queryset, many=True)
         return Response(serializer.data)
 
-    def _get_evolution_service_for_entity(self, opp_id=None):
+    def _get_evolution_service_for_entity(self, opp_id=None, canal_id=None):
         """
-        Retorna um EvolutionService configurado para o canal da Oportunidade.
-        Se não encontrar canal configurado, usa a instância global.
-        
+        Retorna um EvolutionService configurado para o canal correto.
+        Prioridade: canal da Oportunidade > canal_id explícito > fallback global.
+
         Returns:
             tuple: (EvolutionService, Canal ou None, nome_instancia)
         """
         canal = None
-        
-        # Tenta obter o canal da Oportunidade
+
+        # 1) Tenta obter o canal da Oportunidade
         if opp_id:
             try:
                 opp = Oportunidade.objects.select_related('canal').get(id=opp_id)
                 canal = opp.canal
             except Oportunidade.DoesNotExist:
                 pass
-        
+
+        # 2) Se não achou pelo opp, usa canal_id explícito (vem do multiatendimento)
+        if not (canal and canal.evolution_instance_name) and canal_id:
+            try:
+                canal = Canal.objects.get(id=canal_id)
+            except Canal.DoesNotExist:
+                pass
+
         # Se encontrou canal com Evolution configurado, usa ele
         if canal and canal.evolution_instance_name:
             service = EvolutionService(
@@ -2663,8 +2670,8 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                 instance_token=canal.evolution_token
             )
             return service, canal, canal.evolution_instance_name
-        
-        # Fallback: busca canal padrão do banco, depois settings
+
+        # Fallback: usa instância global das settings
         service = EvolutionService()
         return service, None, service.instance
 
@@ -2812,12 +2819,13 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         number = request.data.get('number')
         text = request.data.get('text')
         opp_id = request.data.get('oportunidade')
+        canal_id = request.data.get('canal_id')
 
         if not number or not text:
             return Response({'error': 'Número e texto são obrigatórios'}, status=400)
 
         # Obtém o serviço Evolution do canal correto
-        service, canal, instance_name = self._get_evolution_service_for_entity(opp_id)
+        service, canal, instance_name = self._get_evolution_service_for_entity(opp_id, canal_id)
 
         try:
             result = service.send_text(number, text)
@@ -2877,12 +2885,13 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         file_name = request.data.get('fileName', 'image.jpg')
         caption = request.data.get('caption', '')
         opp_id = request.data.get('oportunidade')
-        
+        canal_id = request.data.get('canal_id')
+
         if not number or not media:
             return Response({'error': 'Número e mídia são obrigatórios'}, status=400)
 
         # Obtém o serviço Evolution do canal correto
-        service, canal, instance_name = self._get_evolution_service_for_entity(opp_id)
+        service, canal, instance_name = self._get_evolution_service_for_entity(opp_id, canal_id)
 
         try:
             # Remove prefixo data:image/xxx;base64, se existir
@@ -2947,6 +2956,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         number = request.data.get('number')
         lead_id = request.data.get('lead')
         opp_id = request.data.get('oportunidade')
+        canal_id = request.data.get('canal_id')
         limit = request.data.get('limit', 50)
         dias_sync = int(request.data.get('dias', 30))
 
@@ -2954,7 +2964,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Número é obrigatório'}, status=400)
 
         # Obtém o serviço Evolution do canal correto
-        service, canal, instance_name = self._get_evolution_service_for_entity(opp_id)
+        service, canal, instance_name = self._get_evolution_service_for_entity(opp_id, canal_id)
 
         # Limita busca aos últimos N dias para evitar puxar histórico inteiro
         ts_start = int((timezone.now() - timedelta(days=dias_sync)).timestamp())

@@ -146,6 +146,7 @@
             :number="conversaAtiva.numero"
             :title="conversaAtiva.nome_contato"
             :oportunidade="conversaAtiva.oportunidade_id"
+            :canal-id="wsStore.canalAtual?.id"
             mode="embedded"
             @messages-read="wsStore.marcarConversaLida(conversaAtiva.numero)"
           />
