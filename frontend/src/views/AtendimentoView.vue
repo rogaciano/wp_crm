@@ -42,15 +42,15 @@
         </span>
       </div>
 
-      <!-- Tabs Funil -->
+      <!-- Tabs Inbox -->
       <div class="ml-auto flex items-center gap-1 bg-gray-100 rounded-xl p-1">
         <button
-          v-for="tab in tabsFunil"
+          v-for="tab in tabsInbox"
           :key="tab.value"
-          @click="setFunilFiltro(tab.value)"
+          @click="inboxFiltro = tab.value"
           :class="[
             'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-150',
-            wsStore.funilFiltro === tab.value
+            inboxFiltro === tab.value
               ? 'bg-white text-emerald-700 shadow-sm'
               : 'text-gray-500 hover:text-gray-700'
           ]"
@@ -169,25 +169,44 @@ const isAdmin = computed(() => authStore.user?.perfil === 'ADMIN' || authStore.u
 const conversaAtiva = ref(null)
 const canalSelecionado = ref(null)
 
-const tabsFunil = [
-  { label: 'Todos', value: null },
-  { label: 'Vendas', value: 'VENDAS' },
-  { label: 'Suporte', value: 'SUPORTE' },
-  { label: 'Pós-Venda', value: 'POS_VENDA' },
+const inboxFiltro = ref('oportunidades')
+const tabsInbox = [
+  { label: 'Clientes', value: 'clientes' },
+  { label: 'Oportunidades', value: 'oportunidades' },
+  { label: 'Todos', value: 'todos' },
+  { label: 'Desconhecidos', value: 'desconhecidos' },
 ]
 
 const conversasExibidas = computed(() => {
-  if (!wsStore.funilFiltro) return wsStore.conversas
-  return wsStore.conversas.filter(c => c.funil_tipo === wsStore.funilFiltro)
+  const todas = wsStore.conversas
+  switch (inboxFiltro.value) {
+    case 'clientes':
+      return todas.filter(c => c.contato_id && c.conta_id)
+    case 'oportunidades':
+      return todas.filter(c => c.oportunidade_id)
+    case 'desconhecidos':
+      return todas.filter(c => !c.contato_id)
+    default:
+      return todas
+  }
 })
 
 const getTabCount = (tipo) => {
-  const lista = tipo ? wsStore.conversas.filter(c => c.funil_tipo === tipo) : wsStore.conversas
+  let lista
+  switch (tipo) {
+    case 'clientes':
+      lista = wsStore.conversas.filter(c => c.contato_id && c.conta_id)
+      break
+    case 'oportunidades':
+      lista = wsStore.conversas.filter(c => c.oportunidade_id)
+      break
+    case 'desconhecidos':
+      lista = wsStore.conversas.filter(c => !c.contato_id)
+      break
+    default:
+      lista = wsStore.conversas
+  }
   return lista.reduce((acc, c) => acc + (c.nao_lidas || 0), 0)
-}
-
-const setFunilFiltro = (tipo) => {
-  wsStore.funilFiltro = tipo
 }
 
 const recarregar = () => wsStore.fetchConversas()

@@ -495,18 +495,23 @@ const loadMessages = async (silent = false) => {
 
     const newMessages = response.data.results || response.data
 
-    // Só atualiza se houver mudança real para evitar re-renders desnecessários
-    if (JSON.stringify(newMessages) !== JSON.stringify(messages.value)) {
+    // Comparação rápida: só atualiza se quantidade ou última msg mudou
+    const lastNew = newMessages[newMessages.length - 1]
+    const lastOld = messages.value[messages.value.length - 1]
+    const changed = newMessages.length !== messages.value.length ||
+      (lastNew?.id !== lastOld?.id)
+
+    if (changed) {
       const hadMessages = messages.value.length > 0
       const wasAtBottom = isAtBottom.value || !hadMessages
 
       messages.value = newMessages
 
-      // Carrega áudios: primeiro do media_base64 da API, depois do cache local
+      // Carrega áudios apenas das últimas 20 mensagens para evitar travamento
       nextTick(() => {
-        newMessages.forEach(msg => {
-          if (msg.tipo_mensagem === 'audio') {
-            // Se o backend já tem o base64 salvo, usa direto (sem salvar no localStorage - já está no DB)
+        const recentMsgs = newMessages.slice(-20)
+        recentMsgs.forEach(msg => {
+          if (msg.tipo_mensagem === 'audio' && !audioUrls.value[msg.id]) {
             if (msg.media_base64) {
               audioUrls.value[msg.id] = msg.media_base64
             } else {
@@ -519,7 +524,6 @@ const loadMessages = async (silent = false) => {
         })
       })
 
-      // Rola para o fundo apenas se o usuário já estava lá ou se é o primeiro load
       if (wasAtBottom) {
         scrollToBottom()
       }
@@ -797,26 +801,21 @@ watch(() => props.show, async (newVal) => {
     currentOportunidadeId.value = props.oportunidade
     showContextSelector.value = false
     
-    // Carrega opções de contexto
-    await loadOportunidades()
-
-    // Primeiro sincroniza da Evolution API, depois carrega do banco local
-    await syncMessages()
-    
-    // Processa mídias pendentes (áudios não transcritos, imagens sem preview)
-    try {
-      const mediaResult = await whatsappService.processPendingMedia(props.number)
-      if (mediaResult.data.processed_audio > 0 || mediaResult.data.processed_images > 0) {
-        console.log('[WhatsappChat] Mídias processadas:', mediaResult.data)
-        // Recarrega mensagens para pegar as atualizações
-        await loadMessages()
-      }
-    } catch (error) {
-      console.error('[WhatsappChat] Erro ao processar mídias:', error)
-    }
-    
+    // 1) Carrega mensagens locais PRIMEIRO (rápido, não bloqueia UI)
+    await loadMessages()
     scrollToBottom()
     nextTick(() => inputRef.value?.focus())
+
+    // 2) Tarefas pesadas em background (não bloqueiam a UI)
+    loadOportunidades().catch(() => {})
+    syncMessages().then(() => {
+      // Processa mídias pendentes após sync
+      whatsappService.processPendingMedia(props.number).then(mediaResult => {
+        if (mediaResult.data.processed_audio > 0 || mediaResult.data.processed_images > 0) {
+          loadMessages(true)
+        }
+      }).catch(() => {})
+    }).catch(() => {})
   }
 })
 
@@ -825,18 +824,17 @@ let interval = null
 onMounted(() => {
   interval = setInterval(async () => {
     if (props.show && !loading.value && !syncing.value) {
-      // Busca no banco local de forma silenciosa
       const oldLength = messages.value.length
-      await loadMessages(true) // silent=true
+      await loadMessages(true)
       
       if (messages.value.length > oldLength) {
         const hasNewReceived = messages.value.slice(oldLength).some(m => !m.de_mim)
         if (hasNewReceived) {
-          await markAsRead()
+          markAsRead().catch(() => {})
         }
       }
     }
-  }, 5000)
+  }, 10000)
 })
 
 // Sincronização PESADA (com a API externa) apenas no início ou se o número mudar
