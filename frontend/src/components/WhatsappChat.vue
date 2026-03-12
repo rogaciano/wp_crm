@@ -325,7 +325,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import { whatsappService } from '@/services/whatsapp'
 import api from '@/services/api'
 
@@ -821,12 +821,28 @@ watch(() => props.show, async (newVal) => {
 
 // Polling para atualizar o chat com o que o Webhook insere no banco
 let interval = null
-onMounted(() => {
+onMounted(async () => {
+  // Em modo embedded, watch(show) nunca dispara (show=true fixo).
+  // Carregamos as mensagens aqui mesmo na montagem inicial.
+  if (props.mode === 'embedded' && props.number) {
+    await loadMessages()
+    scrollToBottom()
+    nextTick(() => inputRef.value?.focus())
+    loadOportunidades().catch(() => {})
+    syncMessages().then(() => {
+      whatsappService.processPendingMedia(props.number).then(mediaResult => {
+        if (mediaResult.data.processed_audio > 0 || mediaResult.data.processed_images > 0) {
+          loadMessages(true)
+        }
+      }).catch(() => {})
+    }).catch(() => {})
+  }
+
   interval = setInterval(async () => {
     if (props.show && !loading.value && !syncing.value) {
       const oldLength = messages.value.length
       await loadMessages(true)
-      
+
       if (messages.value.length > oldLength) {
         const hasNewReceived = messages.value.slice(oldLength).some(m => !m.de_mim)
         if (hasNewReceived) {
@@ -837,10 +853,28 @@ onMounted(() => {
   }, 10000)
 })
 
-// Sincronização PESADA (com a API externa) apenas no início ou se o número mudar
-watch(() => props.number, async (newNum) => {
-  if (props.show && newNum) {
-    await syncMessages()
+onUnmounted(() => {
+  if (interval) clearInterval(interval)
+})
+
+// Troca de contato no modo embedded: fast load primeiro, sync em background
+watch(() => props.number, async (newNum, oldNum) => {
+  if (newNum && newNum !== oldNum) {
+    messages.value = []
+    currentOportunidadeId.value = props.oportunidade
+    showContextSelector.value = false
+
+    await loadMessages()
+    scrollToBottom()
+
+    loadOportunidades().catch(() => {})
+    syncMessages().then(() => {
+      whatsappService.processPendingMedia(props.number).then(mediaResult => {
+        if (mediaResult.data.processed_audio > 0 || mediaResult.data.processed_images > 0) {
+          loadMessages(true)
+        }
+      }).catch(() => {})
+    }).catch(() => {})
   }
 })
 </script>
