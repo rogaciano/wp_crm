@@ -4,6 +4,7 @@ Views da API do CRM
 import logging
 import re
 import unicodedata
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from rest_framework import viewsets, status, filters, permissions
 from rest_framework.views import APIView
@@ -2702,10 +2703,11 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                 q_filter |= Q(numero_remetente__icontains=v)
                 q_filter |= Q(numero_destinatario__icontains=v)
             
-            queryset = self.queryset.filter(q_filter)
+            # Limita período para evitar carregar histórico inteiro (padrão: 90 dias)
+            dias_chat = int(self.request.query_params.get('dias', 90))
+            data_limite = timezone.now() - timedelta(days=dias_chat)
             
-            # Opcional: Filtra pela instância atual para evitar mensagens de outras contas se houver
-            # Mas geralmente no CRM queremos ver tudo que pertence a este contato
+            queryset = self.queryset.filter(q_filter).filter(timestamp__gte=data_limite)
             
             return queryset.order_by('timestamp')
 
@@ -2922,6 +2924,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         lead_id = request.data.get('lead')
         opp_id = request.data.get('oportunidade')
         limit = request.data.get('limit', 50)
+        dias_sync = int(request.data.get('dias', 30))
 
         if not number:
             return Response({'error': 'Número é obrigatório'}, status=400)
@@ -2929,9 +2932,12 @@ class WhatsappViewSet(viewsets.ModelViewSet):
         # Obtém o serviço Evolution do canal correto
         service, canal, instance_name = self._get_evolution_service_for_entity(opp_id)
 
+        # Limita busca aos últimos N dias para evitar puxar histórico inteiro
+        ts_start = int((timezone.now() - timedelta(days=dias_sync)).timestamp())
+
         try:
-            # Busca mensagens da API Evolution
-            api_messages = service.find_messages(number, limit=limit)
+            # Busca mensagens da API Evolution (limitadas por período)
+            api_messages = service.find_messages(number, limit=limit, timestamp_start=ts_start)
             
             # Se a resposta for um dict com 'messages', extrai a lista
             if isinstance(api_messages, dict):

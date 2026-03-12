@@ -408,20 +408,27 @@ class EvolutionService:
             logger.error(f"Erro ao enviar mídia para {number}: {str(e)}")
             raise e
 
-    def find_messages(self, number, limit=50):
-        """Busca histórico de mensagens de um número"""
+    def find_messages(self, number, limit=50, timestamp_start=None):
+        """Busca histórico de mensagens de um número.
+        timestamp_start: epoch em segundos — só retorna mensagens a partir dessa data.
+        """
         formatted_number = self._format_number(number)
         url = f"{self.base_url}/chat/findMessages/{self.instance}"
         
         # O JID do WhatsApp geralmente é numero@s.whatsapp.net
         jid = f"{formatted_number}@s.whatsapp.net"
         
+        where = {
+            "key": {
+                "remoteJid": jid
+            }
+        }
+        # Filtra por timestamp mínimo se fornecido (evita puxar histórico inteiro)
+        if timestamp_start:
+            where["messageTimestamp"] = {"$gte": int(timestamp_start)}
+
         payload = {
-            "where": {
-                "key": {
-                    "remoteJid": jid
-                }
-            },
+            "where": where,
             "limit": limit
         }
 

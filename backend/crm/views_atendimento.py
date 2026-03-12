@@ -4,8 +4,10 @@ Endpoints REST para inbox de conversas por canal.
 """
 
 import logging
+from datetime import timedelta
 from django.db.models import Max, Count, Q, Subquery, OuterRef
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -47,7 +49,10 @@ class InboxConversasView(APIView):
             canal_id = canal.id
 
         # Base queryset: mensagens do canal (filtra por instancia)
-        qs = WhatsappMessage.objects.all()
+        # Limita por período para evitar carregar histórico inteiro do celular
+        dias_inbox = int(request.query_params.get('dias', 30))
+        data_limite = timezone.now() - timedelta(days=dias_inbox)
+        qs = WhatsappMessage.objects.filter(timestamp__gte=data_limite)
 
         if canal:
             qs = qs.filter(instancia=canal.evolution_instance_name)
