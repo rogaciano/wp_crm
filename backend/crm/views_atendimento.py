@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from .models import WhatsappMessage, Canal, Contato
+from .models import WhatsappMessage, Canal, Contato, NumeroBloqueado
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,16 @@ class InboxConversasView(APIView):
         # Limita por período para evitar carregar histórico inteiro do celular
         dias_inbox = int(request.query_params.get('dias', 30))
         data_limite = timezone.now() - timedelta(days=dias_inbox)
+
+        # Exclui números bloqueados
+        numeros_bloqueados = list(NumeroBloqueado.objects.values_list('numero', flat=True))
         qs = WhatsappMessage.objects.filter(timestamp__gte=data_limite)
+        if numeros_bloqueados:
+            q_block = Q()
+            for nb in numeros_bloqueados:
+                q_block |= Q(numero_remetente__icontains=nb)
+                q_block |= Q(numero_destinatario__icontains=nb)
+            qs = qs.exclude(q_block)
 
         if canal:
             qs = qs.filter(instancia=canal.evolution_instance_name)

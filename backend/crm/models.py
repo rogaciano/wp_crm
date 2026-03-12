@@ -991,6 +991,21 @@ class WhatsappMessage(models.Model):
         return f"{self.numero_remetente} {direcao} {self.numero_destinatario}: {self.texto[:30]}..."
 
 
+class NumeroBloqueado(models.Model):
+    """Números bloqueados que não devem aparecer no inbox/chat do WhatsApp"""
+    numero = models.CharField(max_length=50, unique=True, help_text="Número a bloquear (ex: 5581999999999)")
+    motivo = models.CharField(max_length=255, null=True, blank=True, help_text="Motivo do bloqueio")
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Número Bloqueado'
+        verbose_name_plural = 'Números Bloqueados'
+        ordering = ['-data_criacao']
+
+    def __str__(self):
+        return f"{self.numero} — {self.motivo or 'Sem motivo'}"
+
+
 class Log(models.Model):
     """Sistema de logs de auditoria para rastrear todas as ações no sistema"""
 

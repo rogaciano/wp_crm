@@ -44,7 +44,7 @@ def parse_bool_param(raw_value):
 from .models import (
     Canal, User, Conta, Contato, TipoContato, TipoRedeSocial, Funil, EstagioFunil, FunilEstagio, Oportunidade, OportunidadeAnexo, Atividade, Origem,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
-    Plano, PlanoAdicional, WhatsappMessage, Log
+    Plano, PlanoAdicional, WhatsappMessage, Log, NumeroBloqueado
 )
 from .serializers import (
     CanalSerializer, UserSerializer, ContaSerializer, OrigemSerializer,
@@ -2708,6 +2708,15 @@ class WhatsappViewSet(viewsets.ModelViewSet):
             data_limite = timezone.now() - timedelta(days=dias_chat)
             
             queryset = self.queryset.filter(q_filter).filter(timestamp__gte=data_limite)
+            
+            # Exclui números bloqueados
+            bloqueados = list(NumeroBloqueado.objects.values_list('numero', flat=True))
+            if bloqueados:
+                q_block = Q()
+                for nb in bloqueados:
+                    q_block |= Q(numero_remetente__icontains=nb)
+                    q_block |= Q(numero_destinatario__icontains=nb)
+                queryset = queryset.exclude(q_block)
             
             # Limite rígido de mensagens para evitar travamento do navegador
             max_msgs = int(self.request.query_params.get('limit', 200))

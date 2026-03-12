@@ -6,7 +6,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     Canal, User, Conta, Contato, TipoContato, Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
-    Plano, PlanoAdicional, Log
+    Plano, PlanoAdicional, Log, NumeroBloqueado
 )
 
 
@@ -134,6 +134,13 @@ class PlanoAdmin(admin.ModelAdmin):
 class PlanoAdicionalAdmin(admin.ModelAdmin):
     list_display = ['nome', 'preco', 'unidade']
     search_fields = ['nome']
+
+
+@admin.register(NumeroBloqueado)
+class NumeroBloqueadoAdmin(admin.ModelAdmin):
+    list_display = ['numero', 'motivo', 'data_criacao']
+    search_fields = ['numero', 'motivo']
+    readonly_fields = ['data_criacao']
 
 
 @admin.register(Log)
