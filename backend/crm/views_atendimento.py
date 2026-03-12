@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from .models import WhatsappMessage, Canal, Contato, NumeroBloqueado
+from .models import WhatsappMessage, Canal, Contato, NumeroBloqueado, Funil
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +170,23 @@ class InboxConversasView(APIView):
                 'canal_id': canal.id if canal else None,
             })
 
+        # Filtra por funis do usuário (não-admin só vê conversas dos seus funis)
+        is_admin = user.perfil == 'ADMIN' or user.is_superuser
+        funis_tipos_usuario = []
+
+        if not is_admin:
+            funis_tipos_usuario = list(
+                Funil.objects.filter(
+                    usuarios=user, is_active=True
+                ).values_list('tipo', flat=True).distinct()
+            )
+            if funis_tipos_usuario:
+                # Mostra: conversas do funil do usuário + desconhecidos (sem funil)
+                conversas = [
+                    c for c in conversas
+                    if c['funil_tipo'] in funis_tipos_usuario or c['funil_tipo'] is None
+                ]
+
         return Response({
             'conversas': conversas,
             'canal': {
@@ -177,6 +194,8 @@ class InboxConversasView(APIView):
                 'nome': canal.nome,
                 'numero': canal.evolution_phone_number,
             } if canal else None,
+            'funis_usuario': funis_tipos_usuario if not is_admin else [],
+            'is_admin': is_admin,
         })
 
 
