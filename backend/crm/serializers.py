@@ -227,19 +227,25 @@ class UserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
+        funis_acesso = validated_data.pop('funis_acesso', None)
         user = User(**validated_data)
         if password:
             user.set_password(password)
         user.save()
+        if funis_acesso is not None:
+            user.funis_acesso.set(funis_acesso)
         return user
-    
+
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
+        funis_acesso = validated_data.pop('funis_acesso', None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         if password:
             instance.set_password(password)
         instance.save()
+        if funis_acesso is not None:
+            instance.funis_acesso.set(funis_acesso)
         return instance
 
 
