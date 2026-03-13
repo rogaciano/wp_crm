@@ -356,13 +356,13 @@
               <th class="table-header">Conta</th>
               <th class="table-header">Estágio</th>
               <th class="table-header">Fonte</th>
-              <th class="table-header text-right">Valor</th>
+              <th v-if="activeTipoFunil === 'VENDAS'" class="table-header text-right">Valor</th>
               <th class="table-header text-center sticky right-0 bg-gray-50">Ações</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
             <tr v-if="listItems.length === 0">
-              <td colspan="6" class="py-12 text-center text-gray-400 text-sm">Nenhum registro encontrado.</td>
+              <td :colspan="activeTipoFunil === 'VENDAS' ? 6 : 5" class="py-12 text-center text-gray-400 text-sm">Nenhum registro encontrado.</td>
             </tr>
             <tr v-for="item in listItems" :key="item.id" class="hover:bg-gray-50">
               <td class="table-cell max-w-[260px]" :title="item.nome">
@@ -389,7 +389,7 @@
               <td class="table-cell text-gray-500 max-w-[140px] truncate" :title="item.origem_nome">
                 {{ item.origem_nome || item.fonte || '—' }}
               </td>
-              <td class="table-cell text-right font-semibold text-green-600 whitespace-nowrap">
+              <td v-if="activeTipoFunil === 'VENDAS'" class="table-cell text-right font-semibold text-green-600 whitespace-nowrap">
                 R$ {{ Number(item.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
               </td>
               <td class="table-cell sticky right-0 bg-white">

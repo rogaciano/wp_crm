@@ -176,6 +176,7 @@ class UserSerializer(serializers.ModelSerializer):
     canal_nome = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
     avatar_url = serializers.SerializerMethodField()
+    funis_tipos = serializers.SerializerMethodField()
     funis_acesso = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Funil.objects.all(),
@@ -191,7 +192,10 @@ class UserSerializer(serializers.ModelSerializer):
         queryset=Permission.objects.all(),
         required=False,
     )
-    
+
+    def get_funis_tipos(self, obj):
+        return list(obj.funis_acesso.values_list('tipo', flat=True).distinct())
+
     def get_canal_nome(self, obj):
         return obj.canal.nome if obj.canal else "N/A"
     
@@ -213,14 +217,14 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'perfil', 'canal', 'canal_nome', 'telefone', 'avatar', 'avatar_url',
-            'password', 'is_active', 'date_joined', 'funis_acesso',
+            'password', 'is_active', 'date_joined', 'funis_acesso', 'funis_tipos',
             'groups', 'user_permissions'
         ]
-        read_only_fields = ['date_joined']
+        read_only_fields = ['date_joined', 'funis_tipos']
         extra_kwargs = {
             'password': {'write_only': True}
         }
-    
+
     def create(self, validated_data):
         password = validated_data.pop('password', None)
         user = User(**validated_data)

@@ -12,6 +12,24 @@ export const useAuthStore = defineStore('auth', () => {
   const isResponsavel = computed(() => user.value?.perfil === 'RESPONSAVEL')
   const isVendedor = computed(() => user.value?.perfil === 'VENDEDOR')
 
+  // Tipos de funil do usuário (retornados pelo backend em funis_tipos)
+  const funilTipos = computed(() => user.value?.funis_tipos || [])
+
+  // Acesso à área Comercial: admin, responsável, usuário com funil VENDAS, ou sem funil (compat)
+  const hasVendasAccess = computed(() =>
+    isAdmin.value || isResponsavel.value ||
+    funilTipos.value.length === 0 ||
+    funilTipos.value.includes('VENDAS')
+  )
+
+  // Acesso à área Clientes: admin, responsável, usuário com funil SUPORTE ou POS_VENDA, ou sem funil
+  const hasClientesAccess = computed(() =>
+    isAdmin.value || isResponsavel.value ||
+    funilTipos.value.length === 0 ||
+    funilTipos.value.includes('SUPORTE') ||
+    funilTipos.value.includes('POS_VENDA')
+  )
+
   async function login(username, password) {
     try {
       const response = await api.post('/auth/login/', {
@@ -59,6 +77,9 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     isResponsavel,
     isVendedor,
+    funilTipos,
+    hasVendasAccess,
+    hasClientesAccess,
     login,
     fetchUser,
     logout
