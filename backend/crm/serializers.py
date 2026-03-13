@@ -228,17 +228,25 @@ class UserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         password = validated_data.pop('password', None)
         funis_acesso = validated_data.pop('funis_acesso', None)
+        groups = validated_data.pop('groups', None)
+        user_permissions = validated_data.pop('user_permissions', None)
         user = User(**validated_data)
         if password:
             user.set_password(password)
         user.save()
         if funis_acesso is not None:
             user.funis_acesso.set(funis_acesso)
+        if groups is not None:
+            user.groups.set(groups)
+        if user_permissions is not None:
+            user.user_permissions.set(user_permissions)
         return user
 
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
         funis_acesso = validated_data.pop('funis_acesso', None)
+        groups = validated_data.pop('groups', None)
+        user_permissions = validated_data.pop('user_permissions', None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         if password:
@@ -246,6 +254,10 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
         if funis_acesso is not None:
             instance.funis_acesso.set(funis_acesso)
+        if groups is not None:
+            instance.groups.set(groups)
+        if user_permissions is not None:
+            instance.user_permissions.set(user_permissions)
         return instance
 
 
