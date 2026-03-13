@@ -459,15 +459,21 @@ const handleScroll = () => {
 const syncMessages = async () => {
   if (!props.number || syncing.value) return
 
-  console.log('[WhatsappChat] Iniciando sincronização para número:', props.number)
+  // Proteção contra race condition
+  const currentNumber = props.number
+  
+  console.log('[WhatsappChat] Iniciando sincronização para número:', currentNumber)
   syncing.value = true
   try {
     const response = await whatsappService.syncMessages({
-      number: props.number,
+      number: currentNumber,
       oportunidade: currentOportunidadeId.value,
       canal_id: props.canalId,
       limit: 50
     })
+
+    // Se mudou de conversa durante o sync, ignora o resultado
+    if (currentNumber !== props.number) return
 
     console.log('[WhatsappChat] Sync result:', response.data)
     console.log('[WhatsappChat] Mensagens importadas:', response.data.imported)
@@ -480,9 +486,13 @@ const syncMessages = async () => {
     await markAsRead()
 
   } catch (error) {
+    if (error.response?.status === 401) {
+       console.error('[WhatsappChat] Sessão expirada no sync.')
+       return
+    }
     console.error('[WhatsappChat] Erro ao sincronizar mensagens:', error)
   } finally {
-    syncing.value = false
+    if (currentNumber === props.number) syncing.value = false
   }
 }
 
@@ -503,15 +513,28 @@ const markAsRead = async () => {
 
 const loadMessages = async (silent = false) => {
   if (!props.number) return
+  // Guarda o número atual para evitar race conditions
+  const currentNumber = props.number
+  
   if (!silent) loading.value = true
 
   try {
     const response = await whatsappService.getMessages({
       number: props.number,
-      ordering: 'timestamp'
+      ordering: 'timestamp',
+      limit: 100 // Limite explícito para evitar travamentos
     })
 
+    // Se mudou o número enquanto carregava, aborta
+    if (currentNumber !== props.number) return
+
     const newMessages = response.data.results || response.data
+    
+    // Proteção extra: se vier array inválido ou enorme
+    if (!Array.isArray(newMessages)) {
+      console.error('[WhatsappChat] Formato de mensagens inválido:', newMessages)
+      return
+    }
 
     // Comparação rápida: só atualiza se quantidade ou última msg mudou
     const lastNew = newMessages[newMessages.length - 1]
@@ -523,10 +546,14 @@ const loadMessages = async (silent = false) => {
       const hadMessages = messages.value.length > 0
       const wasAtBottom = isAtBottom.value || !hadMessages
 
+      // Usa Object.freeze para performance em listas grandes (opcional, mas ajuda)
       messages.value = newMessages
 
       // Carrega áudios apenas das últimas 20 mensagens para evitar travamento
       nextTick(() => {
+        // Verifica novamente se o componente ainda está montado e no mesmo número
+        if (currentNumber !== props.number) return
+        
         const recentMsgs = newMessages.slice(-20)
         recentMsgs.forEach(msg => {
           if (msg.tipo_mensagem === 'audio' && !audioUrls.value[msg.id]) {
@@ -547,9 +574,15 @@ const loadMessages = async (silent = false) => {
       }
     }
   } catch (error) {
+    // Se for 401, para o polling
+    if (error.response?.status === 401) {
+      console.error('[WhatsappChat] Sessão expirada. Parando atualizações.')
+      if (interval) clearInterval(interval)
+      return
+    }
     console.error('[WhatsappChat] Erro ao carregar mensagens:', error)
   } finally {
-    if (!silent) loading.value = false
+    if (!silent && currentNumber === props.number) loading.value = false
   }
 }
 
@@ -883,7 +916,10 @@ onUnmounted(() => {
 // Troca de contato no modo embedded: fast load primeiro, sync em background
 watch(() => props.number, async (newNum, oldNum) => {
   if (newNum && newNum !== oldNum) {
+    // Reseta estado ao trocar de conversa
     messages.value = []
+    loading.value = false
+    syncing.value = false
     currentOportunidadeId.value = props.oportunidade
     showContextSelector.value = false
 

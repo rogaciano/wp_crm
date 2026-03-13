@@ -167,9 +167,11 @@ export const useWhatsappStore = defineStore('whatsapp', {
                 this.ws.onclose = (event) => {
                     this.wsConectado = false
                     console.log(`[WS] Desconectado (code=${event.code})`)
-                    // Reconecta automaticamente (exceto se foi desconexão intencional)
-                    if (event.code !== 1000) {
+                    // Reconecta automaticamente (exceto se foi desconexão intencional ou erro de autenticação)
+                    if (event.code !== 1000 && event.code !== 4001 && event.code !== 4003) {
                         this.wsReconnectTimer = setTimeout(() => this.conectarWebSocket(), 5000)
+                    } else if (event.code === 4001 || event.code === 4003) {
+                        console.error('[WS] Erro de autenticação/permissão. Não reconectando.')
                     }
                 }
 
