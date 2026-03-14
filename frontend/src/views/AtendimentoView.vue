@@ -170,13 +170,21 @@ const isAdmin = computed(() => authStore.user?.perfil === 'ADMIN' || authStore.u
 const conversaAtiva = ref(null)
 const canalSelecionado = ref(null)
 
-const inboxFiltro = ref('oportunidades')
-const tabsInbox = [
-  { label: 'Clientes', value: 'clientes' },
-  { label: 'Oportunidades', value: 'oportunidades' },
-  { label: 'Todos', value: 'todos' },
-  { label: 'Desconhecidos', value: 'desconhecidos' },
-]
+// Filtro padrão: Oportunidades para comercial, Clientes para suporte
+const inboxFiltro = ref(authStore.hasVendasAccess ? 'oportunidades' : 'clientes')
+
+// Abas visíveis: "Oportunidades" só para quem tem acesso comercial
+const tabsInbox = computed(() => {
+  const tabs = [
+    { label: 'Clientes', value: 'clientes' },
+    { label: 'Todos', value: 'todos' },
+    { label: 'Desconhecidos', value: 'desconhecidos' },
+  ]
+  if (authStore.hasVendasAccess) {
+    tabs.splice(1, 0, { label: 'Oportunidades', value: 'oportunidades' })
+  }
+  return tabs
+})
 
 const conversasExibidas = computed(() => {
   const todas = wsStore.conversas

@@ -57,7 +57,7 @@
             <p class="text-sm font-medium text-zinc-100 truncate">{{ user?.full_name || 'Usuário' }}</p>
             <div class="flex items-center gap-2 mt-0.5">
               <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <p class="text-xs text-zinc-400 truncate">{{ user?.perfil || 'Membro' }}</p>
+              <p class="text-xs text-zinc-400 truncate">{{ perfilLabel }}</p>
             </div>
           </div>
         </div>
@@ -257,6 +257,16 @@ const isSidebarOpen = ref(false)
 const user = computed(() => authStore.user)
 const isAdmin = computed(() => authStore.isAdmin)
 const isGestor = computed(() => user.value?.perfil === 'RESPONSAVEL')
+
+const perfilLabel = computed(() => {
+  const perfil = user.value?.perfil
+  if (perfil === 'VENDEDOR') {
+    const tipos = authStore.funilTipos
+    if (tipos.includes('SUPORTE') || tipos.includes('POS_VENDA')) return 'Suporte'
+    if (tipos.includes('VENDAS')) return 'Vendedor'
+  }
+  return perfil || 'Membro'
+})
 
 const userInitials = computed(() => {
   if (!user.value) return '?'
