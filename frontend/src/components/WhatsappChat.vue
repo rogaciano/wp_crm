@@ -55,7 +55,7 @@
         </button>
         <input type="file" ref="fileInput" @change="handleFileSelect" accept="image/*" class="hidden" />
         <div class="flex-1">
-          <textarea v-model="newMessage" rows="1" @keydown.enter.exact.prevent="send" :placeholder="selectedImage ? 'Legenda...' : 'Digite uma mensagem...'" class="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none outline-none max-h-32 shadow-sm" ref="inputRef"></textarea>
+          <textarea v-model="newMessage" rows="1" @keydown.enter.exact.prevent="send" :placeholder="selectedImage ? 'Legenda...' : 'Digite uma mensagem...'" class="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none outline-none max-h-32 shadow-sm cursor-text" ref="inputRef"></textarea>
         </div>
         <button type="submit" :disabled="(!newMessage.trim() && !selectedImage) || sending" class="p-2.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 transition-all shadow-md disabled:bg-gray-300">
           <svg v-if="!sending" class="w-4 h-4 rotate-90" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -315,7 +315,7 @@
               @keydown.enter.exact.prevent="send"
               :placeholder="selectedImage ? 'Legenda da imagem (opcional)...' : 'Digite uma mensagem...'"
               aria-label="Campo de texto para digitar mensagem"
-              class="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none outline-none max-h-32 shadow-sm"
+              class="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none outline-none max-h-32 shadow-sm cursor-text"
               ref="inputRef"
             ></textarea>
           </div>
@@ -924,10 +924,17 @@ watch(() => props.number, async (newNum, oldNum) => {
     showContextSelector.value = false
 
     await loadMessages()
+
+    // Guard: se o usuário trocou de contato enquanto carregava, aborta esta execução.
+    // Sem isso, múltiplos cliques rápidos disparam syncMessages concorrentes para o mesmo número.
+    if (props.number !== newNum) return
+
     scrollToBottom()
+    nextTick(() => inputRef.value?.focus())
 
     loadOportunidades().catch(() => {})
-    syncMessages().then(() => loadMessages(true)).catch(() => {})
+    // syncMessages já chama loadMessages internamente — não chamar .then(loadMessages) novamente
+    syncMessages().catch(() => {})
   }
 })
 </script>
