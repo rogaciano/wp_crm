@@ -1242,7 +1242,7 @@ class OportunidadeKanbanSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'nome', 'valor_estimado', 'contato_nome', 'conta_nome', 
             'status_cliente', 'status_cliente_display',
-            'proprietario_nome', 'estagio', 'estagio_id', 'funil', 'contato_telefone', 
+            'proprietario_nome', 'estagio', 'estagio_id', 'funil', 'canal', 'contato_telefone',
             'whatsapp_nao_lidas', 'adicionais_detalhes', 'tags_detail', 'data_atualizacao'
         ]
 

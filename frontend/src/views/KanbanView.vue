@@ -464,6 +464,7 @@
       :number="whatsappData.number"
       :title="whatsappData.title"
       :oportunidade="whatsappData.oportunidade"
+      :canal-id="whatsappData.canalId"
       @close="showWhatsapp = false"
       @messagesRead="whatsappStore.fetchUnreadCounts"
     />
@@ -593,7 +594,8 @@ const showWhatsapp = ref(false)
 const whatsappData = ref({
   number: '',
   title: '',
-  oportunidade: null
+  oportunidade: null,
+  canalId: null
 })
 
 const showFaturamentoModal = ref(false)
@@ -792,10 +794,13 @@ function openWhatsapp(item) {
     cleanNumber = '55' + cleanNumber
   }
 
+  const resolvedCanalId = item.canal || activeCanalId.value || authStore.user?.canal || null
+
   whatsappData.value = {
     number: cleanNumber,
     title: item.nome,
-    oportunidade: item.id
+    oportunidade: item.id,
+    canalId: resolvedCanalId
   }
   showWhatsapp.value = true
 }
