@@ -333,7 +333,11 @@
       </div>
     </div>
   </Transition>
-  <div v-if="show" @click="$emit('close')" class="fixed inset-0 bg-black/20 z-[90] backdrop-blur-[1px]"></div>
+  <div
+    v-if="show && mode !== 'embedded'"
+    @click="$emit('close')"
+    class="fixed inset-0 bg-black/20 z-[90] backdrop-blur-[1px]"
+  ></div>
 </template>
 
 <script setup>
