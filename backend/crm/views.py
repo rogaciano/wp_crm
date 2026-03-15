@@ -4,7 +4,7 @@ Views da API do CRM
 import logging
 import re
 import unicodedata
-from datetime import timedelta
+from datetime import timedelta, timezone as dt_timezone
 from decimal import Decimal, InvalidOperation
 from rest_framework import viewsets, status, filters, permissions
 from rest_framework.views import APIView
@@ -3018,7 +3018,7 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                 # Timestamp
                 ts_int = msg_data.get('messageTimestamp')
                 if ts_int:
-                    dt = timezone.datetime.fromtimestamp(int(ts_int), tz=timezone.utc)
+                    dt = timezone.datetime.fromtimestamp(int(ts_int), tz=dt_timezone.utc)
                 else:
                     dt = timezone.now()
                 
@@ -3600,7 +3600,7 @@ class WhatsappWebhookView(APIView):
 
                     # Timestamp
                     ts_int = msg_data.get('messageTimestamp')
-                    dt = timezone.datetime.fromtimestamp(int(ts_int), tz=timezone.utc) if ts_int else timezone.now()
+                    dt = timezone.datetime.fromtimestamp(int(ts_int), tz=dt_timezone.utc) if ts_int else timezone.now()
 
                     # Determina números
                     remote_number = remote_jid.split('@')[0] if remote_jid else ''
