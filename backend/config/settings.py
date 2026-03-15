@@ -165,7 +165,9 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_THROTTLE_RATES': {
         'anon': '60/hour',
-        'user': '1000/hour',
+        # O app usa polling e websocket fallback em múltiplas telas.
+        # Mantemos proteção, mas com taxa adequada para uso real em produção.
+        'user': config('USER_THROTTLE_RATE', default='10000/hour'),
         'diagnostico_publico': '20/hour',
         'webhook': '200/min',
     },
@@ -206,4 +208,3 @@ WHISPER_MODEL_SIZE = config('WHISPER_MODEL_SIZE', default='base')
 WHISPER_DEVICE = config('WHISPER_DEVICE', default='cpu')
 # Tipo de computação: 'int8' (cpu), 'float16' (gpu), 'int8_float16' (gpu híbrido)
 WHISPER_COMPUTE_TYPE = config('WHISPER_COMPUTE_TYPE', default='int8')
-

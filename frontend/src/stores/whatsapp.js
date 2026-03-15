@@ -8,10 +8,12 @@ export const useWhatsappStore = defineStore('whatsapp', {
         loading: false,
         error: null,
         lastUpdated: null,
+        unreadCooldownUntil: 0,
 
         // Multiatendimento Inbox
         conversas: [],
         conversasLoading: false,
+        conversasCooldownUntil: 0,
         canalAtual: null,
         canaisDisponiveis: [],
         funilFiltro: null,   // null | 'VENDAS' | 'SUPORTE' | 'POS_VENDA'
@@ -37,6 +39,7 @@ export const useWhatsappStore = defineStore('whatsapp', {
         // Unread counts (menu global)
         // ──────────────────────────────
         async fetchUnreadCounts() {
+            if (Date.now() < this.unreadCooldownUntil) return
             if (this.loading) return
             this.loading = true
             try {
@@ -44,8 +47,13 @@ export const useWhatsappStore = defineStore('whatsapp', {
                 this.unreadCounts = response.data
                 this.lastUpdated = new Date()
                 this.error = null
+                this.unreadCooldownUntil = 0
             } catch (error) {
                 console.error('Erro ao buscar mensagens não lidas:', error)
+                if (error.response?.status === 429) {
+                    const retryAfter = Number(error.response?.headers?.['retry-after']) || 60
+                    this.unreadCooldownUntil = Date.now() + (retryAfter * 1000)
+                }
                 this.error = error.message
             } finally {
                 this.loading = false
@@ -68,6 +76,8 @@ export const useWhatsappStore = defineStore('whatsapp', {
         },
 
         async fetchConversas() {
+            if (Date.now() < this.conversasCooldownUntil) return
+            if (this.conversasLoading) return
             this.conversasLoading = true
             try {
                 const params = {}
@@ -76,11 +86,16 @@ export const useWhatsappStore = defineStore('whatsapp', {
 
                 const res = await whatsappService.getConversas(params)
                 this.conversas = res.data.conversas || []
+                this.conversasCooldownUntil = 0
                 if (res.data.canal && !this.canalAtual) {
                     this.canalAtual = res.data.canal
                 }
             } catch (e) {
                 console.error('[Atendimento] Erro ao carregar conversas:', e)
+                if (e.response?.status === 429) {
+                    const retryAfter = Number(e.response?.headers?.['retry-after']) || 60
+                    this.conversasCooldownUntil = Date.now() + (retryAfter * 1000)
+                }
             } finally {
                 this.conversasLoading = false
             }
