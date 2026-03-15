@@ -68,6 +68,13 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 1000
 
 
+class ChatMessagesPagination(PageNumberPagination):
+    """Paginação otimizada para histórico de chat."""
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 200
+
+
 class CanalViewSet(viewsets.ModelViewSet):
     """ViewSet para Canais (CRUD apenas Admin, leitura para autenticados)"""
     serializer_class = CanalSerializer
@@ -2630,11 +2637,16 @@ class WhatsappViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['oportunidade', 'numero_remetente', 'numero_destinatario']
     ordering_fields = ['timestamp']
-    pagination_class = None  # Chat não usa paginação — retorna todo o histórico do contato
+    pagination_class = ChatMessagesPagination
 
     def list(self, request, *args, **kwargs):
         """Usa serializer slim (sem media_base64) para evitar payloads enormes na listagem."""
         queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = WhatsappMessageSlimSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = WhatsappMessageSlimSerializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -2718,7 +2730,11 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                 q_filter |= Q(numero_destinatario__icontains=v)
             
             # Limita período para evitar carregar histórico inteiro (padrão: 90 dias)
-            dias_chat = int(self.request.query_params.get('dias', 90))
+            dias_chat_raw = self.request.query_params.get('dias', 90)
+            try:
+                dias_chat = int(dias_chat_raw)
+            except (TypeError, ValueError):
+                dias_chat = 90
             data_limite = timezone.now() - timedelta(days=dias_chat)
             
             queryset = self.queryset.filter(q_filter).filter(timestamp__gte=data_limite)
@@ -2732,13 +2748,18 @@ class WhatsappViewSet(viewsets.ModelViewSet):
                     q_block |= Q(numero_destinatario__icontains=nb)
                 queryset = queryset.exclude(q_block)
             
-            # Limite rígido de mensagens para evitar travamento do navegador
-            max_msgs = int(self.request.query_params.get('limit', 100))
-            total = queryset.count()
-            if total > max_msgs:
-                # Retorna apenas as N mais recentes, mantendo ordem cronológica
-                ids_recentes = queryset.order_by('-timestamp').values_list('id', flat=True)[:max_msgs]
-                queryset = queryset.filter(id__in=ids_recentes)
+            # Compatibilidade: cliente antigo pode enviar "limit" sem paginação.
+            has_page = self.request.query_params.get('page') is not None
+            has_page_size = self.request.query_params.get('page_size') is not None
+            limit_raw = self.request.query_params.get('limit')
+            if limit_raw and not (has_page or has_page_size):
+                try:
+                    max_msgs = int(limit_raw)
+                except (TypeError, ValueError):
+                    max_msgs = 100
+                if max_msgs > 0:
+                    ids_recentes = queryset.order_by('-timestamp').values_list('id', flat=True)[:max_msgs]
+                    queryset = queryset.filter(id__in=ids_recentes)
             
             return queryset.order_by('timestamp')
 

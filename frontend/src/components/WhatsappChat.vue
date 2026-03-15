@@ -12,6 +12,11 @@
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
       </div>
       <template v-else>
+        <div v-if="loadingOlder" class="flex justify-center py-2">
+          <div class="bg-white/80 inline-block px-3 py-1 rounded-lg text-[11px] text-gray-500 shadow-sm">
+            Carregando mensagens antigas...
+          </div>
+        </div>
         <div v-if="messages.length === 0" class="text-center py-10">
           <div class="bg-white/80 inline-block px-4 py-2 rounded-lg text-xs text-gray-500 shadow-sm italic">Nenhuma mensagem encontrada.</div>
         </div>
@@ -55,7 +60,7 @@
         </button>
         <input type="file" ref="fileInput" @change="handleFileSelect" accept="image/*" class="hidden" />
         <div class="flex-1">
-          <textarea v-model="newMessage" rows="1" @keydown.enter.exact.prevent="send" :placeholder="selectedImage ? 'Legenda...' : 'Digite uma mensagem...'" class="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none outline-none max-h-32 shadow-sm cursor-text" ref="inputRef"></textarea>
+          <textarea v-model="newMessage" rows="1" @keydown.enter.exact.prevent="send" @paste="handlePaste" :placeholder="selectedImage ? 'Legenda...' : 'Digite uma mensagem...'" class="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none outline-none max-h-32 shadow-sm cursor-text" ref="inputRef"></textarea>
         </div>
         <button type="submit" :disabled="(!newMessage.trim() && !selectedImage) || sending" class="p-2.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 transition-all shadow-md disabled:bg-gray-300">
           <svg v-if="!sending" class="w-4 h-4 rotate-90" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -161,6 +166,11 @@
         </div>
         
         <template v-else>
+          <div v-if="loadingOlder" class="flex justify-center py-2">
+            <div class="bg-white/80 inline-block px-3 py-1 rounded-lg text-[11px] text-gray-500 shadow-sm">
+              Carregando mensagens antigas...
+            </div>
+          </div>
           <div v-if="messages.length === 0" class="text-center py-10">
             <div class="bg-white/80 inline-block px-4 py-2 rounded-lg text-xs text-gray-500 shadow-sm italic">
               Nenhuma mensagem encontrada.
@@ -313,6 +323,7 @@
               v-model="newMessage"
               rows="1"
               @keydown.enter.exact.prevent="send"
+              @paste="handlePaste"
               :placeholder="selectedImage ? 'Legenda da imagem (opcional)...' : 'Digite uma mensagem...'"
               aria-label="Campo de texto para digitar mensagem"
               class="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none outline-none max-h-32 shadow-sm cursor-text"
@@ -364,6 +375,11 @@ const newMessage = ref('')
 const messageContainer = ref(null)
 const inputRef = ref(null)
 const isAtBottom = ref(true)
+const loadingOlder = ref(false)
+const currentPage = ref(1)
+const hasOlderMessages = ref(true)
+
+const CHAT_PAGE_SIZE = 50
 
 // Multicontexto
 const currentOportunidadeId = ref(props.oportunidade)
@@ -457,6 +473,57 @@ const handleScroll = () => {
   const { scrollTop, scrollHeight, clientHeight } = messageContainer.value
   const threshold = 100 // pixels do fundo
   isAtBottom.value = scrollHeight - scrollTop - clientHeight < threshold
+
+  const topThreshold = 80
+  if (scrollTop <= topThreshold && hasOlderMessages.value && !loadingOlder.value && !loading.value) {
+    loadOlderMessages().catch(() => {})
+  }
+}
+
+const parseMessagesResponse = (data) => {
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      next: null
+    }
+  }
+
+  return {
+    items: Array.isArray(data?.results) ? data.results : [],
+    next: data?.next || null
+  }
+}
+
+const hydrateRecentAudios = (list) => {
+  const recentMsgs = list.slice(-20)
+  recentMsgs.forEach(msg => {
+    if (msg.tipo_mensagem === 'audio' && !audioUrls.value[msg.id]) {
+      if (msg.media_base64) {
+        audioUrls.value[msg.id] = msg.media_base64
+      } else {
+        const cachedUrl = loadAudioFromCache(msg.id)
+        if (cachedUrl) {
+          audioUrls.value[msg.id] = cachedUrl
+        }
+      }
+    }
+  })
+}
+
+const resetConversationState = () => {
+  messages.value = []
+  loading.value = false
+  syncing.value = false
+  loadingOlder.value = false
+  currentPage.value = 1
+  hasOlderMessages.value = true
+  isAtBottom.value = true
+  audioUrls.value = {}
+  imageUrls.value = {}
+  loadingAudioId.value = null
+  loadingImageId.value = null
+  transcribingId.value = null
+  clearImage()
 }
 
 // Sincroniza mensagens da Evolution API para o banco local
@@ -483,8 +550,8 @@ const syncMessages = async () => {
     console.log('[WhatsappChat] Mensagens importadas:', response.data.imported)
     console.log('[WhatsappChat] Mensagens já existentes:', response.data.skipped)
 
-    // Recarrega as mensagens do banco local
-    await loadMessages()
+    // Recarrega as mensagens mais recentes do banco local
+    await loadLatestMessages(true)
 
     // Marca como lidas após sincronizar (se houver mensagens novas)
     await markAsRead()
@@ -512,6 +579,137 @@ const markAsRead = async () => {
     }
   } catch (error) {
     console.error('[WhatsappChat] Erro ao marcar como lidas:', error)
+  }
+}
+
+const loadLatestMessages = async (silent = false, { reset = false, forceScroll = false } = {}) => {
+  if (!props.number) return { addedCount: 0, hasNewReceived: false }
+  const currentNumber = props.number
+  
+  if (!silent) loading.value = true
+
+  try {
+    const response = await whatsappService.getMessages({
+      number: props.number,
+      ordering: '-timestamp',
+      page: 1,
+      page_size: CHAT_PAGE_SIZE
+    })
+
+    if (currentNumber !== props.number) return { addedCount: 0, hasNewReceived: false }
+
+    const { items, next } = parseMessagesResponse(response.data)
+    const latestMessagesAsc = [...items].reverse()
+    
+    if (!Array.isArray(latestMessagesAsc)) {
+      console.error('[WhatsappChat] Formato de mensagens invÃ¡lido:', latestMessagesAsc)
+      return { addedCount: 0, hasNewReceived: false }
+    }
+
+    if (reset || messages.value.length === 0) {
+      messages.value = latestMessagesAsc
+      currentPage.value = 1
+      hasOlderMessages.value = Boolean(next)
+
+      nextTick(() => {
+        if (currentNumber !== props.number) return
+        hydrateRecentAudios(messages.value)
+        if (forceScroll || isAtBottom.value) {
+          scrollToBottom()
+        }
+      })
+
+      return {
+        addedCount: latestMessagesAsc.filter(msg => !msg.de_mim).length,
+        hasNewReceived: latestMessagesAsc.some(msg => !msg.de_mim)
+      }
+    }
+
+    const oldLen = messages.value.length
+    const existingIndexById = new Map(
+      messages.value
+        .filter(msg => msg?.id != null)
+        .map((msg, index) => [msg.id, index])
+    )
+
+    const toAppend = []
+    latestMessagesAsc.forEach(msg => {
+      const idx = existingIndexById.get(msg.id)
+      if (idx !== undefined) {
+        messages.value[idx] = { ...messages.value[idx], ...msg }
+      } else {
+        toAppend.push(msg)
+      }
+    })
+
+    if (toAppend.length > 0) {
+      messages.value = [...messages.value, ...toAppend]
+      if (isAtBottom.value) {
+        scrollToBottom()
+      }
+    }
+
+    hydrateRecentAudios(messages.value)
+
+    return {
+      addedCount: Math.max(0, messages.value.length - oldLen),
+      hasNewReceived: toAppend.some(msg => !msg.de_mim)
+    }
+  } catch (error) {
+    if (error.response?.status === 401) {
+      console.error('[WhatsappChat] SessÃ£o expirada. Parando atualizaÃ§Ãµes.')
+      if (interval) clearInterval(interval)
+      return { addedCount: 0, hasNewReceived: false }
+    }
+    console.error('[WhatsappChat] Erro ao carregar mensagens:', error)
+    return { addedCount: 0, hasNewReceived: false }
+  } finally {
+    if (!silent && currentNumber === props.number) loading.value = false
+  }
+}
+
+const loadOlderMessages = async () => {
+  if (!props.number || loadingOlder.value || !hasOlderMessages.value) return
+
+  const container = messageContainer.value
+  const previousHeight = container?.scrollHeight || 0
+  const previousTop = container?.scrollTop || 0
+  const nextPage = currentPage.value + 1
+  const currentNumber = props.number
+
+  loadingOlder.value = true
+  try {
+    const response = await whatsappService.getMessages({
+      number: props.number,
+      ordering: '-timestamp',
+      page: nextPage,
+      page_size: CHAT_PAGE_SIZE
+    })
+
+    if (currentNumber !== props.number) return
+
+    const { items, next } = parseMessagesResponse(response.data)
+    const olderMessagesAsc = [...items].reverse()
+    hasOlderMessages.value = Boolean(next)
+    currentPage.value = nextPage
+
+    if (!olderMessagesAsc.length) return
+
+    const existingIds = new Set(messages.value.map(msg => msg.id))
+    const uniqueOlder = olderMessagesAsc.filter(msg => !existingIds.has(msg.id))
+    if (!uniqueOlder.length) return
+
+    messages.value = [...uniqueOlder, ...messages.value]
+
+    nextTick(() => {
+      if (!messageContainer.value) return
+      const newHeight = messageContainer.value.scrollHeight
+      messageContainer.value.scrollTop = (newHeight - previousHeight) + previousTop
+    })
+  } catch (error) {
+    console.error('[WhatsappChat] Erro ao carregar mensagens antigas:', error)
+  } finally {
+    loadingOlder.value = false
   }
 }
 
@@ -595,9 +793,31 @@ const triggerFileInput = () => {
   fileInput.value?.click()
 }
 
+const setSelectedImage = (file) => {
+  if (!file.type.startsWith('image/')) {
+    alert('Por favor, selecione apenas imagens.')
+    return
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    alert('A imagem deve ter no mÃ¡ximo 5MB.')
+    return
+  }
+
+  selectedImage.value = file
+
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    selectedImagePreview.value = e.target.result
+  }
+  reader.readAsDataURL(file)
+}
+
 const handleFileSelect = (event) => {
   const file = event.target.files[0]
   if (!file) return
+  setSelectedImage(file)
+  return
   
   // Verifica se é imagem
   if (!file.type.startsWith('image/')) {
@@ -619,6 +839,20 @@ const handleFileSelect = (event) => {
     selectedImagePreview.value = e.target.result
   }
   reader.readAsDataURL(file)
+}
+
+const handlePaste = (event) => {
+  const items = event.clipboardData?.items
+  if (!items?.length) return
+
+  const imageItem = Array.from(items).find(item => item.type?.startsWith('image/'))
+  if (!imageItem) return
+
+  const file = imageItem.getAsFile()
+  if (!file) return
+
+  event.preventDefault()
+  setSelectedImage(file)
 }
 
 const clearImage = () => {
@@ -842,8 +1076,8 @@ const getTipoCor = (tipo) => {
 const switchOportunidade = async (opp) => {
   currentOportunidadeId.value = opp.id
   showContextSelector.value = false
-  messages.value = []
-  await loadMessages()
+  resetConversationState()
+  await loadLatestMessages(false, { reset: true, forceScroll: true })
   await syncMessages()
 }
 
@@ -875,13 +1109,13 @@ watch(() => props.show, async (newVal) => {
     showContextSelector.value = false
     
     // 1) Carrega mensagens locais PRIMEIRO (rápido, não bloqueia UI)
-    await loadMessages()
-    scrollToBottom()
+    resetConversationState()
+    await loadLatestMessages(false, { reset: true, forceScroll: true })
     nextTick(() => inputRef.value?.focus())
 
     // 2) Tarefas pesadas em background (não bloqueiam a UI)
     loadOportunidades().catch(() => {})
-    syncMessages().then(() => loadMessages(true)).catch(() => {})
+    syncMessages().catch(() => {})
   }
 })
 
@@ -891,23 +1125,18 @@ onMounted(async () => {
   // Em modo embedded, watch(show) nunca dispara (show=true fixo).
   // Carregamos as mensagens aqui mesmo na montagem inicial.
   if (props.mode === 'embedded' && props.number) {
-    await loadMessages()
-    scrollToBottom()
+    resetConversationState()
+    await loadLatestMessages(false, { reset: true, forceScroll: true })
     nextTick(() => inputRef.value?.focus())
     loadOportunidades().catch(() => {})
-    syncMessages().then(() => loadMessages(true)).catch(() => {})
+    syncMessages().catch(() => {})
   }
 
   interval = setInterval(async () => {
     if (props.show && !loading.value && !syncing.value) {
-      const oldLength = messages.value.length
-      await loadMessages(true)
-
-      if (messages.value.length > oldLength) {
-        const hasNewReceived = messages.value.slice(oldLength).some(m => !m.de_mim)
-        if (hasNewReceived) {
-          markAsRead().catch(() => {})
-        }
+      const { addedCount, hasNewReceived } = await loadLatestMessages(true)
+      if (addedCount > 0 && hasNewReceived) {
+        markAsRead().catch(() => {})
       }
     }
   }, 10000)
@@ -921,19 +1150,16 @@ onUnmounted(() => {
 watch(() => props.number, async (newNum, oldNum) => {
   if (newNum && newNum !== oldNum) {
     // Reseta estado ao trocar de conversa
-    messages.value = []
-    loading.value = false
-    syncing.value = false
+    resetConversationState()
     currentOportunidadeId.value = props.oportunidade
     showContextSelector.value = false
 
-    await loadMessages()
+    await loadLatestMessages(false, { reset: true, forceScroll: true })
 
     // Guard: se o usuário trocou de contato enquanto carregava, aborta esta execução.
     // Sem isso, múltiplos cliques rápidos disparam syncMessages concorrentes para o mesmo número.
     if (props.number !== newNum) return
 
-    scrollToBottom()
     nextTick(() => inputRef.value?.focus())
 
     loadOportunidades().catch(() => {})
