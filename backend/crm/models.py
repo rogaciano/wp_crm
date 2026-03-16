@@ -1299,3 +1299,59 @@ class SessaoTreinamento(models.Model):
 
     def __str__(self):
         return f"{self.modulo.nome} - {self.onboarding.conta.nome_empresa}"
+
+
+class AgendaTreinamento(models.Model):
+    """Agendamento de próximo treinamento (agenda)"""
+    STATUS_AGENDADO = 'AGENDADO'
+    STATUS_REALIZADO = 'REALIZADO'
+    STATUS_CANCELADO = 'CANCELADO'
+    STATUS_REAGENDADO = 'REAGENDADO'
+
+    STATUS_CHOICES = [
+        (STATUS_AGENDADO, 'Agendado'),
+        (STATUS_REALIZADO, 'Realizado'),
+        (STATUS_CANCELADO, 'Cancelado'),
+        (STATUS_REAGENDADO, 'Reagendado'),
+    ]
+
+    onboarding = models.ForeignKey(
+        OnboardingCliente,
+        on_delete=models.CASCADE,
+        related_name='agendamentos'
+    )
+    modulo = models.ForeignKey(
+        ModuloTreinamento,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='agendamentos',
+        help_text='Módulo a ser treinado (opcional)'
+    )
+    titulo = models.CharField(max_length=200, help_text='Título/descrição do agendamento')
+    data = models.DateField(help_text='Data agendada')
+    hora_inicio = models.TimeField(null=True, blank=True)
+    hora_fim = models.TimeField(null=True, blank=True)
+    responsavel = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='agendamentos_treinamento'
+    )
+    observacao = models.TextField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_AGENDADO
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    data_atualizacao = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Agendamento de Treinamento'
+        verbose_name_plural = 'Agendamentos de Treinamento'
+        ordering = ['data', 'hora_inicio']
+
+    def __str__(self):
+        return f"{self.titulo} - {self.data.strftime('%d/%m/%Y')}"

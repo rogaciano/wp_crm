@@ -100,6 +100,11 @@ const router = createRouter({
           component: () => import('@/views/OnboardingDetalheView.vue')
         },
         {
+          path: '/agenda-treinamento',
+          name: 'agenda-treinamento',
+          component: () => import('@/views/AgendaTreinamentoView.vue')
+        },
+        {
           path: '/meu-canal/whatsapp',
           name: 'meu-canal-whatsapp',
           component: () => import('@/views/MeuCanalWhatsappView.vue'),

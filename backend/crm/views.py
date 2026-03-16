@@ -45,7 +45,7 @@ from .models import (
     Canal, User, Conta, Contato, TipoContato, TipoRedeSocial, Funil, EstagioFunil, FunilEstagio, Oportunidade, OportunidadeAnexo, Atividade, Origem,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
     Plano, PlanoAdicional, WhatsappMessage, Log, NumeroBloqueado,
-    ModuloTreinamento, OnboardingCliente, SessaoTreinamento
+    ModuloTreinamento, OnboardingCliente, SessaoTreinamento, AgendaTreinamento
 )
 from .serializers import (
     CanalSerializer, UserSerializer, ContaSerializer, OrigemSerializer,
@@ -55,7 +55,8 @@ from .serializers import (
     PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer,
     WhatsappMessageSlimSerializer, LogSerializer,
     TagSerializer, ModuloTreinamentoSerializer,
-    OnboardingClienteSerializer, OnboardingClienteListSerializer, SessaoTreinamentoSerializer
+    OnboardingClienteSerializer, OnboardingClienteListSerializer, SessaoTreinamentoSerializer,
+    AgendaTreinamentoSerializer
 )
 from .services.ai_service import gerar_analise_diagnostico
 from .services.evolution_api import EvolutionService
@@ -2256,6 +2257,40 @@ class SessaoTreinamentoViewSet(viewsets.ModelViewSet):
         if total > 0 and total == concluidas:
             onboarding.status = OnboardingCliente.STATUS_CONCLUIDO
             onboarding.save(update_fields=['status'])
+
+
+class AgendaTreinamentoViewSet(viewsets.ModelViewSet):
+    """ViewSet para Agendamentos de Treinamento (agenda)"""
+    serializer_class = AgendaTreinamentoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['onboarding', 'status', 'responsavel', 'modulo']
+    search_fields = ['titulo', 'onboarding__conta__nome_empresa']
+    ordering_fields = ['data', 'data_criacao']
+
+    def get_queryset(self):
+        qs = AgendaTreinamento.objects.select_related(
+            'onboarding__conta', 'modulo', 'responsavel'
+        )
+        # Filtro por período
+        data_inicio = self.request.query_params.get('data_inicio')
+        data_fim = self.request.query_params.get('data_fim')
+        if data_inicio:
+            qs = qs.filter(data__gte=data_inicio)
+        if data_fim:
+            qs = qs.filter(data__lte=data_fim)
+        # Filtro para próximos agendamentos
+        proximos = self.request.query_params.get('proximos')
+        if proximos:
+            from datetime import date
+            qs = qs.filter(data__gte=date.today(), status='AGENDADO')
+        return qs
+
+    def perform_create(self, serializer):
+        if not serializer.validated_data.get('responsavel'):
+            serializer.save(responsavel=self.request.user)
+        else:
+            serializer.save()
 
 
 class AtividadeViewSet(viewsets.ModelViewSet):

@@ -11,7 +11,7 @@ from .models import (
     Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade, Origem,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
     Plano, PlanoAdicional, OportunidadeAdicional, OportunidadeAnexo, WhatsappMessage, Log,
-    ModuloTreinamento, OnboardingCliente, SessaoTreinamento
+    ModuloTreinamento, OnboardingCliente, SessaoTreinamento, AgendaTreinamento
 )
 
 
@@ -1473,3 +1473,24 @@ class OnboardingClienteListSerializer(serializers.ModelSerializer):
 
     def get_sessoes_concluidas(self, obj):
         return obj.sessoes.filter(status='CONCLUIDO').count()
+
+
+class AgendaTreinamentoSerializer(serializers.ModelSerializer):
+    onboarding_conta_nome = serializers.CharField(source='onboarding.conta.nome_empresa', read_only=True)
+    modulo_nome = serializers.CharField(source='modulo.nome', read_only=True, default=None)
+    responsavel_nome = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AgendaTreinamento
+        fields = [
+            'id', 'onboarding', 'onboarding_conta_nome',
+            'modulo', 'modulo_nome', 'titulo', 'data',
+            'hora_inicio', 'hora_fim', 'responsavel', 'responsavel_nome',
+            'observacao', 'status', 'data_criacao', 'data_atualizacao'
+        ]
+        read_only_fields = ['data_criacao', 'data_atualizacao']
+
+    def get_responsavel_nome(self, obj):
+        if obj.responsavel:
+            return obj.responsavel.get_full_name() or obj.responsavel.username
+        return None

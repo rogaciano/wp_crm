@@ -224,6 +224,60 @@
           </div>
         </div>
       </div>
+
+      <!-- Agendamentos -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold text-gray-900">Próximos Agendamentos</h2>
+          <button @click="showAgendaModal = true" class="btn btn-primary text-sm">+ Agendar Treinamento</button>
+        </div>
+
+        <div v-if="agendamentos.length === 0" class="card p-5 text-center text-gray-400 text-sm">
+          Nenhum treinamento agendado. Clique em "+ Agendar Treinamento" para criar.
+        </div>
+
+        <div
+          v-for="ag in agendamentos"
+          :key="ag.id"
+          class="card p-4 flex items-center justify-between gap-4 hover:shadow-md transition-all cursor-pointer"
+          @click="editAgendamento(ag)"
+        >
+          <div class="flex items-center gap-4 flex-1 min-w-0">
+            <div class="flex flex-col items-center justify-center w-14 h-14 rounded-xl flex-shrink-0"
+              :class="ag.status === 'REALIZADO' ? 'bg-emerald-50 text-emerald-600' : ag.status === 'CANCELADO' ? 'bg-gray-100 text-gray-400' : 'bg-primary-50 text-primary-600'"
+            >
+              <span class="text-lg font-black leading-none">{{ formatDay(ag.data) }}</span>
+              <span class="text-[10px] font-bold uppercase">{{ formatMonth(ag.data) }}</span>
+            </div>
+            <div class="min-w-0">
+              <h4 class="font-bold text-gray-900 truncate">{{ ag.titulo }}</h4>
+              <div class="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
+                <span v-if="ag.hora_inicio">{{ ag.hora_inicio?.substring(0,5) }}<template v-if="ag.hora_fim"> - {{ ag.hora_fim?.substring(0,5) }}</template></span>
+                <span v-if="ag.modulo_nome">{{ ag.modulo_nome }}</span>
+                <span v-if="ag.responsavel_nome">{{ ag.responsavel_nome }}</span>
+              </div>
+            </div>
+          </div>
+          <span
+            class="text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0"
+            :class="{
+              'bg-blue-50 text-blue-700 border border-blue-100': ag.status === 'AGENDADO',
+              'bg-emerald-50 text-emerald-700 border border-emerald-100': ag.status === 'REALIZADO',
+              'bg-gray-100 text-gray-500 border border-gray-200': ag.status === 'CANCELADO',
+              'bg-amber-50 text-amber-700 border border-amber-100': ag.status === 'REAGENDADO'
+            }"
+          >{{ agStatusLabel(ag.status) }}</span>
+        </div>
+      </div>
+
+      <!-- Modal Agenda -->
+      <AgendaTreinamentoModal
+        :show="showAgendaModal"
+        :agendamento="selectedAgendamento"
+        :onboarding-id="onboarding?.id"
+        @close="closeAgendaModal"
+        @saved="loadAgendamentos"
+      />
     </template>
   </div>
 </template>
@@ -232,6 +286,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/services/api'
+import AgendaTreinamentoModal from '@/components/AgendaTreinamentoModal.vue'
 
 const route = useRoute()
 const onboarding = ref(null)
@@ -240,6 +295,11 @@ const saving = ref(false)
 const expandedSessao = ref(null)
 const usuarios = ref([])
 const contatos = ref([])
+
+// Agenda
+const agendamentos = ref([])
+const showAgendaModal = ref(false)
+const selectedAgendamento = ref(null)
 
 // Signature
 const signatureCanvases = ref({})
@@ -253,6 +313,7 @@ const sessoesConcluidas = computed(() => {
 onMounted(() => {
   loadOnboarding()
   loadUsuarios()
+  loadAgendamentos()
 })
 
 async function loadOnboarding() {
@@ -439,5 +500,38 @@ function formatDuracao(minutos) {
   const h = Math.floor(minutos / 60)
   const m = minutos % 60
   return m > 0 ? `${h}h ${m}min` : `${h}h`
+}
+
+// ===================== Agenda =====================
+async function loadAgendamentos() {
+  try {
+    const res = await api.get('/agenda-treinamento/', { params: { onboarding: route.params.id, ordering: 'data' } })
+    agendamentos.value = res.data.results || res.data
+  } catch (e) { console.error(e) }
+}
+
+function editAgendamento(ag) {
+  selectedAgendamento.value = ag
+  showAgendaModal.value = true
+}
+
+function closeAgendaModal() {
+  showAgendaModal.value = false
+  selectedAgendamento.value = null
+}
+
+function formatDay(d) {
+  if (!d) return ''
+  return new Date(d + 'T00:00:00').getDate().toString().padStart(2, '0')
+}
+
+function formatMonth(d) {
+  if (!d) return ''
+  return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+}
+
+function agStatusLabel(s) {
+  const map = { AGENDADO: 'Agendado', REALIZADO: 'Realizado', CANCELADO: 'Cancelado', REAGENDADO: 'Reagendado' }
+  return map[s] || s
 }
 </script>
