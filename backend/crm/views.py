@@ -3946,12 +3946,65 @@ class TimelineViewSet(viewsets.ViewSet):
 
         # 2. Buscar Dados
         timeline_items = []
+        related_oportunidade_ids = []
+        related_conta_id = None
+        phone_lookup_values = set()
+
+        def add_phone_variants(raw_phone):
+            digits = re.sub(r'\D', '', str(raw_phone or ''))
+            if not digits:
+                return
+
+            candidates = {digits}
+            if digits.startswith('55') and len(digits) > 2:
+                candidates.add(digits[2:])
+            elif len(digits) <= 11:
+                candidates.add(f"55{digits}")
+
+            for number in candidates:
+                if not number:
+                    continue
+                phone_lookup_values.add(number)
+                phone_lookup_values.add(f"{number}@s.whatsapp.net")
+
+        if model_name == 'contato':
+            related_conta_id = entity.conta_id
+            related_oportunidade_ids = list(
+                Oportunidade.objects.filter(
+                    Q(contato_principal=entity) | Q(contatos=entity)
+                ).values_list('id', flat=True).distinct()
+            )
+
+            add_phone_variants(entity.telefone)
+            add_phone_variants(entity.celular)
+            for phone in entity.telefones.values_list('numero', flat=True):
+                add_phone_variants(phone)
+        elif model_name == 'conta':
+            related_oportunidade_ids = list(
+                Oportunidade.objects.filter(
+                    Q(conta=entity) | Q(empresas=entity)
+                ).values_list('id', flat=True).distinct()
+            )
+            add_phone_variants(entity.telefone_principal)
 
         # A. Atividades (Padrão Django ContentType)
         # Precisamos descobrir o ContentType do modelo
         from django.contrib.contenttypes.models import ContentType
         ct = ContentType.objects.get_for_model(entity)
-        atividades = Atividade.objects.filter(content_type=ct, object_id=entity.id).select_related('proprietario')
+        atividades_filter = Q(content_type=ct, object_id=entity.id)
+
+        if model_name == 'contato':
+            if related_conta_id:
+                ct_conta = ContentType.objects.get_for_model(Conta)
+                atividades_filter |= Q(content_type=ct_conta, object_id=related_conta_id)
+            if related_oportunidade_ids:
+                ct_oportunidade = ContentType.objects.get_for_model(Oportunidade)
+                atividades_filter |= Q(content_type=ct_oportunidade, object_id__in=related_oportunidade_ids)
+        elif model_name == 'conta' and related_oportunidade_ids:
+            ct_oportunidade = ContentType.objects.get_for_model(Oportunidade)
+            atividades_filter |= Q(content_type=ct_oportunidade, object_id__in=related_oportunidade_ids)
+
+        atividades = Atividade.objects.filter(atividades_filter).select_related('proprietario')
         
         for item in atividades:
             timeline_items.append({
@@ -3969,22 +4022,25 @@ class TimelineViewSet(viewsets.ViewSet):
 
         # B. WhatsApp Messages
         # Lógica de vínculo varia por modelo
-        msgs = []
+        msgs = WhatsappMessage.objects.none()
         if model_name == 'oportunidade':
             # Mensagens vinculadas diretamente à oportunidade
             # OU mensagens do contato principal da oportunidade (opcional, pode ser complexo filtrar data)
             msgs = WhatsappMessage.objects.filter(oportunidade=entity)
-        elif model_name == 'contato':
-            # Mensagens onde o telefone é do contato
-            telefones = [t.numero for t in entity.telefones.all()] 
-            # Normalizar telefones pode ser necessário.
-            # Por simplicidade, vamos buscar mensagens vinculadas a oportunidades DESTE contato 
-            # OU tentar bater numero (complexo sem normalização)
-            # Vamos assumir vínculo direto se existir campo ou através das oportunidades
-            # POR ORA: Buscamos mensagens vinculadas a oportunidades deste contato
-            msgs = WhatsappMessage.objects.filter(oportunidade__contato_principal=entity)
-            
-            # TODO: Melhorar busca por número de telefone direto
+        elif model_name in ['contato', 'conta']:
+            msg_filter = Q()
+            has_msg_filters = False
+
+            if related_oportunidade_ids:
+                msg_filter |= Q(oportunidade_id__in=related_oportunidade_ids)
+                has_msg_filters = True
+
+            if phone_lookup_values:
+                msg_filter |= Q(numero_remetente__in=phone_lookup_values) | Q(numero_destinatario__in=phone_lookup_values)
+                has_msg_filters = True
+
+            if has_msg_filters:
+                msgs = WhatsappMessage.objects.filter(msg_filter).distinct()
         
         for item in msgs:
             timeline_items.append({
@@ -3995,13 +4051,23 @@ class TimelineViewSet(viewsets.ViewSet):
                 'timestamp': item.timestamp,
                 'author': 'Eu' if item.de_mim else (item.numero_remetente or 'Cliente'),
                 'direction': 'outbound' if item.de_mim else 'inbound',
-                'content': item.texto,
+                'content': item.texto or f"[{item.tipo_mensagem or 'midia'}]",
                 'status': 'read' if item.lida else 'delivered',
                 'data': WhatsappMessageSerializer(item).data
             })
 
         # C. Logs (Audit)
-        logs = Log.objects.filter(modelo=entity.__class__.__name__, objeto_id=entity.id)
+        log_filter = Q(modelo=entity.__class__.__name__, objeto_id=entity.id)
+
+        if model_name == 'contato':
+            if related_conta_id:
+                log_filter |= Q(modelo='Conta', objeto_id=related_conta_id)
+            if related_oportunidade_ids:
+                log_filter |= Q(modelo='Oportunidade', objeto_id__in=related_oportunidade_ids)
+        elif model_name == 'conta' and related_oportunidade_ids:
+            log_filter |= Q(modelo='Oportunidade', objeto_id__in=related_oportunidade_ids)
+
+        logs = Log.objects.filter(log_filter)
         for item in logs:
              timeline_items.append({
                 'id': f"log_{item.id}",
@@ -4029,5 +4095,5 @@ class TimelineViewSet(viewsets.ViewSet):
             'count': len(timeline_items),
             'results': paginated_items,
             'page': page,
-            'pages': (len(timeline_items) // page_size) + 1
+            'pages': max(1, (len(timeline_items) + page_size - 1) // page_size)
         })

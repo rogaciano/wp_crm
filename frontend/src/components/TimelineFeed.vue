@@ -7,19 +7,19 @@
       <div class="flex gap-2">
         <button 
           @click="$emit('action', 'note')"
-          class="flex-1 py-2 px-3 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          class="flex-1 py-2 px-3 bg-yellow-50 hover:bg-yellow-100 text-amber-800 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           <i class="fas fa-sticky-note"></i> Nota
         </button>
         <button 
           @click="$emit('action', 'task')"
-          class="flex-1 py-2 px-3 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          class="flex-1 py-2 px-3 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           <i class="fas fa-check-square"></i> Tarefa
         </button>
         <button 
           @click="$emit('action', 'whatsapp')"
-          class="flex-1 py-2 px-3 bg-green-100 hover:bg-green-200 text-green-800 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          class="flex-1 py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           <i class="fab fa-whatsapp"></i> Whats
         </button>
@@ -63,7 +63,7 @@
 
           <!-- Card Content based on Type -->
           <div 
-            class="rounded-lg p-3 shadow-sm border transaction-all duration-200 hover:shadow-md"
+            class="rounded-lg p-3 shadow-sm border transition-all duration-200 hover:shadow-md"
             :class="getCardClass(item)"
           >
             <!-- WhatsApp -->
@@ -183,13 +183,14 @@ const getIconClass = (item) => {
 const getCardClass = (item) => {
   if (item.type === 'whatsapp') {
     return item.direction === 'outbound'
-      ? 'bg-green-50 border-green-100 text-gray-800'
-      : 'bg-white border-gray-200 text-gray-800'
+      ? 'bg-emerald-50 border-emerald-100 text-gray-800'
+      : 'bg-emerald-50 border-emerald-100 text-gray-800'
   }
 
   if (item.type === 'log') return 'bg-gray-50 border-gray-100 text-gray-500'
 
   if (item.subtype === 'NOTA') return 'bg-yellow-50 border-yellow-100 text-gray-800'
+  if (item.subtype === 'TAREFA') return 'bg-sky-50 border-sky-100 text-gray-800'
 
   return 'bg-white border-gray-200 text-gray-800'
 }
