@@ -533,7 +533,6 @@ const syncMessages = async () => {
   // Proteção contra race condition
   const currentNumber = props.number
   
-  console.log('[WhatsappChat] Iniciando sincronização para número:', currentNumber)
   syncing.value = true
   try {
     const response = await whatsappService.syncMessages({
@@ -545,10 +544,6 @@ const syncMessages = async () => {
 
     // Se mudou de conversa durante o sync, ignora o resultado
     if (currentNumber !== props.number) return
-
-    console.log('[WhatsappChat] Sync result:', response.data)
-    console.log('[WhatsappChat] Mensagens importadas:', response.data.imported)
-    console.log('[WhatsappChat] Mensagens já existentes:', response.data.skipped)
 
     // Recarrega as mensagens mais recentes do banco local
     await loadLatestMessages(true)
