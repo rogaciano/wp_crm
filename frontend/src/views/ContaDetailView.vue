@@ -9,10 +9,16 @@
         <h1 class="text-3xl font-bold text-gray-900">{{ conta.nome_empresa }}</h1>
         <p v-if="conta.cnpj" class="text-gray-600 mt-1">CNPJ: {{ conta.cnpj }}</p>
       </div>
-      <button @click="openEditContaModal" class="btn btn-secondary flex items-center mt-8">
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-        Editar Conta
-      </button>
+      <div class="flex items-center gap-3 mt-8">
+        <button @click="iniciarOnboarding" class="btn btn-primary flex items-center" :disabled="creatingOnboarding">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+          {{ creatingOnboarding ? 'Criando...' : 'Iniciar Onboarding' }}
+        </button>
+        <button @click="openEditContaModal" class="btn btn-secondary flex items-center">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+          Editar Conta
+        </button>
+      </div>
     </div>
 
     <!-- Informações Gerais -->
@@ -377,6 +383,8 @@ const activeTab = ref('contatos')
 const contaTagsIds = ref([])
 const contaTagsDetail = ref([])
 
+const creatingOnboarding = ref(false)
+
 const showEditContaModal = ref(false)
 const showContactModal = ref(false)
 const selectedContato = ref(null)
@@ -417,6 +425,29 @@ function openOportunidadeModal(oportunidade = null) {
 
 function openEditContaModal() {
   showEditContaModal.value = true
+}
+
+async function iniciarOnboarding() {
+  if (!conta.value?.id) return
+  creatingOnboarding.value = true
+  try {
+    // Verifica se já existe onboarding em andamento
+    const check = await api.get('/onboardings/', { params: { conta: conta.value.id, status: 'EM_ANDAMENTO' } })
+    const existentes = check.data.results || check.data
+    if (existentes.length > 0) {
+      if (confirm(`Já existe um onboarding em andamento para esta empresa. Deseja abrir o existente?`)) {
+        router.push(`/onboarding/${existentes[0].id}`)
+      }
+      return
+    }
+    const res = await api.post('/onboardings/', { conta: conta.value.id })
+    router.push(`/onboarding/${res.data.id}`)
+  } catch (err) {
+    console.error('Erro ao criar onboarding:', err)
+    alert('Erro ao criar onboarding.')
+  } finally {
+    creatingOnboarding.value = false
+  }
 }
 
 async function loadContaData() {
