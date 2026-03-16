@@ -286,9 +286,11 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
 import AgendaTreinamentoModal from '@/components/AgendaTreinamentoModal.vue'
 
 const route = useRoute()
+const authStore = useAuthStore()
 const onboarding = ref(null)
 const loading = ref(false)
 const saving = ref(false)
@@ -347,7 +349,11 @@ async function loadContatos(contaId) {
 
 async function loadUsuarios() {
   try {
-    const res = await api.get('/usuarios/')
+    const params = { is_active: true, funis_tipo: 'POS_VENDA' }
+    if (authStore.user?.canal) {
+      params.canal = authStore.user.canal
+    }
+    const res = await api.get('/usuarios/', { params })
     usuarios.value = res.data.results || res.data
   } catch (e) { console.error(e) }
 }

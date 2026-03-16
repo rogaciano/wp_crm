@@ -329,6 +329,13 @@ class UserViewSet(viewsets.ModelViewSet):
     search_fields = ['username', 'email', 'first_name', 'last_name']
     ordering_fields = ['username', 'date_joined']
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        funis_tipo = self.request.query_params.get('funis_tipo')
+        if funis_tipo:
+            qs = qs.filter(funis_acesso__tipo=funis_tipo).distinct()
+        return qs
+
     def get_permissions(self):
         # Permitir listagem e 'me' para usuários autenticados
         if self.action in ['list', 'retrieve', 'me']:
