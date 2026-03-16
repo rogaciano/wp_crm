@@ -753,6 +753,11 @@ async function deleteOportunidade(id) {
 }
 
 function editItem(item) {
+  // Pós-venda/Suporte: abrir a empresa (conta) ao invés da oportunidade
+  if (activeTipoFunil.value !== 'VENDAS' && item.conta) {
+    router.push({ name: 'conta-detail', params: { id: item.conta } })
+    return
+  }
   router.push({
     name: 'oportunidade-detail',
     params: { id: item.id },

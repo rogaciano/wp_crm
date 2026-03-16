@@ -99,11 +99,11 @@
             <span class="text-gray-600">Contatos</span>
             <span class="text-2xl font-bold text-primary-600">{{ contatos.length }}</span>
           </div>
-          <div class="flex justify-between items-center">
+          <div v-if="authStore.hasVendasAccess" class="flex justify-between items-center">
             <span class="text-gray-600">Oportunidades</span>
             <span class="text-2xl font-bold text-green-600">{{ oportunidades.length }}</span>
           </div>
-          <div class="flex justify-between items-center">
+          <div v-if="authStore.hasVendasAccess" class="flex justify-between items-center">
             <span class="text-gray-600">Valor Total</span>
             <span class="text-lg font-bold text-green-600">
               R$ {{ valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
@@ -129,6 +129,7 @@
             Contatos ({{ contatos.length }})
           </button>
           <button
+            v-if="authStore.hasVendasAccess"
             @click="activeTab = 'oportunidades'"
             :class="[
               'py-4 px-1 border-b-2 font-medium text-sm',
@@ -253,7 +254,7 @@
       </div>
 
       <!-- Oportunidades Tab -->
-      <div v-if="activeTab === 'oportunidades'">
+      <div v-if="activeTab === 'oportunidades' && authStore.hasVendasAccess">
         <div class="flex justify-between items-center mb-6">
           <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
             <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -367,6 +368,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
 import ContatoModal from '@/components/ContatoModal.vue'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
 import ContaModal from '@/components/ContaModal.vue'
@@ -375,6 +377,7 @@ import TagInput from '@/components/TagInput.vue'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const conta = ref(null)
 const contatos = ref([])
 const oportunidades = ref([])
