@@ -90,6 +90,16 @@ const router = createRouter({
           component: () => import('@/views/AtividadesView.vue')
         },
         {
+          path: '/onboardings',
+          name: 'onboardings',
+          component: () => import('@/views/OnboardingsView.vue')
+        },
+        {
+          path: '/onboarding/:id',
+          name: 'onboarding-detail',
+          component: () => import('@/views/OnboardingDetalheView.vue')
+        },
+        {
           path: '/meu-canal/whatsapp',
           name: 'meu-canal-whatsapp',
           component: () => import('@/views/MeuCanalWhatsappView.vue'),

@@ -45,7 +45,7 @@ from .models import (
     Canal, User, Conta, Contato, TipoContato, TipoRedeSocial, Funil, EstagioFunil, FunilEstagio, Oportunidade, OportunidadeAnexo, Atividade, Origem,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
     Plano, PlanoAdicional, WhatsappMessage, Log, NumeroBloqueado,
-    ModuloTreinamento
+    ModuloTreinamento, OnboardingCliente, SessaoTreinamento
 )
 from .serializers import (
     CanalSerializer, UserSerializer, ContaSerializer, OrigemSerializer,
@@ -54,7 +54,8 @@ from .serializers import (
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
     PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer,
     WhatsappMessageSlimSerializer, LogSerializer,
-    TagSerializer, ModuloTreinamentoSerializer
+    TagSerializer, ModuloTreinamentoSerializer,
+    OnboardingClienteSerializer, OnboardingClienteListSerializer, SessaoTreinamentoSerializer
 )
 from .services.ai_service import gerar_analise_diagnostico
 from .services.evolution_api import EvolutionService
@@ -2204,6 +2205,57 @@ class ModuloTreinamentoViewSet(viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]
         return [IsAdminUser()]
+
+
+class OnboardingClienteViewSet(viewsets.ModelViewSet):
+    """ViewSet para Fichas de Onboarding"""
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status', 'responsavel', 'conta']
+    search_fields = ['conta__nome_empresa']
+    ordering_fields = ['data_criacao', 'data_inicio']
+
+    def get_queryset(self):
+        return OnboardingCliente.objects.select_related(
+            'conta', 'responsavel', 'oportunidade'
+        ).prefetch_related(
+            'sessoes', 'sessoes__modulo', 'sessoes__treinador', 'sessoes__participantes'
+        )
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return OnboardingClienteListSerializer
+        return OnboardingClienteSerializer
+
+    def perform_create(self, serializer):
+        if not serializer.validated_data.get('responsavel'):
+            serializer.save(responsavel=self.request.user)
+        else:
+            serializer.save()
+
+
+class SessaoTreinamentoViewSet(viewsets.ModelViewSet):
+    """ViewSet para Sessões de Treinamento individuais"""
+    serializer_class = SessaoTreinamentoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['onboarding', 'status', 'modulo']
+
+    def get_queryset(self):
+        return SessaoTreinamento.objects.select_related(
+            'modulo', 'treinador', 'onboarding'
+        ).prefetch_related('participantes')
+
+    def perform_update(self, serializer):
+        serializer.save()
+        # Verifica se todas as sessões do onboarding estão concluídas
+        sessao = serializer.instance
+        onboarding = sessao.onboarding
+        total = onboarding.sessoes.count()
+        concluidas = onboarding.sessoes.filter(status='CONCLUIDO').count()
+        if total > 0 and total == concluidas:
+            onboarding.status = OnboardingCliente.STATUS_CONCLUIDO
+            onboarding.save(update_fields=['status'])
 
 
 class AtividadeViewSet(viewsets.ModelViewSet):

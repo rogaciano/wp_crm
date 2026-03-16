@@ -1171,3 +1171,131 @@ class HistoricoEstagio(models.Model):
         usuario_nome = self.usuario.get_full_name() if self.usuario else 'Sistema'
         obj_id = self.oportunidade_id
         return f"{self.tipo_objeto} #{obj_id}: {self.nome_estagio_anterior} → {self.nome_estagio_novo} por {usuario_nome}"
+
+
+class OnboardingCliente(models.Model):
+    """Ficha de onboarding de um cliente (empresa)"""
+    STATUS_EM_ANDAMENTO = 'EM_ANDAMENTO'
+    STATUS_CONCLUIDO = 'CONCLUIDO'
+    STATUS_PAUSADO = 'PAUSADO'
+    STATUS_CANCELADO = 'CANCELADO'
+
+    STATUS_CHOICES = [
+        (STATUS_EM_ANDAMENTO, 'Em Andamento'),
+        (STATUS_CONCLUIDO, 'Concluído'),
+        (STATUS_PAUSADO, 'Pausado'),
+        (STATUS_CANCELADO, 'Cancelado'),
+    ]
+
+    conta = models.ForeignKey(
+        Conta,
+        on_delete=models.CASCADE,
+        related_name='onboardings'
+    )
+    oportunidade = models.ForeignKey(
+        Oportunidade,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='onboardings',
+        help_text='Oportunidade que originou este onboarding'
+    )
+    responsavel = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='onboardings_responsavel',
+        help_text='Responsável pelo onboarding'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_EM_ANDAMENTO
+    )
+    observacoes = models.TextField(null=True, blank=True)
+    data_inicio = models.DateField(auto_now_add=True)
+    data_conclusao = models.DateField(null=True, blank=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    data_atualizacao = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Onboarding de Cliente'
+        verbose_name_plural = 'Onboardings de Clientes'
+        ordering = ['-data_criacao']
+
+    def __str__(self):
+        return f"Onboarding - {self.conta.nome_empresa}"
+
+    @property
+    def progresso(self):
+        """Retorna o percentual de sessões concluídas"""
+        total = self.sessoes.count()
+        if total == 0:
+            return 0
+        concluidas = self.sessoes.filter(status='CONCLUIDO').count()
+        return round((concluidas / total) * 100)
+
+
+class SessaoTreinamento(models.Model):
+    """Sessão individual de treinamento dentro de um onboarding"""
+    STATUS_PENDENTE = 'PENDENTE'
+    STATUS_CONCLUIDO = 'CONCLUIDO'
+    STATUS_CANCELADO = 'CANCELADO'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDENTE, 'Pendente'),
+        (STATUS_CONCLUIDO, 'Concluído'),
+        (STATUS_CANCELADO, 'Cancelado'),
+    ]
+
+    onboarding = models.ForeignKey(
+        OnboardingCliente,
+        on_delete=models.CASCADE,
+        related_name='sessoes'
+    )
+    modulo = models.ForeignKey(
+        ModuloTreinamento,
+        on_delete=models.PROTECT,
+        related_name='sessoes'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDENTE
+    )
+    data = models.DateField(null=True, blank=True, help_text='Data do treinamento')
+    hora_inicio = models.TimeField(null=True, blank=True)
+    hora_fim = models.TimeField(null=True, blank=True)
+    observacao = models.TextField(null=True, blank=True)
+
+    # Quem treinou
+    treinador = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sessoes_como_treinador'
+    )
+
+    # Quem participou da empresa (M2M)
+    participantes = models.ManyToManyField(
+        Contato,
+        blank=True,
+        related_name='sessoes_treinamento',
+        help_text='Contatos da empresa que participaram'
+    )
+
+    # Assinatura (base64 da imagem capturada no frontend)
+    assinatura = models.TextField(null=True, blank=True, help_text='Assinatura digital em base64')
+
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    data_atualizacao = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Sessão de Treinamento'
+        verbose_name_plural = 'Sessões de Treinamento'
+        ordering = ['onboarding', 'modulo__ordem']
+
+    def __str__(self):
+        return f"{self.modulo.nome} - {self.onboarding.conta.nome_empresa}"

@@ -11,7 +11,7 @@ from .models import (
     Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade, Origem,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
     Plano, PlanoAdicional, OportunidadeAdicional, OportunidadeAnexo, WhatsappMessage, Log,
-    ModuloTreinamento
+    ModuloTreinamento, OnboardingCliente, SessaoTreinamento
 )
 
 
@@ -1384,3 +1384,92 @@ class HistoricoEstagioSerializer(serializers.ModelSerializer):
     
     def get_data_mudanca_formatada(self, obj):
         return obj.data_mudanca.strftime('%d/%m/%Y às %H:%M')
+
+
+class SessaoTreinamentoSerializer(serializers.ModelSerializer):
+    modulo_nome = serializers.CharField(source='modulo.nome', read_only=True)
+    modulo_carga_horaria = serializers.IntegerField(source='modulo.carga_horaria_estimada', read_only=True)
+    treinador_nome = serializers.SerializerMethodField()
+    participantes_detalhe = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SessaoTreinamento
+        fields = [
+            'id', 'onboarding', 'modulo', 'modulo_nome', 'modulo_carga_horaria',
+            'status', 'data', 'hora_inicio', 'hora_fim', 'observacao',
+            'treinador', 'treinador_nome', 'participantes', 'participantes_detalhe',
+            'assinatura', 'data_criacao', 'data_atualizacao'
+        ]
+        read_only_fields = ['data_criacao', 'data_atualizacao']
+
+    def get_treinador_nome(self, obj):
+        if obj.treinador:
+            return obj.treinador.get_full_name() or obj.treinador.username
+        return None
+
+    def get_participantes_detalhe(self, obj):
+        return [
+            {'id': c.id, 'nome': c.nome}
+            for c in obj.participantes.all()
+        ]
+
+
+class OnboardingClienteSerializer(serializers.ModelSerializer):
+    conta_nome = serializers.CharField(source='conta.nome_empresa', read_only=True)
+    responsavel_nome = serializers.SerializerMethodField()
+    oportunidade_nome = serializers.CharField(source='oportunidade.nome', read_only=True, default=None)
+    sessoes = SessaoTreinamentoSerializer(many=True, read_only=True)
+    progresso = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = OnboardingCliente
+        fields = [
+            'id', 'conta', 'conta_nome', 'oportunidade', 'oportunidade_nome',
+            'responsavel', 'responsavel_nome', 'status', 'observacoes',
+            'data_inicio', 'data_conclusao', 'data_criacao', 'data_atualizacao',
+            'sessoes', 'progresso'
+        ]
+        read_only_fields = ['data_criacao', 'data_atualizacao', 'data_inicio']
+
+    def get_responsavel_nome(self, obj):
+        if obj.responsavel:
+            return obj.responsavel.get_full_name() or obj.responsavel.username
+        return None
+
+    def create(self, validated_data):
+        onboarding = super().create(validated_data)
+        # Auto-criar sessões para todos os módulos ativos
+        modulos = ModuloTreinamento.objects.filter(ativo=True).order_by('ordem')
+        for modulo in modulos:
+            SessaoTreinamento.objects.create(
+                onboarding=onboarding,
+                modulo=modulo
+            )
+        return onboarding
+
+
+class OnboardingClienteListSerializer(serializers.ModelSerializer):
+    """Serializer leve para listagem"""
+    conta_nome = serializers.CharField(source='conta.nome_empresa', read_only=True)
+    responsavel_nome = serializers.SerializerMethodField()
+    progresso = serializers.IntegerField(read_only=True)
+    total_sessoes = serializers.SerializerMethodField()
+    sessoes_concluidas = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OnboardingCliente
+        fields = [
+            'id', 'conta', 'conta_nome', 'responsavel', 'responsavel_nome',
+            'status', 'data_inicio', 'progresso', 'total_sessoes', 'sessoes_concluidas'
+        ]
+
+    def get_responsavel_nome(self, obj):
+        if obj.responsavel:
+            return obj.responsavel.get_full_name() or obj.responsavel.username
+        return None
+
+    def get_total_sessoes(self, obj):
+        return obj.sessoes.count()
+
+    def get_sessoes_concluidas(self, obj):
+        return obj.sessoes.filter(status='CONCLUIDO').count()
