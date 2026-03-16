@@ -154,7 +154,7 @@ class CanalSerializer(serializers.ModelSerializer):
             'id', 'nome', 'slug', 'estado', 'cor', 'responsavel', 'responsavel_nome', 'total_vendedores',
             'funil_padrao', 'funil_padrao_nome', 'estagio_inicial', 'estagio_inicial_nome',
             'evolution_instance_name', 'evolution_is_connected', 'evolution_last_status',
-            'evolution_phone_number', 'data_criacao'
+            'evolution_phone_number', 'encaminhar_whatsapp_responsavel', 'data_criacao'
         ]
         read_only_fields = [
             'data_criacao', 'evolution_is_connected', 'evolution_last_status',
@@ -1486,7 +1486,7 @@ class AgendaTreinamentoSerializer(serializers.ModelSerializer):
             'id', 'onboarding', 'onboarding_conta_nome',
             'modulo', 'modulo_nome', 'titulo', 'data',
             'hora_inicio', 'hora_fim', 'responsavel', 'responsavel_nome',
-            'observacao', 'status', 'data_criacao', 'data_atualizacao'
+            'observacao', 'modalidade', 'status', 'data_criacao', 'data_atualizacao'
         ]
         read_only_fields = ['data_criacao', 'data_atualizacao']
 

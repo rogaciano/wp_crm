@@ -3755,7 +3755,38 @@ class WhatsappWebhookView(APIView):
                     
                     # Tenta linkar com Lead/Oportunidade
                     EvolutionService.identify_and_link_message(msg_obj)
-                    
+
+                    # Encaminha para responsável do canal (se habilitado)
+                    if not from_me and msg_obj.oportunidade_id:
+                        try:
+                            msg_obj.refresh_from_db()
+                            opp = msg_obj.oportunidade
+                            if opp and opp.canal and opp.canal.encaminhar_whatsapp_responsavel:
+                                canal_obj = opp.canal
+                                resp = canal_obj.responsavel
+                                if resp and resp.telefone:
+                                    resp_number = ''.join(filter(str.isdigit, resp.telefone))
+                                    # Evita loop: não encaminha se o remetente é o próprio responsável
+                                    if resp_number and resp_number not in (remote_number, f'55{remote_number}'):
+                                        service_fwd = EvolutionService.for_canal(canal_obj)
+                                        conta_nome = opp.conta.nome_empresa if opp.conta else ''
+                                        contato_nome = opp.contato.nome if opp.contato else remote_number
+                                        header = f"📩 *{contato_nome}*"
+                                        if conta_nome:
+                                            header += f" ({conta_nome})"
+                                        fwd_text = f"{header}\n\n{text}"
+                                        import threading as _threading
+                                        def _forward(svc, num, txt):
+                                            try:
+                                                svc.send_text(num, txt)
+                                            except Exception as fe:
+                                                logger.error(f"[WEBHOOK] Erro ao encaminhar msg para responsável: {fe}")
+                                        t = _threading.Thread(target=_forward, args=(service_fwd, resp_number, fwd_text))
+                                        t.daemon = True
+                                        t.start()
+                        except Exception as fwd_err:
+                            logger.error(f"[WEBHOOK] Erro ao verificar encaminhamento: {fwd_err}")
+
                     # Processamento assíncrono de mídia (imagens e áudios)
                     if needs_async_processing and mtype in ['image', 'audio']:
                         import threading

@@ -57,14 +57,23 @@
             </select>
           </div>
 
-          <div v-if="isEditing">
-            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Status</label>
-            <select v-model="form.status" class="input">
-              <option value="AGENDADO">Agendado</option>
-              <option value="REALIZADO">Realizado</option>
-              <option value="CANCELADO">Cancelado</option>
-              <option value="REAGENDADO">Reagendado</option>
-            </select>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Modalidade</label>
+              <select v-model="form.modalidade" class="input">
+                <option value="ONLINE">Online</option>
+                <option value="PRESENCIAL">Presencial</option>
+              </select>
+            </div>
+            <div v-if="isEditing">
+              <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Status</label>
+              <select v-model="form.status" class="input">
+                <option value="AGENDADO">Agendado</option>
+                <option value="REALIZADO">Realizado</option>
+                <option value="CANCELADO">Cancelado</option>
+                <option value="REAGENDADO">Reagendado</option>
+              </select>
+            </div>
           </div>
 
           <div>
@@ -128,6 +137,7 @@ function getEmptyForm() {
     modulo: null,
     responsavel: null,
     observacao: '',
+    modalidade: 'ONLINE',
     status: 'AGENDADO'
   }
 }
@@ -145,6 +155,7 @@ watch(() => props.show, async (val) => {
         modulo: props.agendamento.modulo || null,
         responsavel: props.agendamento.responsavel || null,
         observacao: props.agendamento.observacao || '',
+        modalidade: props.agendamento.modalidade || 'ONLINE',
         status: props.agendamento.status || 'AGENDADO'
       }
     } else {

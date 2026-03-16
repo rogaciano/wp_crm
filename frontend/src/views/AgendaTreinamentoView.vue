@@ -76,6 +76,9 @@
                     {{ ag.hora_inicio?.substring(0,5) }}
                     <template v-if="ag.hora_fim"> - {{ ag.hora_fim?.substring(0,5) }}</template>
                   </span>
+                  <span v-if="ag.modalidade" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold"
+                    :class="ag.modalidade === 'ONLINE' ? 'bg-sky-50 text-sky-600' : 'bg-orange-50 text-orange-600'"
+                  >{{ ag.modalidade === 'ONLINE' ? '🖥 Online' : '🏢 Presencial' }}</span>
                   <span v-if="ag.responsavel_nome" class="flex items-center gap-1">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                     {{ ag.responsavel_nome }}

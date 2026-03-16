@@ -253,6 +253,9 @@
               <h4 class="font-bold text-gray-900 truncate">{{ ag.titulo }}</h4>
               <div class="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
                 <span v-if="ag.hora_inicio">{{ ag.hora_inicio?.substring(0,5) }}<template v-if="ag.hora_fim"> - {{ ag.hora_fim?.substring(0,5) }}</template></span>
+                <span v-if="ag.modalidade" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold"
+                  :class="ag.modalidade === 'ONLINE' ? 'bg-sky-50 text-sky-600' : 'bg-orange-50 text-orange-600'"
+                >{{ ag.modalidade === 'ONLINE' ? '🖥 Online' : '🏢 Presencial' }}</span>
                 <span v-if="ag.modulo_nome">{{ ag.modulo_nome }}</span>
                 <span v-if="ag.responsavel_nome">{{ ag.responsavel_nome }}</span>
               </div>

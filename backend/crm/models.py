@@ -87,6 +87,10 @@ class Canal(models.Model):
         default='#F97316',
         help_text="Cor hexadecimal do canal para exibição no mapa (ex: #F97316)"
     )
+    encaminhar_whatsapp_responsavel = models.BooleanField(
+        default=False,
+        help_text="Se ativo, encaminha mensagens WhatsApp recebidas nas oportunidades deste canal para o responsável"
+    )
 
     class Meta:
         verbose_name = 'Canal'
@@ -1315,6 +1319,14 @@ class AgendaTreinamento(models.Model):
         (STATUS_REAGENDADO, 'Reagendado'),
     ]
 
+    MODALIDADE_ONLINE = 'ONLINE'
+    MODALIDADE_PRESENCIAL = 'PRESENCIAL'
+
+    MODALIDADE_CHOICES = [
+        (MODALIDADE_ONLINE, 'Online'),
+        (MODALIDADE_PRESENCIAL, 'Presencial'),
+    ]
+
     onboarding = models.ForeignKey(
         OnboardingCliente,
         on_delete=models.CASCADE,
@@ -1340,6 +1352,12 @@ class AgendaTreinamento(models.Model):
         related_name='agendamentos_treinamento'
     )
     observacao = models.TextField(null=True, blank=True)
+    modalidade = models.CharField(
+        max_length=15,
+        choices=MODALIDADE_CHOICES,
+        default=MODALIDADE_ONLINE,
+        help_text='Online ou Presencial'
+    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,

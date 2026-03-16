@@ -259,7 +259,7 @@
                 {{ item.status_cliente_display }}
               </span>
               
-              <h4 class="font-black text-gray-800 mb-2 leading-tight group-hover:text-primary-600 transition-colors pr-24">{{ item.nome }}</h4>
+              <h4 class="font-black text-gray-800 mb-2 leading-tight group-hover:text-primary-600 transition-colors pr-24">{{ activeTipoFunil !== 'VENDAS' && item.conta_nome && item.conta_nome !== 'N/A' ? item.conta_nome : item.nome }}</h4>
 
               <div v-if="item.tags_detail?.length" class="mb-3 flex flex-wrap gap-1.5">
                 <span
