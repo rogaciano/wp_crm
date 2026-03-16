@@ -316,19 +316,22 @@
                      {{ item.whatsapp_nao_lidas }}
                    </span>
                  </button>
-                 <button @click.stop="openFaturamentoModal(item)" class="action-btn text-emerald-600 bg-white border border-emerald-100 shadow-lg" title="Faturamento">
+                 <button v-if="activeTipoFunil !== 'VENDAS' && item.conta" @click.stop="goToOnboarding(item)" class="action-btn text-orange-600 bg-white border border-orange-100 shadow-lg" title="Onboarding">
+                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                 </button>
+                 <button v-if="activeTipoFunil === 'VENDAS'" @click.stop="openFaturamentoModal(item)" class="action-btn text-emerald-600 bg-white border border-emerald-100 shadow-lg" title="Faturamento">
                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                  </button>
-                 <button v-if="item.plano" @click.stop="openPropostaPreview(item.id)" class="action-btn text-purple-600 bg-white border border-purple-100 shadow-lg" title="Gerar Proposta">
+                 <button v-if="activeTipoFunil === 'VENDAS' && item.plano" @click.stop="openPropostaPreview(item.id)" class="action-btn text-purple-600 bg-white border border-purple-100 shadow-lg" title="Gerar Proposta">
                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1.01.293.707V19a2 2 0 01-2 2z" /></svg>
                  </button>
-                 <button v-if="item.plano" @click.stop="copyBillingInfo(item.id)" class="action-btn text-indigo-600 bg-white border border-indigo-100 shadow-lg" title="Copiar Faturamento">
+                 <button v-if="activeTipoFunil === 'VENDAS' && item.plano" @click.stop="copyBillingInfo(item.id)" class="action-btn text-indigo-600 bg-white border border-indigo-100 shadow-lg" title="Copiar Faturamento">
                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 4h.01M9 16h5m0 0l-1-1m1 1l-1 1" /></svg>
                  </button>
-                 <button @click.stop="editItem(item)" class="action-btn text-primary-600 bg-white border border-primary-100 shadow-lg" title="Editar">
+                 <button v-if="activeTipoFunil === 'VENDAS'" @click.stop="editItem(item)" class="action-btn text-primary-600 bg-white border border-primary-100 shadow-lg" title="Editar">
                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                  </button>
-                 <button @click.stop="deleteOportunidade(item.id)" class="action-btn text-red-600 bg-white border border-red-100 shadow-lg" title="Excluir">
+                 <button v-if="activeTipoFunil === 'VENDAS'" @click.stop="deleteOportunidade(item.id)" class="action-btn text-red-600 bg-white border border-red-100 shadow-lg" title="Excluir">
                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                  </button>
               </div>
@@ -763,6 +766,25 @@ function editItem(item) {
     params: { id: item.id },
     query: { from: 'kanban' }
   })
+}
+
+async function goToOnboarding(item) {
+  if (!item.conta) return
+  try {
+    // Verificar se já existe onboarding em andamento
+    const check = await api.get('/onboardings/', { params: { conta: item.conta, status: 'EM_ANDAMENTO' } })
+    const existentes = check.data.results || check.data
+    if (existentes.length > 0) {
+      router.push(`/onboarding/${existentes[0].id}`)
+      return
+    }
+    // Criar novo onboarding
+    const res = await api.post('/onboardings/', { conta: item.conta })
+    router.push(`/onboarding/${res.data.id}`)
+  } catch (err) {
+    console.error('Erro ao acessar onboarding:', err)
+    alert('Erro ao acessar onboarding.')
+  }
 }
 
 function closeModal() {
