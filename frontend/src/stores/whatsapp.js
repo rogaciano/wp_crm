@@ -165,7 +165,6 @@ export const useWhatsappStore = defineStore('whatsapp', {
 
                 this.ws.onopen = () => {
                     this.wsConectado = true
-                    console.log(`[WS] Conectado ao canal ${this.canalAtual.id}`)
                 }
 
                 this.ws.onmessage = (event) => {
@@ -181,7 +180,6 @@ export const useWhatsappStore = defineStore('whatsapp', {
 
                 this.ws.onclose = (event) => {
                     this.wsConectado = false
-                    console.log(`[WS] Desconectado (code=${event.code})`)
                     // Reconecta automaticamente (exceto se foi desconexão intencional ou erro de autenticação)
                     if (event.code !== 1000 && event.code !== 4001 && event.code !== 4003) {
                         this.wsReconnectTimer = setTimeout(() => this.conectarWebSocket(), 5000)
