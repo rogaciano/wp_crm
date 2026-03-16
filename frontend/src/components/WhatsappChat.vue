@@ -4,7 +4,7 @@
     <!-- Messages Area (embedded) -->
     <div 
       ref="messageContainer" 
-      class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#e5ddd5] chat-bg scroll-smooth"
+      class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#e5ddd5] chat-bg"
       @scroll="handleScroll"
     >
       <!-- conteúdo reutiliza o mesmo bloco de mensagens via slot referência -->
@@ -158,7 +158,7 @@
       <!-- Messages Area -->
       <div 
         ref="messageContainer" 
-        class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#e5ddd5] chat-bg scroll-smooth"
+        class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#e5ddd5] chat-bg"
         @scroll="handleScroll"
       >
         <div v-if="loading && messages.length === 0" class="flex justify-center py-4">
@@ -916,6 +916,8 @@ const send = async () => {
 const scrollToBottom = () => {
   nextTick(() => {
     if (messageContainer.value) {
+      // Evita animação visual de "leitura" ao abrir conversas longas.
+      messageContainer.value.style.scrollBehavior = 'auto'
       messageContainer.value.scrollTop = messageContainer.value.scrollHeight
     }
   })
