@@ -624,6 +624,27 @@ class PlanoAdicional(models.Model):
         return f"{self.nome} - R$ {self.preco}"
 
 
+class ModuloTreinamento(models.Model):
+    """Módulo de treinamento para onboarding de clientes"""
+    nome = models.CharField(max_length=150, help_text='Nome do módulo (ex: Financeiro, Estoque, Vendas)')
+    descricao = models.TextField(null=True, blank=True, help_text='Conteúdo/escopo do módulo')
+    carga_horaria_estimada = models.PositiveIntegerField(
+        default=60,
+        help_text='Duração estimada em minutos'
+    )
+    ordem = models.PositiveIntegerField(default=0, help_text='Ordem de exibição na sequência padrão')
+    ativo = models.BooleanField(default=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Módulo de Treinamento'
+        verbose_name_plural = 'Módulos de Treinamento'
+        ordering = ['ordem', 'nome']
+
+    def __str__(self):
+        return self.nome
+
+
 class Oportunidade(models.Model):
     """Oportunidade - Negócio/Venda em potencial"""
     nome = models.CharField(max_length=255)

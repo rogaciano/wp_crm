@@ -44,7 +44,8 @@ def parse_bool_param(raw_value):
 from .models import (
     Canal, User, Conta, Contato, TipoContato, TipoRedeSocial, Funil, EstagioFunil, FunilEstagio, Oportunidade, OportunidadeAnexo, Atividade, Origem,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
-    Plano, PlanoAdicional, WhatsappMessage, Log, NumeroBloqueado
+    Plano, PlanoAdicional, WhatsappMessage, Log, NumeroBloqueado,
+    ModuloTreinamento
 )
 from .serializers import (
     CanalSerializer, UserSerializer, ContaSerializer, OrigemSerializer,
@@ -53,7 +54,7 @@ from .serializers import (
     DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer,
     PlanoSerializer, PlanoAdicionalSerializer, FunilSerializer, WhatsappMessageSerializer,
     WhatsappMessageSlimSerializer, LogSerializer,
-    TagSerializer
+    TagSerializer, ModuloTreinamentoSerializer
 )
 from .services.ai_service import gerar_analise_diagnostico
 from .services.evolution_api import EvolutionService
@@ -2188,6 +2189,17 @@ class PlanoAdicionalViewSet(viewsets.ModelViewSet):
     queryset = PlanoAdicional.objects.all()
     serializer_class = PlanoAdicionalSerializer
     
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
+
+
+class ModuloTreinamentoViewSet(viewsets.ModelViewSet):
+    """ViewSet para CRUD de Módulos de Treinamento (Admin cria/edita, todos leem)"""
+    queryset = ModuloTreinamento.objects.all()
+    serializer_class = ModuloTreinamentoSerializer
+
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]

@@ -10,7 +10,8 @@ from .models import (
     Canal, User, Conta, Contato, TipoContato, TipoRedeSocial, ContatoRedeSocial,
     Funil, EstagioFunil, FunilEstagio, Oportunidade, Atividade, Origem,
     DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado,
-    Plano, PlanoAdicional, OportunidadeAdicional, OportunidadeAnexo, WhatsappMessage, Log
+    Plano, PlanoAdicional, OportunidadeAdicional, OportunidadeAnexo, WhatsappMessage, Log,
+    ModuloTreinamento
 )
 
 
@@ -983,6 +984,13 @@ class PlanoAdicionalSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlanoAdicional
         fields = '__all__'
+
+
+class ModuloTreinamentoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ModuloTreinamento
+        fields = '__all__'
+        read_only_fields = ['data_criacao']
 
 
 class OportunidadeAdicionalSerializer(serializers.ModelSerializer):

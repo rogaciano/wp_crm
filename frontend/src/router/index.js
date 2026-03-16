@@ -172,6 +172,12 @@ const router = createRouter({
           name: 'admin-mapa',
           component: () => import('@/views/admin/MapaView.vue'),
           meta: { requiresAdmin: true }
+        },
+        {
+          path: '/config/modulos-treinamento',
+          name: 'admin-modulos-treinamento',
+          component: () => import('@/views/admin/ModulosTreinamentoView.vue'),
+          meta: { requiresAdmin: true }
         }
       ]
     }

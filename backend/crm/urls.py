@@ -8,7 +8,8 @@ from .views import (
     ContatoViewSet, EstagioFunilViewSet, OportunidadeViewSet, AtividadeViewSet,
     DiagnosticoViewSet, PlanoViewSet, PlanoAdicionalViewSet, FunilViewSet, TipoContatoViewSet,
     TipoRedeSocialViewSet, WhatsappViewSet, WhatsappWebhookView, LogViewSet, OrganogramaViewSet,
-    TagViewSet, OportunidadeAnexoViewSet, TimelineViewSet, ContaMapaView, MapaCanalView
+    TagViewSet, OportunidadeAnexoViewSet, TimelineViewSet, ContaMapaView, MapaCanalView,
+    ModuloTreinamentoViewSet
 )
 from .views_dashboard import DashboardViewSet
 from .views_atendimento import InboxConversasView, InboxCanaisView
@@ -36,6 +37,7 @@ router.register(r'adicionais-plano', PlanoAdicionalViewSet, basename='adicional-
 router.register(r'logs', LogViewSet, basename='log')
 router.register(r'timeline', TimelineViewSet, basename='timeline')
 router.register(r'organograma', OrganogramaViewSet, basename='organograma')
+router.register(r'modulos-treinamento', ModuloTreinamentoViewSet, basename='modulo-treinamento')
 
 urlpatterns = [
     path('contas/mapa/', ContaMapaView.as_view(), name='contas-mapa'),
