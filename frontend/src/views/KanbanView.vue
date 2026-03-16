@@ -479,6 +479,12 @@
       @saved="handleSaved"
     />
 
+    <ContaQuickViewModal
+      :show="showContaQuickView"
+      :conta-id="quickViewContaId"
+      @close="showContaQuickView = false"
+    />
+
   </div>
 </template>
 
@@ -492,6 +498,7 @@ import { storeToRefs } from 'pinia'
 import OportunidadeModal from '@/components/OportunidadeModal.vue'
 import WhatsappChat from '@/components/WhatsappChat.vue'
 import FaturamentoModal from '@/components/FaturamentoModal.vue'
+import ContaQuickViewModal from '@/components/ContaQuickViewModal.vue'
 import api from '@/services/api'
 
 const route = useRoute()
@@ -514,6 +521,8 @@ const searchTerm = ref('')
 const tagsOptions = ref([])
 const selectedTagIds = ref([])
 const showTagFilter = ref(false)
+const showContaQuickView = ref(false)
+const quickViewContaId = ref(null)
 
 const activeTipoFunil = ref(route.query.tipo || 'VENDAS')
 
@@ -756,9 +765,10 @@ async function deleteOportunidade(id) {
 }
 
 function editItem(item) {
-  // Pós-venda/Suporte: abrir a empresa (conta) ao invés da oportunidade
+  // Pós-venda/Suporte: abrir modal rápido da empresa
   if (activeTipoFunil.value !== 'VENDAS' && item.conta) {
-    router.push({ name: 'conta-detail', params: { id: item.conta } })
+    quickViewContaId.value = item.conta
+    showContaQuickView.value = true
     return
   }
   router.push({
