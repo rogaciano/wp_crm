@@ -211,7 +211,12 @@ router.beforeEach(async (to, from, next) => {
   } else {
     // Busca dados do usuário se necessário
     if (authStore.isAuthenticated && !authStore.user) {
-      await authStore.fetchUser()
+      try {
+        await authStore.fetchUser()
+      } catch (e) {
+        authStore.logout()
+        return next('/login')
+      }
     }
     next()
   }
