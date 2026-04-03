@@ -494,6 +494,7 @@ class ContaViewSet(viewsets.ModelViewSet):
     """ViewSet para Contas"""
     serializer_class = ContaSerializer
     permission_classes = [HierarchyPermission]
+    pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['setor', 'estado', 'tags', 'status_cliente']
     search_fields = ['nome_empresa', 'cnpj', 'email']
