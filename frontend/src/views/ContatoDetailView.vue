@@ -122,10 +122,16 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
               Oportunidades
+              <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-bold">
+                {{ contato?.oportunidades?.length || 0 }}
+              </span>
             </h2>
-            <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-bold">
-              {{ contato?.oportunidades?.length || 0 }}
-            </span>
+            <button @click="openOportunidadeModal()" class="btn btn-primary shadow-sm flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Nova Oportunidade
+            </button>
           </div>
           
           <div v-if="contato?.oportunidades?.length" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -253,6 +259,18 @@
       @saved="handleSaved"
     />
 
+    <OportunidadeModal
+      :show="showOportunidadeModal"
+      :oportunidade="null"
+      :fixed-conta-id="contato?.conta || null"
+      :fixed-contato-principal-id="contato?.id || null"
+      :fixed-contatos-ids="contato?.id ? [contato.id] : []"
+      :fixed-empresas-ids="contato?.conta ? [contato.conta] : []"
+      :fixed-canal-id="contato?.canal || null"
+      @close="showOportunidadeModal = false"
+      @saved="handleOportunidadeSaved"
+    />
+
     <WhatsappChat
       :show="showWhatsapp"
       :number="whatsappData.number"
@@ -268,6 +286,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import ContatoModal from '@/components/ContatoModal.vue'
+import OportunidadeModal from '@/components/OportunidadeModal.vue'
 import TimelineFeed from '@/components/TimelineFeed.vue'
 import WhatsappChat from '@/components/WhatsappChat.vue'
 import TagInput from '@/components/TagInput.vue'
@@ -279,6 +298,7 @@ const router = useRouter()
 const contato = ref(null)
 const loading = ref(false)
 const showEditModal = ref(false)
+const showOportunidadeModal = ref(false)
 const showWhatsapp = ref(false)
 const whatsappData = ref({ number: '', title: '', oportunidade: null })
 const contatoTagsIds = ref([])
@@ -353,8 +373,16 @@ function handleTimelineAction(action) {
 }
 
 function irParaOportunidade(id) {
-  router.push(`/kanban`) // Por enquanto volta pro kanban, ou se tiver rota de detalhe de oportunidade...
-  // TODO: Se houver OportunidadeDetailView, navegar para lá.
+  router.push({ name: 'oportunidade-detail', params: { id } })
+}
+
+function openOportunidadeModal() {
+  showOportunidadeModal.value = true
+}
+
+async function handleOportunidadeSaved() {
+  showOportunidadeModal.value = false
+  await loadContato()
 }
 
 function formatDate(dateString) {
