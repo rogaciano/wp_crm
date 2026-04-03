@@ -834,6 +834,7 @@ class ContatoViewSet(viewsets.ModelViewSet):
     """ViewSet para Contatos"""
     serializer_class = ContatoSerializer
     permission_classes = [HierarchyPermission]
+    pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['conta', 'tipo', 'canal', 'tags', 'proprietario']
     search_fields = ['nome', 'email', 'conta__nome_empresa']

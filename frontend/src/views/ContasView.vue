@@ -20,11 +20,11 @@
           type="text"
           placeholder="Buscar por nome, CNPJ ou email..."
           class="input flex-1"
-          @input="loadContas"
+          @input="debouncedSearch"
         />
         <select 
           v-model="selectedCanal" 
-          @change="loadContas"
+          @change="resetAndLoad"
           class="input sm:w-48"
         >
           <option :value="null">Todos os Canais</option>
@@ -34,7 +34,7 @@
         </select>
         <select
           v-model="selectedVisaoComercial"
-          @change="loadContas"
+          @change="resetAndLoad"
           class="input sm:w-56"
         >
           <option value="">Todas as Visões</option>
@@ -52,8 +52,18 @@
     </div>
 
     <div v-else class="space-y-3">
-      <div class="text-xs font-bold uppercase tracking-widest text-gray-500">
-        {{ contas.length }} conta(s) exibida(s)
+      <div class="flex items-center justify-between">
+        <div class="text-xs font-bold uppercase tracking-widest text-gray-500">
+          {{ totalCount }} conta(s) encontrada(s) · Página {{ currentPage }} de {{ totalPages }}
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-gray-500">Por página:</label>
+          <select v-model.number="pageSize" @change="resetAndLoad" class="input !w-20 !py-1 text-xs">
+            <option :value="20">20</option>
+            <option :value="50">50</option>
+            <option :value="100">100</option>
+          </select>
+        </div>
       </div>
 
       <div class="card p-0 overflow-hidden">
@@ -119,6 +129,42 @@
           </table>
         </div>
       </div>
+
+      <!-- Paginação -->
+      <div v-if="totalPages > 1" class="flex items-center justify-between pt-2">
+        <button
+          class="btn btn-white text-sm"
+          :disabled="currentPage <= 1"
+          @click="goToPage(currentPage - 1)"
+        >
+          ← Anterior
+        </button>
+
+        <div class="flex items-center gap-1">
+          <button
+            v-for="page in visiblePages"
+            :key="page"
+            class="min-w-[36px] h-9 rounded-lg text-sm font-semibold transition-colors"
+            :class="page === currentPage
+              ? 'bg-primary-600 text-white shadow-sm'
+              : page === '...'
+                ? 'cursor-default text-gray-400'
+                : 'text-gray-600 hover:bg-gray-100'"
+            :disabled="page === '...'"
+            @click="page !== '...' && goToPage(page)"
+          >
+            {{ page }}
+          </button>
+        </div>
+
+        <button
+          class="btn btn-white text-sm"
+          :disabled="currentPage >= totalPages"
+          @click="goToPage(currentPage + 1)"
+        >
+          Próxima →
+        </button>
+      </div>
     </div>
 
     <div v-if="contas.length === 0 && !loading" class="text-center py-12 text-gray-500">
@@ -143,7 +189,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/services/api'
 import ContaModal from '@/components/ContaModal.vue'
@@ -160,6 +206,34 @@ const searchQuery = ref('')
 const selectedCanal = ref(null)
 const selectedVisaoComercial = ref('')
 
+const currentPage = ref(1)
+const pageSize = ref(20)
+const totalCount = ref(0)
+
+let searchTimeout = null
+
+const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
+
+const visiblePages = computed(() => {
+  const total = totalPages.value
+  const current = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+
+  const pages = []
+  pages.push(1)
+
+  if (current > 3) pages.push('...')
+
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+  for (let i = start; i <= end; i++) pages.push(i)
+
+  if (current < total - 2) pages.push('...')
+
+  pages.push(total)
+  return pages
+})
+
 onMounted(async () => {
   await loadCanais()
   await loadContas()
@@ -174,10 +248,27 @@ async function loadCanais() {
   }
 }
 
+function debouncedSearch() {
+  clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    currentPage.value = 1
+    loadContas()
+  }, 300)
+}
+
+function resetAndLoad() {
+  currentPage.value = 1
+  loadContas()
+}
+
 async function loadContas() {
   loading.value = true
   try {
-    const params = { search: searchQuery.value, page_size: 1000 }
+    const params = {
+      search: searchQuery.value,
+      page: currentPage.value,
+      page_size: pageSize.value,
+    }
     if (selectedCanal.value) {
       params.canal = selectedCanal.value
     }
@@ -188,11 +279,19 @@ async function loadContas() {
     }
     const response = await api.get('/contas/', { params })
     contas.value = response.data.results || response.data
+    totalCount.value = response.data.count ?? contas.value.length
   } catch (error) {
     console.error('Erro ao carregar contas:', error)
   } finally {
     loading.value = false
   }
+}
+
+function goToPage(page) {
+  if (page < 1 || page > totalPages.value) return
+  currentPage.value = page
+  loadContas()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function openCreateModal() {

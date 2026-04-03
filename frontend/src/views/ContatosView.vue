@@ -261,37 +261,48 @@
       <!-- Paginação -->
       <div v-if="pagination.count > 0" class="border-t border-gray-50 px-6 py-4">
         <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div class="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-            Exibindo <span class="text-gray-900">{{ Math.min(pagination.count, (pagination.currentPage) * pagination.pageSize) }}</span> de <span class="text-gray-900">{{ pagination.count }}</span>
+          <div class="flex items-center gap-4">
+            <div class="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+              {{ pagination.count }} contato(s) · Página <span class="text-gray-900">{{ pagination.currentPage }}</span> de <span class="text-gray-900">{{ pagination.totalPages }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="text-[10px] text-gray-400 font-bold uppercase">Por página:</label>
+              <select v-model.number="pagination.pageSize" @change="loadContatos(1)" class="input !w-20 !py-1 text-xs">
+                <option :value="20">20</option>
+                <option :value="50">50</option>
+                <option :value="100">100</option>
+              </select>
+            </div>
           </div>
 
-          <div class="flex items-center space-x-1">
+          <div v-if="pagination.totalPages > 1" class="flex items-center gap-1">
             <button
               @click="goToPage(pagination.currentPage - 1)"
               :disabled="!pagination.previous"
-              class="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition-colors"
             >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+              ← Anterior
             </button>
-            <div class="flex items-center">
-               <button
-                v-for="page in visiblePages"
-                :key="page"
-                @click="goToPage(page)"
-                :class="['w-9 h-9 rounded-lg text-xs font-black transition-all',
-                         page === pagination.currentPage
-                           ? 'bg-primary-600 text-white shadow-lg shadow-primary-200 scale-110'
-                           : 'text-gray-400 hover:bg-gray-100']"
-              >
-                {{ page }}
-              </button>
-            </div>
+            <button
+              v-for="page in visiblePages"
+              :key="page"
+              @click="page !== '...' && goToPage(page)"
+              :disabled="page === '...'"
+              :class="['min-w-[36px] h-9 rounded-lg text-sm font-semibold transition-colors',
+                       page === pagination.currentPage
+                         ? 'bg-primary-600 text-white shadow-sm'
+                         : page === '...'
+                           ? 'cursor-default text-gray-400'
+                           : 'text-gray-600 hover:bg-gray-100']"
+            >
+              {{ page }}
+            </button>
             <button
               @click="goToPage(pagination.currentPage + 1)"
               :disabled="!pagination.next"
-              class="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition-colors"
             >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+              Próxima →
             </button>
           </div>
         </div>
@@ -352,7 +363,7 @@ const pagination = ref({
   next: null,
   previous: null,
   currentPage: 1,
-  pageSize: 10,
+  pageSize: 20,
   totalPages: 0
 })
 
@@ -386,14 +397,16 @@ const tipoColors = [
 const visiblePages = computed(() => {
   const total = pagination.value.totalPages
   const current = pagination.value.currentPage
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+
   const pages = []
-  if (total <= 0) return []
-  let start = Math.max(1, current - 2)
-  let end = Math.min(total, start + 4)
-  if (end === total) start = Math.max(1, end - 4)
-  for (let i = start; i <= end; i++) {
-    if (i >= 1) pages.push(i)
-  }
+  pages.push(1)
+  if (current > 3) pages.push('...')
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+  for (let i = start; i <= end; i++) pages.push(i)
+  if (current < total - 2) pages.push('...')
+  pages.push(total)
   return pages
 })
 
@@ -476,6 +489,7 @@ function debouncedSearch() {
 function goToPage(page) {
   if (page >= 1 && page <= pagination.value.totalPages) {
     loadContatos(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
 
