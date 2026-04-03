@@ -564,8 +564,8 @@ watch(() => props.oportunidade, async (newOp) => {
 async function loadOptions() {
   try {
     const [cRes, ctRes, fnRes, cnRes, uRes, pRes, adcRes, orRes] = await Promise.all([
-      api.get('/contas/'),
-      api.get('/contatos/', { params: { page_size: 1000 } }),
+      api.get('/contas/', { params: { page_size: 9999 } }),
+      api.get('/contatos/', { params: { page_size: 9999 } }),
       api.get('/funis/'),
       api.get('/canais/'),
       api.get('/usuarios/'),
@@ -683,10 +683,10 @@ function formatAxiosError(e) {
 const searchContaPrincipal = ref('')
 const showContasPrincipalDropdown = ref(false)
 const filteredContasPrincipal = computed(() => {
-  if (!searchContaPrincipal.value) return contas.value.slice(0, 10)
+  if (!searchContaPrincipal.value) return contas.value.slice(0, 30)
   return contas.value.filter(c => 
     c.nome_empresa.toLowerCase().includes(searchContaPrincipal.value.toLowerCase())
-  ).slice(0, 10)
+  ).slice(0, 30)
 })
 
 const searchContatoPrincipal = ref('')
@@ -694,10 +694,10 @@ const telefoneContato = ref('') // Phone field for new/selected contact
 const showContatosPrincipalDropdown = ref(false)
 const filteredContatosPrincipal = computed(() => {
   const base = form.value.conta ? contatos.value.filter(c => c.conta === form.value.conta) : contatos.value
-  if (!searchContatoPrincipal.value) return base.slice(0, 10)
+  if (!searchContatoPrincipal.value) return base.slice(0, 30)
   return base.filter(c => 
     c.nome.toLowerCase().includes(searchContatoPrincipal.value.toLowerCase())
-  ).slice(0, 10)
+  ).slice(0, 30)
 })
 
 // M2M Search Logic
@@ -814,8 +814,18 @@ watch(() => props.show, async (newVal) => {
     await loadOptions()
     if (!isEdit.value) {
       if (props.fixedContatoPrincipalId) {
-        form.value.contato_principal = parseInt(props.fixedContatoPrincipalId)
-        const contato = contatos.value.find(x => x.id === form.value.contato_principal)
+        const cpId = parseInt(props.fixedContatoPrincipalId)
+        form.value.contato_principal = cpId
+        let contato = contatos.value.find(x => x.id === cpId)
+        if (!contato) {
+          try {
+            const res = await api.get(`/contatos/${cpId}/`)
+            contato = res.data
+            contatos.value.unshift(contato)
+          } catch (e) {
+            console.warn('[OportunidadeModal] Could not pre-load contato principal:', e)
+          }
+        }
         if (contato) {
           searchContatoPrincipal.value = contato.nome
           telefoneContato.value = contato.celular_formatado || contato.telefone_formatado || contato.celular || contato.telefone || ''
