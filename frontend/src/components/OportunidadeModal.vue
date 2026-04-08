@@ -196,38 +196,57 @@
               </div>
 
               <!-- 4. Adicionais (Dropdown) -->
-              <div class="grid grid-cols-1 md:grid-cols-[160px_1fr] items-center gap-2">
-                 <label class="text-sm font-bold text-gray-700">Adicionais (Upgrade)</label>
-                 <div class="relative">
-                    <!-- Trigger -->
-                    <button 
-                       type="button"
-                       @click="showAdicionaisDropdown = !showAdicionaisDropdown"
-                       class="w-full py-1.5 px-3 bg-white border border-gray-300 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent flex justify-between items-center transition-shadow shadow-sm hover:border-gray-400"
-                    >
-                        <span class="text-sm text-gray-700 truncate pr-2">
-                            {{ formatSelectedAdicionais() || 'Selecione...' }}
-                        </span>
-                        <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                    </button>
+              <div class="grid grid-cols-1 md:grid-cols-[160px_1fr] items-start gap-2">
+                 <label class="text-sm font-bold text-gray-700 mt-2">Adicionais (Upgrade)</label>
+                 <div class="space-y-2">
+                    <div class="relative">
+                        <!-- Trigger -->
+                        <button 
+                           type="button"
+                           @click="showAdicionaisDropdown = !showAdicionaisDropdown"
+                           class="w-full py-1.5 px-3 bg-white border border-gray-300 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent flex justify-between items-center transition-shadow shadow-sm hover:border-gray-400"
+                        >
+                            <span class="text-sm text-gray-700 truncate pr-2">
+                                {{ formatSelectedAdicionais() || 'Selecione...' }}
+                            </span>
+                            <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        </button>
 
-                    <!-- Dropdown Content -->
-                    <div v-if="showAdicionaisDropdown" class="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-lg z-50 p-2 max-h-60 overflow-y-auto">
-                       <div class="space-y-1">
-                          <div v-for="adc in adicionais_opcoes" :key="adc.id" class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors" @click.stop="toggleAdicional(adc.id, !hasAdicional(adc.id))">
-                             <input 
-                                type="checkbox" 
-                                :value="adc.id" 
-                                :checked="hasAdicional(adc.id)"
-                                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4 pointer-events-none"
-                             />
-                             <span class="text-sm text-gray-700 select-none">{{ adc.nome }}</span>
+                        <!-- Dropdown Content -->
+                        <div v-if="showAdicionaisDropdown" class="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-lg z-50 p-2 max-h-60 overflow-y-auto">
+                           <div class="space-y-1">
+                              <div v-for="adc in adicionais_opcoes" :key="adc.id" class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors" @click.stop="toggleAdicional(adc.id, !hasAdicional(adc.id))">
+                                 <input 
+                                    type="checkbox" 
+                                    :value="adc.id" 
+                                    :checked="hasAdicional(adc.id)"
+                                    class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4 pointer-events-none"
+                                 />
+                                 <span class="text-sm text-gray-700 select-none">{{ adc.nome }} - R$ {{ Number(adc.preco || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+                              </div>
+                           </div>
+                        </div>
+                        
+                        <!-- Backdrop to close -->
+                        <div v-if="showAdicionaisDropdown" class="fixed inset-0 z-40 bg-transparent cursor-default" @click="showAdicionaisDropdown = false"></div>
+                    </div>
+                    
+                    <!-- Selected Adicionais Quantities -->
+                    <div v-if="form.adicionais_itens && form.adicionais_itens.length > 0" class="space-y-2 mt-2">
+                       <div v-for="(item, index) in form.adicionais_itens" :key="item.adicional" class="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded border border-gray-100">
+                          <span class="text-xs font-semibold text-gray-700 flex-1 truncate select-none" :title="getAdicionalNome(item.adicional)">
+                             {{ getAdicionalNome(item.adicional) }}
+                          </span>
+                          <div class="flex items-center gap-2">
+                             <div class="flex items-center bg-white rounded overflow-hidden">
+                                 <input type="number" v-model.number="item.quantidade" min="1" class="w-16 h-7 text-xs px-2 text-center border-gray-200 rounded focus:ring-0" @input="recalculateValorEstimado" />
+                             </div>
+                             <button type="button" @click="toggleAdicional(item.adicional, false)" class="text-gray-400 hover:text-red-500 p-1">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                             </button>
                           </div>
                        </div>
                     </div>
-                    
-                    <!-- Backdrop to close -->
-                    <div v-if="showAdicionaisDropdown" class="fixed inset-0 z-40 bg-transparent cursor-default" @click="showAdicionaisDropdown = false"></div>
                  </div>
               </div>
 
@@ -536,6 +555,36 @@ function toggleAdicional(adicionalId, checked) {
     } else {
         form.value.adicionais_itens = form.value.adicionais_itens.filter(item => item.adicional !== adicionalId);
     }
+    recalculateValorEstimado();
+}
+
+function getAdicionalNome(adicionalId) {
+    const opt = adicionais_opcoes.value.find(o => o.id === adicionalId)
+    if (!opt) return '?'
+    let nome = opt.nome
+    if (opt.preco) {
+        nome += ` (R$ ${Number(opt.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
+    }
+    return nome
+}
+
+function recalculateValorEstimado() {
+    let total = 0
+    if (form.value.plano && planos.value.length > 0) {
+        const plano = planos.value.find(p => p.id === form.value.plano)
+        if (plano) total += Number(plano.preco_mensal) || 0
+    }
+    
+    if (form.value.adicionais_itens && form.value.adicionais_itens.length > 0) {
+        for (const item of form.value.adicionais_itens) {
+            const opt = adicionais_opcoes.value.find(o => o.id === item.adicional)
+            if (opt) {
+                total += (Number(opt.preco) || 0) * (Number(item.quantidade) || 1)
+            }
+        }
+    }
+    
+    form.value.valor_estimado = total
 }
 
 // ...
@@ -926,12 +975,7 @@ watch(() => form.value.canal, async (newCanalId) => {
 
 // Atualizar valor_estimado quando plano mudar
 watch(() => form.value.plano, (newPlanoId) => {
-  if (newPlanoId && planos.value.length > 0) {
-    const plano = planos.value.find(p => p.id === newPlanoId)
-    if (plano) {
-      form.value.valor_estimado = Number(plano.preco_mensal) || 0
-    }
-  }
+  recalculateValorEstimado()
 })
 
 

@@ -518,9 +518,7 @@ const defaultContatoPrincipalId = computed(() => {
   const contatoComFlagPrincipal = contatos.value.find(c => c.principal === true)
   if (contatoComFlagPrincipal?.id) return contatoComFlagPrincipal.id
 
-  if (contatos.value.length === 1) return contatos.value[0].id
-
-  return null
+  return contatos.value[0].id
 })
 
 const contextContatosNovaOportunidade = computed(() => {
