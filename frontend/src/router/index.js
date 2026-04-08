@@ -105,6 +105,11 @@ const router = createRouter({
           component: () => import('@/views/AgendaTreinamentoView.vue')
         },
         {
+          path: '/evento',
+          name: 'captacao-evento',
+          component: () => import('@/views/CaptacaoEventoView.vue')
+        },
+        {
           path: '/meu-canal/whatsapp',
           name: 'meu-canal-whatsapp',
           component: () => import('@/views/MeuCanalWhatsappView.vue'),
