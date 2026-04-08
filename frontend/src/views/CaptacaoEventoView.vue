@@ -189,7 +189,8 @@ async function loadDefaults() {
       const resEstagios = await api.get(`/funis/${funnelPadrao.value.id}/estagios/`)
       const estagios = resEstagios.data.results || resEstagios.data
       if (estagios.length > 0) {
-        defaultEstagioId.value = estagios[0].estagio
+        // FunilEstagioSerializer retorna estagio_id 
+        defaultEstagioId.value = estagios[0].estagio_id || estagios[0].estagio || estagios[0].id
       }
     }
   } catch (err) {
@@ -202,6 +203,10 @@ async function handleSubmit() {
     errorMessage.value = "Nome e Telefone são obrigatórios"
     return
   }
+  if (!funnelPadrao.value || !defaultEstagioId.value) {
+    errorMessage.value = "Nenhum Funil padrão encontrado. Verifique as configurações."
+    return
+  }
 
   loading.value = true
   showSuccess.value = false
@@ -209,12 +214,14 @@ async function handleSubmit() {
 
   try {
     let contaId = null
+    const userCanal = authStore.user?.canal || null
 
     // 1. Criar Conta (Empresa)
     if (lead.value.empresa.trim()) {
       const resConta = await api.post('/contas/', {
         nome_empresa: lead.value.empresa.trim(),
-        proprietario: authStore.user.id
+        proprietario: authStore.user.id,
+        canal: userCanal
       })
       contaId = resConta.data.id
     }
@@ -230,6 +237,7 @@ async function handleSubmit() {
       nome: lead.value.contato.trim(),
       conta: contaId,
       proprietario: authStore.user.id,
+      canal: userCanal,
       telefones_input: telefones,
       tags: config.value.tags,
       notas: lead.value.observacao // Salva a observação nas notas do contato
@@ -249,9 +257,10 @@ async function handleSubmit() {
       descricao: lead.value.observacao, // Salva observação também na oportunidade
       conta: contaId,
       contato_principal: contatoId,
+      canal: userCanal,
       origem: config.value.origem || null,
-      funil: funnelPadrao.value?.id || null,
-      estagio: defaultEstagioId.value || null
+      funil: funnelPadrao.value.id,
+      estagio: defaultEstagioId.value
     }
 
     await api.post('/oportunidades/', payloadOp)
