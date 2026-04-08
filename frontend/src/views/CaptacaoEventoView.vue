@@ -16,6 +16,17 @@
       </button>
     </div>
 
+    <!-- Feedback de Erro -->
+    <div v-if="errorMessage" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-sm flex items-start justify-between transition-all">
+      <div class="flex items-start gap-2">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <div class="font-medium text-sm whitespace-pre-wrap leading-relaxed">{{ errorMessage }}</div>
+      </div>
+      <button @click="errorMessage = ''" class="text-red-500 hover:text-red-800 flex-shrink-0 p-1 ml-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+
     <!-- Configuração do Evento -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
       <div class="flex items-center gap-2 mb-4">
@@ -135,6 +146,7 @@ const defaultEstagioId = ref(null)
 
 const loading = ref(false)
 const showSuccess = ref(false)
+const errorMessage = ref("")
 const contatoInputRef = ref(null)
 
 // Configuração Persistente
@@ -187,12 +199,13 @@ async function loadDefaults() {
 
 async function handleSubmit() {
   if (!lead.value.contato.trim() || !lead.value.telefone) {
-    alert("Nome e Telefone são obrigatórios")
+    errorMessage.value = "Nome e Telefone são obrigatórios"
     return
   }
 
   loading.value = true
   showSuccess.value = false
+  errorMessage.value = ""
 
   try {
     let contaId = null
@@ -257,11 +270,43 @@ async function handleSubmit() {
 
   } catch (err) {
     console.error('Erro no salvamento:', err)
-    let msg = err.message;
-    if (err.response && err.response.data) {
-        msg = typeof err.response.data === 'object' ? JSON.stringify(err.response.data, null, 2) : err.response.data;
+    
+    let msg = "Não foi possível salvar o registro."
+    
+    if (err.response?.data) {
+      const data = err.response.data
+      if (typeof data === 'object') {
+        const errList = []
+        for (const key in data) {
+          const value = data[key]
+          let prefix = ''
+          
+          if (key !== 'non_field_errors' && key !== 'detail') {
+              // Traduzir chaves comuns para uma leitura melhor
+              let fieldName = key
+              if (key === 'nome_empresa') fieldName = 'Empresa'
+              if (key === 'nome') fieldName = 'Nome do Contato'
+              if (key === 'telefones_input') fieldName = 'Telefone'
+              prefix = `${fieldName}: `
+          }
+          
+          if (Array.isArray(value)) {
+            errList.push(`${prefix}${value.join(', ')}`)
+          } else {
+            errList.push(`${prefix}${value}`)
+          }
+        }
+        if (errList.length > 0) {
+           msg = errList.join('\n')
+        }
+      } else {
+        msg = data
+      }
+    } else {
+       msg = err.message
     }
-    alert("Erro detalhado: " + msg)
+    
+    errorMessage.value = msg
   } finally {
     loading.value = false
   }
