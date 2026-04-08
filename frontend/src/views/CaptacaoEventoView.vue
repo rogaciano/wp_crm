@@ -257,7 +257,11 @@ async function handleSubmit() {
 
   } catch (err) {
     console.error('Erro no salvamento:', err)
-    alert("Erro ao salvar: " + (err.response?.data?.detail || err.message))
+    let msg = err.message;
+    if (err.response && err.response.data) {
+        msg = typeof err.response.data === 'object' ? JSON.stringify(err.response.data, null, 2) : err.response.data;
+    }
+    alert("Erro detalhado: " + msg)
   } finally {
     loading.value = false
   }
