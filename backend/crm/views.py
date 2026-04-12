@@ -503,14 +503,15 @@ class ContaViewSet(viewsets.ModelViewSet):
             return Response({'exists': False})
             
         from django.db.models import Q
+        from .models import Conta
         
         # 1. Busca exata (com máscara ou sem máscara)
-        conta = self.get_queryset().filter(Q(cnpj=cnpj) | Q(cnpj=cnpj_limpo)).first()
+        conta = Conta.objects.filter(Q(cnpj=cnpj) | Q(cnpj=cnpj_limpo)).first()
         
         # 2. Se não achou, filtra em memória de forma segura para não depender do Replace do DB
         if not conta:
             # Pega registros que contêm a raiz do CNPJ (ex: primeiros 8 dígitos)
-            qs = self.get_queryset().filter(cnpj__icontains=cnpj_limpo[:8])
+            qs = Conta.objects.filter(cnpj__icontains=cnpj_limpo[:8])
             for c in qs:
                 c_limpo = ''.join(filter(str.isdigit, c.cnpj or ''))
                 if c_limpo == cnpj_limpo:
@@ -880,13 +881,14 @@ class ContatoViewSet(viewsets.ModelViewSet):
             return Response({'exists': False})
             
         from django.db.models import Q
+        from .models import Contato
         
         # 1. Busca exata (mesma string enviada pelo front)
-        contato = self.get_queryset().filter(Q(telefone=telefone) | Q(celular=telefone)).first()
+        contato = Contato.objects.filter(Q(telefone=telefone) | Q(celular=telefone)).first()
         
         # 2. Busca parcial (pega registros que têm a mesma região ou dígitos na base e faz filtro Python)
         if not contato:
-            qs = self.get_queryset().filter(
+            qs = Contato.objects.filter(
                 Q(telefone__icontains=tel_digits[-8:]) | 
                 Q(celular__icontains=tel_digits[-8:])
             )
@@ -899,12 +901,12 @@ class ContatoViewSet(viewsets.ModelViewSet):
 
         # 3. Busca nas tabelas secundárias
         if not contato:
-            from .models import ContatoTelefone
+            from .models import ContatoTelefone, Contato
             ct_qs = ContatoTelefone.objects.filter(numero=telefone)
-            ct = ct_qs.filter(contato__in=self.get_queryset()).first()
+            ct = ct_qs.filter(contato__in=Contato.objects.all()).first()
             if not ct:
                 ct_qs_parcial = ContatoTelefone.objects.filter(numero__icontains=tel_digits[-8:])
-                for ctt in ct_qs_parcial.filter(contato__in=self.get_queryset()):
+                for ctt in ct_qs_parcial.filter(contato__in=Contato.objects.all()):
                     n_limpo = ''.join(filter(str.isdigit, ctt.numero or ''))
                     if tel_digits[-8:] in n_limpo:
                         ct = ctt
