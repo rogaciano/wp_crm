@@ -497,20 +497,25 @@ class ContaViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='checar_cnpj')
     def checar_cnpj(self, request):
         cnpj = request.query_params.get('cnpj', '')
-        # Removemos pontuação para comparar
         cnpj_limpo = ''.join(filter(str.isdigit, cnpj))
         
         if not cnpj_limpo:
             return Response({'exists': False})
             
-        from django.db.models.functions import Replace
-        from django.db.models import Value
+        from django.db.models import Q
         
-        qs = self.get_queryset().annotate(
-            cnpj_clean=Replace(Replace(Replace(Replace('cnpj', Value('.'), Value('')), Value('-'), Value('')), Value('/'), Value('')), Value(' '), Value(''))
-        )
+        # 1. Busca exata (com máscara ou sem máscara)
+        conta = self.get_queryset().filter(Q(cnpj=cnpj) | Q(cnpj=cnpj_limpo)).first()
         
-        conta = qs.filter(cnpj_clean__icontains=cnpj_limpo).first()
+        # 2. Se não achou, filtra em memória de forma segura para não depender do Replace do DB
+        if not conta:
+            # Pega registros que contêm a raiz do CNPJ (ex: primeiros 8 dígitos)
+            qs = self.get_queryset().filter(cnpj__icontains=cnpj_limpo[:8])
+            for c in qs:
+                c_limpo = ''.join(filter(str.isdigit, c.cnpj or ''))
+                if c_limpo == cnpj_limpo:
+                    conta = c
+                    break
         
         if conta:
             from django.contrib.contenttypes.models import ContentType
@@ -874,30 +879,36 @@ class ContatoViewSet(viewsets.ModelViewSet):
         if len(tel_digits) < 8:
             return Response({'exists': False})
             
-        from django.db.models.functions import Replace
-        from django.db.models import Value, Q
+        from django.db.models import Q
         
-        # Filtra os contatos onde o telefone apenas com dígitos contenha o telefone buscado
-        # Usamos regex replace para banco se possível ou apenas validamos via python os 500 mais recentes
-        # Como SQLite/Postgres variam no regex, a abordagem mais segura é db annotation
-        qs = self.get_queryset().annotate(
-            t_clean=Replace(Replace(Replace(Replace('telefone', Value('('), Value('')), Value(')'), Value('')), Value('-'), Value('')), Value(' '), Value('')),
-            c_clean=Replace(Replace(Replace(Replace('celular', Value('('), Value('')), Value(')'), Value('')), Value('-'), Value('')), Value(' '), Value(''))
-        )
-        # O Django 3+ suporta esses Replaces encadeados no SQLite com a extensão.
-        # No SQLite do Django, Replace funciona.
+        # 1. Busca exata (mesma string enviada pelo front)
+        contato = self.get_queryset().filter(Q(telefone=telefone) | Q(celular=telefone)).first()
         
-        contato = qs.filter(Q(t_clean__icontains=tel_digits[-8:]) | Q(c_clean__icontains=tel_digits[-8:])).first()
-        
+        # 2. Busca parcial (pega registros que têm a mesma região ou dígitos na base e faz filtro Python)
         if not contato:
-            # Tentar na tabela relacionada ContatoTelefone (assumindo que a modelagem tem related_name='telefones')
+            qs = self.get_queryset().filter(
+                Q(telefone__icontains=tel_digits[-8:]) | 
+                Q(celular__icontains=tel_digits[-8:])
+            )
+            for c in qs:
+                t_limpo = ''.join(filter(str.isdigit, c.telefone or ''))
+                c_limpo = ''.join(filter(str.isdigit, c.celular or ''))
+                if tel_digits[-8:] in t_limpo or tel_digits[-8:] in c_limpo:
+                    contato = c
+                    break
+
+        # 3. Busca nas tabelas secundárias
+        if not contato:
             from .models import ContatoTelefone
-            ct_qs = ContatoTelefone.objects.annotate(
-                n_clean=Replace(Replace(Replace(Replace('numero', Value('('), Value('')), Value(')'), Value('')), Value('-'), Value('')), Value(' '), Value(''))
-            ).filter(n_clean__icontains=tel_digits[-8:])
-            
-            # Filtra os contatos do usuário/permissões
+            ct_qs = ContatoTelefone.objects.filter(numero=telefone)
             ct = ct_qs.filter(contato__in=self.get_queryset()).first()
+            if not ct:
+                ct_qs_parcial = ContatoTelefone.objects.filter(numero__icontains=tel_digits[-8:])
+                for ctt in ct_qs_parcial.filter(contato__in=self.get_queryset()):
+                    n_limpo = ''.join(filter(str.isdigit, ctt.numero or ''))
+                    if tel_digits[-8:] in n_limpo:
+                        ct = ctt
+                        break
             if ct:
                 contato = ct.contato
 
