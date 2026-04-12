@@ -70,6 +70,34 @@
 
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">CNPJ (Opcional)</label>
+          <div class="flex gap-2">
+            <input 
+              type="text" 
+              v-model="lead.cnpj" 
+              class="input flex-1"
+              placeholder="00.000.000/0000-00"
+              @blur="onCnpjBlur"
+            />
+            <button
+              type="button"
+              @click="buscarCNPJ"
+              :disabled="buscandoCNPJ || !lead.cnpj"
+              class="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all flex items-center text-sm font-medium"
+              title="Buscar dados do CNPJ"
+            >
+              <svg v-if="!buscandoCNPJ" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+            </button>
+          </div>
+          <p v-if="cnpjStatus" class="text-xs mt-1" :class="cnpjStatusClass">{{ cnpjStatus }}</p>
+        </div>
+        <div>
           <label class="block text-xs font-semibold text-gray-600 mb-1">Empresa</label>
           <input 
             type="text" 
@@ -157,14 +185,84 @@ const config = ref({
 
 // Formulário por Lead
 const initialLead = () => ({
+  cnpj: '',
   empresa: '',
   contato: '',
   telefone: '',
   observacao: '',
-  isQuente: false
+  isQuente: false,
+  contaData: null
 })
 
 const lead = ref(initialLead())
+
+const buscandoCNPJ = ref(false)
+const cnpjStatus = ref('')
+const cnpjStatusClass = ref('text-gray-500')
+
+async function buscarCNPJ() {
+  if (!lead.value.cnpj || buscandoCNPJ.value) return
+  
+  const cnpjLimpo = lead.value.cnpj.replace(/\D/g, '')
+  
+  if (cnpjLimpo.length !== 14) {
+    cnpjStatus.value = 'CNPJ deve ter 14 dígitos'
+    cnpjStatusClass.value = 'text-red-500'
+    return
+  }
+  
+  buscandoCNPJ.value = true
+  cnpjStatus.value = 'Buscando dados...'
+  cnpjStatusClass.value = 'text-blue-500'
+  
+  try {
+    const response = await api.get(`/contas/buscar_cnpj/?cnpj=${cnpjLimpo}`)
+    const data = response.data
+    
+    if (data.status === 'ERROR') {
+      cnpjStatus.value = data.message || 'CNPJ não encontrado'
+      cnpjStatusClass.value = 'text-red-500'
+      return
+    }
+    
+    // Atualiza a UI
+    lead.value.empresa = data.nome || data.fantasia || lead.value.empresa
+    lead.value.cnpj = cnpjLimpo.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+    
+    // Guarda o resto pra enviar na criação da Conta
+    lead.value.contaData = {
+      cnpj: lead.value.cnpj,
+      telefone_principal: data.telefone,
+      email: data.email,
+      endereco: [data.logradouro, data.numero, data.complemento, data.bairro].filter(Boolean).join(', '),
+      cidade: data.municipio,
+      estado: data.uf,
+      cep: data.cep,
+      setor: data.atividade_principal?.[0]?.text?.substring(0, 100)
+    }
+
+    cnpjStatus.value = `✓ ${data.situacao || 'Dados carregados'}`
+    cnpjStatusClass.value = data.situacao === 'ATIVA' ? 'text-green-500' : 'text-amber-500'
+    
+    if (contatoInputRef.value) {
+      setTimeout(() => { contatoInputRef.value.focus() }, 50)
+    }
+    
+  } catch (error) {
+    console.error('Erro ao buscar CNPJ:', error)
+    cnpjStatus.value = 'Erro ao consultar CNPJ. Tente novamente.'
+    cnpjStatusClass.value = 'text-red-500'
+  } finally {
+    buscandoCNPJ.value = false
+  }
+}
+
+function onCnpjBlur() {
+  const cnpjLimpo = lead.value.cnpj?.replace(/\D/g, '') || ''
+  if (cnpjLimpo.length === 14 && !lead.value.empresa) {
+    buscarCNPJ()
+  }
+}
 
 function toggleTemperatura() {
   lead.value.isQuente = !lead.value.isQuente
@@ -217,12 +315,26 @@ async function handleSubmit() {
     const userCanal = authStore.user?.canal || null
 
     // 1. Criar Conta (Empresa)
-    if (lead.value.empresa.trim()) {
-      const resConta = await api.post('/contas/', {
-        nome_empresa: lead.value.empresa.trim(),
+    if (lead.value.empresa.trim() || lead.value.cnpj) {
+      let contaPayload = {
+        nome_empresa: lead.value.empresa.trim() || lead.value.cnpj,
         proprietario: authStore.user.id,
         canal: userCanal
-      })
+      }
+      
+      if (lead.value.contaData) {
+        contaPayload = {
+          ...contaPayload,
+          ...lead.value.contaData,
+          nome_empresa: lead.value.empresa.trim() || lead.value.cnpj // ensure updated name
+        }
+      }
+      
+      if (lead.value.cnpj) {
+        contaPayload.cnpj = lead.value.cnpj
+      }
+
+      const resConta = await api.post('/contas/', contaPayload)
       contaId = resConta.data.id
     }
 
@@ -271,6 +383,7 @@ async function handleSubmit() {
 
     // Reseta form (mas preserva as configs de Tag/Origem)
     lead.value = initialLead()
+    cnpjStatus.value = ''
 
     // Foca novamente no contato
     if (contatoInputRef.value) {
