@@ -1132,8 +1132,6 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                     queryset = Oportunidade.objects.filter(
                         proprietario=user,
                         funil__in=funis_visiveis
-                    )
-            
         return queryset.select_related(
             'funil', 'estagio', 'conta', 'contato_principal', 'proprietario'
         ).prefetch_related(
@@ -1142,14 +1140,21 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         
     @action(detail=False, methods=['get'], url_path='estatisticas_evento')
     def estatisticas_evento(self, request):
-        """Retorna as estatísticas de prospecções agrupadas pela Origem selecionada."""
+        """Retorna as estatísticas de prospecções agrupadas pela Origem e Tags."""
         origem_id = request.query_params.get('origem', None)
+        tags_param = request.query_params.get('tags', None)
         
         if not origem_id:
             return Response({'error': 'Origem não informada.'}, status=400)
             
         from django.db.models import Count
         qs = self.get_queryset().filter(origem_id=origem_id)
+        
+        if tags_param:
+            tag_ids = [t for t in tags_param.split(',') if t.isdigit()]
+            if tag_ids:
+                for tag_id in tag_ids:
+                    qs = qs.filter(tags__id=tag_id)
         
         # Total de Leads/Cadastros
         total_leads = qs.count()

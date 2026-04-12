@@ -254,7 +254,11 @@ async function fetchEstatisticas(origem_id) {
   }
   loadingStats.value = true
   try {
-    const res = await api.get('/oportunidades/estatisticas_evento/', { params: { origem: origem_id } })
+    const params = { origem: origem_id }
+    if (config.value.tags && config.value.tags.length > 0) {
+      params.tags = config.value.tags.join(',')
+    }
+    const res = await api.get('/oportunidades/estatisticas_evento/', { params })
     stats.value = res.data
   } catch (error) {
     console.error('Erro ao buscar estatísticas do evento', error)
@@ -263,9 +267,9 @@ async function fetchEstatisticas(origem_id) {
   }
 }
 
-watch(() => config.value.origem, (newVal) => {
-  if (newVal) fetchEstatisticas(newVal)
-})
+watch([() => config.value.origem, () => config.value.tags], ([newOrigem, newTags]) => {
+  if (newOrigem) fetchEstatisticas(newOrigem)
+}, { deep: true })
 
 async function buscarCNPJ() {
   if (!lead.value.cnpj || buscandoCNPJ.value) return
@@ -560,7 +564,8 @@ async function handleSubmit() {
       canal: userCanal,
       origem: config.value.origem || null,
       funil: funnelPadrao.value.id,
-      estagio: defaultEstagioId.value
+      estagio: defaultEstagioId.value,
+      tags_ids: config.value.tags // Passa as tags para a oportunidade
     }
 
     await api.post('/oportunidades/', payloadOp)
