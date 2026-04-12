@@ -338,23 +338,66 @@ async function handleSubmit() {
       contaId = resConta.data.id
     }
 
-    // 2. Criar Contato
-    const telefones = [{
-        numero: lead.value.telefone,
-        tipo: 'CELULAR',
-        principal: true
-    }]
+    // 2. Tratar Contato (Verifica se já existe pelo Telefone)
+    let contatoId = null
+    try {
+      const telefoneBusca = lead.value.telefone.trim()
+      const resBusca = await api.get('/contatos/', { params: { search: telefoneBusca, page_size: 10 } })
+      
+      let contatoExistente = null
+      if (resBusca.data.results && resBusca.data.results.length > 0) {
+        // Encontra o primeiro que tenha o telefone igual (para evitar falso positivo de search parcial)
+        const telSomenteDigitos = telefoneBusca.replace(/\D/g, '')
+        contatoExistente = resBusca.data.results.find(c => {
+          const tel1 = (c.telefone || '').replace(/\D/g, '')
+          const tel2 = (c.celular || '').replace(/\D/g, '')
+          
+          let telListaBate = false;
+          if (c.telefones && Array.isArray(c.telefones)) {
+              telListaBate = c.telefones.some(t => (t.numero || '').replace(/\D/g, '') === telSomenteDigitos)
+          }
 
-    const resContato = await api.post('/contatos/', {
-      nome: lead.value.contato.trim(),
-      conta: contaId,
-      proprietario: authStore.user.id,
-      canal: userCanal,
-      telefones_input: telefones,
-      tags: config.value.tags,
-      notas: lead.value.observacao // Salva a observação nas notas do contato
-    })
-    const contatoId = resContato.data.id
+          return tel1 === telSomenteDigitos || tel2 === telSomenteDigitos || telListaBate
+        })
+
+        if (!contatoExistente && resBusca.data.results.length === 1) {
+           contatoExistente = resBusca.data.results[0]
+        }
+      }
+
+      if (contatoExistente) {
+        contatoId = contatoExistente.id
+        
+        // Desvincula/Vincula para a Nova Conta fornecida, se for diferente da atual
+        if (contaId && contatoExistente.conta !== contaId) {
+           await api.patch(`/contatos/${contatoId}/`, {
+             conta: contaId
+           })
+        }
+      }
+    } catch (errBusca) {
+      console.error('Erro ao buscar contato existente:', errBusca)
+    }
+
+    if (!contatoId) {
+      // Cria Contato novo
+      const telefones = [{
+          numero: lead.value.telefone,
+          tipo: 'CELULAR',
+          principal: true
+      }]
+
+      const resContato = await api.post('/contatos/', {
+        nome: lead.value.contato.trim(),
+        conta: contaId,
+        proprietario: authStore.user.id,
+        canal: userCanal,
+        telefones_input: telefones,
+        tags: config.value.tags,
+        notas: lead.value.observacao // Salva a observação nas notas do contato
+      })
+      contatoId = resContato.data.id
+    }
 
     // 3. Criar Oportunidade
     const nomeOp = contaId 

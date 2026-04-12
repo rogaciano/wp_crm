@@ -837,7 +837,7 @@ class ContatoViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['conta', 'tipo', 'canal', 'tags', 'proprietario']
-    search_fields = ['nome', 'email', 'conta__nome_empresa']
+    search_fields = ['nome', 'email', 'conta__nome_empresa', 'telefone', 'celular', 'telefones__numero']
     ordering_fields = ['nome', 'data_criacao']
 
     def get_queryset(self):
