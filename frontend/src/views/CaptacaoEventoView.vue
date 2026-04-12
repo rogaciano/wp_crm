@@ -398,24 +398,23 @@ async function handleSubmit() {
     }
 
     // 3. Criar Contato novo
-      // Cria Contato novo
-      const telefones = [{
-          numero: lead.value.telefone,
-          tipo: 'CELULAR',
-          principal: true
-      }]
+    let contatoId = null;
+    const telefones = [{
+        numero: lead.value.telefone,
+        tipo: 'CELULAR',
+        principal: true
+    }]
 
-      const resContato = await api.post('/contatos/', {
-        nome: lead.value.contato.trim(),
-        conta: contaId,
-        proprietario: authStore.user.id,
-        canal: userCanal,
-        telefones_input: telefones,
-        tags: config.value.tags,
-        notas: lead.value.observacao // Salva a observação nas notas do contato
-      })
-      contatoId = resContato.data.id
-    }
+    const resContato = await api.post('/contatos/', {
+      nome: lead.value.contato.trim(),
+      conta: contaId,
+      proprietario: authStore.user.id,
+      canal: userCanal,
+      telefones_input: telefones,
+      tags: config.value.tags,
+      notas: lead.value.observacao // Salva a observação nas notas do contato
+    })
+    contatoId = resContato.data.id
 
     // 3. Criar Oportunidade
     const nomeOp = contaId 
