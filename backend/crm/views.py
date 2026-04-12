@@ -493,6 +493,39 @@ class FunilViewSet(viewsets.ModelViewSet):
 class ContaViewSet(viewsets.ModelViewSet):
     """ViewSet para Contas"""
     serializer_class = ContaSerializer
+    
+    @action(detail=False, methods=['get'], url_path='checar_cnpj')
+    def checar_cnpj(self, request):
+        cnpj = request.query_params.get('cnpj', '')
+        # Removemos pontuação para comparar
+        cnpj_limpo = ''.join(filter(str.isdigit, cnpj))
+        
+        if not cnpj_limpo:
+            return Response({'exists': False})
+            
+        from django.db.models.functions import Replace
+        from django.db.models import Value
+        
+        qs = self.get_queryset().annotate(
+            cnpj_clean=Replace(Replace(Replace(Replace('cnpj', Value('.'), Value('')), Value('-'), Value('')), Value('/'), Value('')), Value(' '), Value(''))
+        )
+        
+        conta = qs.filter(cnpj_clean__icontains=cnpj_limpo).first()
+        
+        if conta:
+            from django.contrib.contenttypes.models import ContentType
+            ct = ContentType.objects.get_for_model(conta)
+            return Response({
+                'exists': True,
+                'conta': {
+                    'id': conta.id,
+                    'nome_empresa': conta.nome_empresa,
+                    'content_type_id': ct.id
+                }
+            })
+            
+        return Response({'exists': False})
+        
     permission_classes = [HierarchyPermission]
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]

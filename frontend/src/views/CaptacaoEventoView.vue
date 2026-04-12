@@ -324,6 +324,49 @@ async function handleSubmit() {
   errorMessage.value = ""
 
   try {
+    // 0. Checar se CNPJ já Existe (Evitar erro de duplicidade de Conta)
+    try {
+      if (lead.value.cnpj) {
+        const cnpjBusca = lead.value.cnpj.trim()
+        const resCnpj = await api.get('/contas/checar_cnpj/', { params: { cnpj: cnpjBusca } })
+        
+        if (resCnpj.data.exists) {
+          const contaExistente = resCnpj.data.conta;
+          
+          const origemSelecionada = origens.value.find(o => o.id === config.value.origem);
+          const nomeOrigem = origemSelecionada ? origemSelecionada.nome : 'Evento/Origem Genérica';
+          
+          const payloadAtividade = {
+            titulo: `Tentativa de cadastro rápido no evento ${nomeOrigem}`,
+            tipo: 'TAREFA',
+            status: 'PENDENTE',
+            descricao: `Lead ${lead.value.contato} (${lead.value.telefone}) tentou cadastro no evento ${nomeOrigem}, mas a Empresa já existe no sistema com o CNPJ informado. \nNotas do evento: ${lead.value.observacao || ''}`,
+            content_type: contaExistente.content_type_id,
+            object_id: contaExistente.id,
+            proprietario: authStore.user.id
+          };
+          
+          await api.post('/atividades/', payloadAtividade);
+          
+          showSuccess.value = true;
+          errorMessage.value = '';
+          setTimeout(() => { showSuccess.value = false }, 5000);
+          
+          // Resetar o formulário
+          lead.value = initialLead();
+          cnpjStatus.value = '';
+          if (contatoInputRef.value) {
+            setTimeout(() => { contatoInputRef.value.focus() }, 50)
+          }
+          loading.value = false;
+          
+          return; // Interrompe o fluxo normal
+        }
+      }
+    } catch (errBuscaCnpj) {
+      console.error('Erro ao checar CNPJ:', errBuscaCnpj)
+    }
+
     // 1. Checar se Contato Existe pelo Telefone (Evitar duplicação antes de criar qualquer coisa)
     try {
       const telefoneBusca = lead.value.telefone.trim()
