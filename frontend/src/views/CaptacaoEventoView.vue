@@ -241,6 +241,19 @@ async function buscarCNPJ() {
       setor: data.atividade_principal?.[0]?.text?.substring(0, 100)
     }
 
+    const cnaeCode = data.atividade_principal?.[0]?.code
+    const cnaeText = data.atividade_principal?.[0]?.text
+    if (cnaeCode && cnaeText) {
+      const cnaeLine = `CNAE: ${cnaeCode} - ${cnaeText}`
+      if (lead.value.observacao) {
+        if (!lead.value.observacao.includes(cnaeCode)) {
+          lead.value.observacao += `\n${cnaeLine}`
+        }
+      } else {
+        lead.value.observacao = cnaeLine
+      }
+    }
+
     cnpjStatus.value = `✓ ${data.situacao || 'Dados carregados'}`
     cnpjStatusClass.value = data.situacao === 'ATIVA' ? 'text-green-500' : 'text-amber-500'
     
