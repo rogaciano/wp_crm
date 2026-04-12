@@ -48,6 +48,44 @@
       </div>
     </div>
 
+    <!-- Dashboard / Estatísticas do Evento -->
+    <div v-if="config.origem" class="bg-indigo-50/50 rounded-xl shadow-sm border border-indigo-100 p-5">
+      <div class="flex items-center justify-between mb-4">
+         <div class="flex items-center gap-2">
+           <svg class="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+           <h2 class="text-sm font-bold text-indigo-800 tracking-wider">RESULTADOS EM TEMPO REAL</h2>
+         </div>
+         <button type="button" @click="fetchEstatisticas(config.origem)" class="text-indigo-400 hover:text-indigo-600 focus:outline-none" :class="{ 'opacity-50 cursor-not-allowed': loadingStats }">
+           <svg :class="{ 'animate-spin': loadingStats }" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+         </button>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="bg-white rounded-lg py-3 px-2 border border-indigo-50 shadow-sm flex flex-col items-center justify-center text-center">
+          <span class="text-[10px] sm:text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wide">Cadastros</span>
+          <span class="text-xl sm:text-2xl font-black text-indigo-900">{{ stats.total_leads }}</span>
+        </div>
+        <div class="bg-white rounded-lg py-3 px-2 border border-indigo-50 shadow-sm flex flex-col items-center justify-center text-center">
+          <span class="text-[10px] sm:text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wide">Empresas</span>
+          <span class="text-xl sm:text-2xl font-black text-indigo-900">{{ stats.total_empresas }}</span>
+        </div>
+        <div class="bg-white rounded-lg py-3 px-2 border border-indigo-50 shadow-sm flex flex-col items-center justify-center text-center">
+          <span class="text-[10px] sm:text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wide">Contatos</span>
+          <span class="text-xl sm:text-2xl font-black text-indigo-900">{{ stats.total_contatos }}</span>
+        </div>
+      </div>
+
+      <div v-if="stats.top_cidades && stats.top_cidades.length > 0">
+        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Top Cidades</div>
+        <div class="flex flex-wrap gap-2">
+          <div v-for="c in stats.top_cidades" :key="c.cidade" class="px-2.5 py-1 bg-white border border-gray-100 rounded-md text-xs font-medium text-gray-600 flex items-center gap-1.5 shadow-sm">
+            <span class="max-w-[120px] truncate" :title="c.cidade">{{ c.cidade }}</span>
+            <span class="bg-gray-100 text-gray-500 rounded-full px-1.5 text-[10px]">{{ c.count }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Formulário do Lead -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative">
       <!-- Temperatura Discreta -->
@@ -159,7 +197,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 import TagInput from '@/components/TagInput.vue'
@@ -199,6 +237,35 @@ const lead = ref(initialLead())
 const buscandoCNPJ = ref(false)
 const cnpjStatus = ref('')
 const cnpjStatusClass = ref('text-gray-500')
+
+// Dashboard Stats
+const stats = ref({
+  total_leads: 0,
+  total_empresas: 0,
+  total_contatos: 0,
+  top_cidades: []
+})
+const loadingStats = ref(false)
+
+async function fetchEstatisticas(origem_id) {
+  if (!origem_id) {
+    stats.value = { total_leads: 0, total_empresas: 0, total_contatos: 0, top_cidades: [] }
+    return
+  }
+  loadingStats.value = true
+  try {
+    const res = await api.get('/oportunidades/estatisticas_evento/', { params: { origem: origem_id } })
+    stats.value = res.data
+  } catch (error) {
+    console.error('Erro ao buscar estatísticas do evento', error)
+  } finally {
+    loadingStats.value = false
+  }
+}
+
+watch(() => config.value.origem, (newVal) => {
+  if (newVal) fetchEstatisticas(newVal)
+})
 
 async function buscarCNPJ() {
   if (!lead.value.cnpj || buscandoCNPJ.value) return
@@ -497,6 +564,11 @@ async function handleSubmit() {
     // Sucesso
     showSuccess.value = true
     setTimeout(() => { showSuccess.value = false }, 5000)
+
+    // Atualiza o dashboard de estatísticas silenciosamente após sucesso
+    if (config.value.origem) {
+      fetchEstatisticas(config.value.origem)
+    }
 
     // Reseta form (mas preserva as configs de Tag/Origem)
     lead.value = initialLead()

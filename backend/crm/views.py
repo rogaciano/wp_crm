@@ -1139,6 +1139,46 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
         ).prefetch_related(
             'oportunidadeadicional_set', 'contatos', 'empresas', 'anexos'
         )
+        
+    @action(detail=False, methods=['get'], url_path='estatisticas_evento')
+    def estatisticas_evento(self, request):
+        """Retorna as estatísticas de prospecções agrupadas pela Origem selecionada."""
+        origem_id = request.query_params.get('origem', None)
+        
+        if not origem_id:
+            return Response({'error': 'Origem não informada.'}, status=400)
+            
+        from django.db.models import Count
+        qs = self.get_queryset().filter(origem_id=origem_id)
+        
+        # Total de Leads/Cadastros
+        total_leads = qs.count()
+        
+        # Total de Empresas Distintas abordadas no evento
+        total_empresas = qs.exclude(conta__isnull=True).values('conta').distinct().count()
+        
+        # Total de Contatos Distintos (considerando o contato principal)
+        total_contatos = qs.exclude(contato_principal__isnull=True).values('contato_principal').distinct().count()
+        
+        # Top Cidades baseado nas empresas cadastradas no evento
+        # Se a maioria vier de Cnpj, teremos a `conta__cidade` populada.
+        top_cidades_qs = qs.exclude(conta__cidade__isnull=True)\
+                           .exclude(conta__cidade='')\
+                           .values('conta__cidade')\
+                           .annotate(count=Count('id'))\
+                           .order_by('-count')[:5]
+                           
+        top_cidades = [
+            {'cidade': item['conta__cidade'], 'count': item['count']}
+            for item in top_cidades_qs
+        ]
+        
+        return Response({
+            'total_leads': total_leads,
+            'total_empresas': total_empresas,
+            'total_contatos': total_contatos,
+            'top_cidades': top_cidades
+        })
 
     def perform_create(self, serializer):
         # Se não forneceu estágio, busca o padrão do funil
