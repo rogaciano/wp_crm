@@ -324,10 +324,56 @@ async function handleSubmit() {
   errorMessage.value = ""
 
   try {
+    // 1. Checar se Contato Existe pelo Telefone (Evitar duplicação antes de criar qualquer coisa)
+    try {
+      const telefoneBusca = lead.value.telefone.trim()
+      const resPhone = await api.get('/contatos/checar_telefone/', { params: { telefone: telefoneBusca } })
+      
+      if (resPhone.data.exists) {
+        const contatoExistente = resPhone.data.contato;
+        
+        // Em vez de mudar a empresa do contato, o usuário pediu para criarmos uma Tarefa (Atividade)
+        // para que a equipe saiba que ele passou no estande com dados diferentes.
+        const origemSelecionada = origens.value.find(o => o.id === config.value.origem);
+        const nomeOrigem = origemSelecionada ? origemSelecionada.nome : 'Evento/Origem Genérica';
+        const nomeEmpresaOriginal = contatoExistente.conta_nome || 'Nenhuma/Desconhecida';
+        const nomeEmpresaInformada = lead.value.empresa.trim() || lead.value.cnpj || 'Nenhuma';
+        
+        const payloadAtividade = {
+          titulo: `Cadastro rápido no evento ${nomeOrigem}`,
+          tipo: 'TAREFA',
+          status: 'PENDENTE',
+          descricao: `Contato evento ${nomeOrigem}, com o contato já cadastrado no sistema, vinculando a empresa [${nomeEmpresaOriginal}], mas no evento mostrou a empresa [${nomeEmpresaInformada}]. \nNotas do evento: ${lead.value.observacao || ''}`,
+          content_type: contatoExistente.content_type_id,
+          object_id: contatoExistente.id,
+          proprietario: authStore.user.id
+        };
+        
+        await api.post('/atividades/', payloadAtividade);
+        
+        showSuccess.value = true;
+        errorMessage.value = '';
+        setTimeout(() => { showSuccess.value = false }, 5000);
+        
+        // Resetar o formulário
+        lead.value = initialLead();
+        cnpjStatus.value = '';
+        if (contatoInputRef.value) {
+          setTimeout(() => { contatoInputRef.value.focus() }, 50)
+        }
+        loading.value = false;
+        
+        return; // Interrompe o fluxo normal
+      }
+    } catch (errBusca) {
+      console.error('Erro ao checar telefone:', errBusca)
+      // Se a checagem falhar, prossegue normalmente e deixa o backend validar na criação
+    }
+
     let contaId = null
     const userCanal = authStore.user?.canal || null
 
-    // 1. Criar Conta (Empresa)
+    // 2. Criar Conta (Empresa)
     if (lead.value.empresa.trim() || lead.value.cnpj) {
       let contaPayload = {
         nome_empresa: lead.value.empresa.trim() || lead.value.cnpj,
@@ -351,48 +397,7 @@ async function handleSubmit() {
       contaId = resConta.data.id
     }
 
-    // 2. Tratar Contato (Verifica se já existe pelo Telefone)
-    let contatoId = null
-    try {
-      const telefoneBusca = lead.value.telefone.trim()
-      const resBusca = await api.get('/contatos/', { params: { search: telefoneBusca, page_size: 10 } })
-      
-      let contatoExistente = null
-      if (resBusca.data.results && resBusca.data.results.length > 0) {
-        // Encontra o primeiro que tenha o telefone igual (para evitar falso positivo de search parcial)
-        const telSomenteDigitos = telefoneBusca.replace(/\D/g, '')
-        contatoExistente = resBusca.data.results.find(c => {
-          const tel1 = (c.telefone || '').replace(/\D/g, '')
-          const tel2 = (c.celular || '').replace(/\D/g, '')
-          
-          let telListaBate = false;
-          if (c.telefones && Array.isArray(c.telefones)) {
-              telListaBate = c.telefones.some(t => (t.numero || '').replace(/\D/g, '') === telSomenteDigitos)
-          }
-
-          return tel1 === telSomenteDigitos || tel2 === telSomenteDigitos || telListaBate
-        })
-
-        if (!contatoExistente && resBusca.data.results.length === 1) {
-           contatoExistente = resBusca.data.results[0]
-        }
-      }
-
-      if (contatoExistente) {
-        contatoId = contatoExistente.id
-        
-        // Desvincula/Vincula para a Nova Conta fornecida, se for diferente da atual
-        if (contaId && contatoExistente.conta !== contaId) {
-           await api.patch(`/contatos/${contatoId}/`, {
-             conta: contaId
-           })
-        }
-      }
-    } catch (errBusca) {
-      console.error('Erro ao buscar contato existente:', errBusca)
-    }
-
-    if (!contatoId) {
+    // 3. Criar Contato novo
       // Cria Contato novo
       const telefones = [{
           numero: lead.value.telefone,

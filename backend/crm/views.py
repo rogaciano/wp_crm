@@ -833,6 +833,55 @@ class TagViewSet(viewsets.ModelViewSet):
 class ContatoViewSet(viewsets.ModelViewSet):
     """ViewSet para Contatos"""
     serializer_class = ContatoSerializer
+    
+    @action(detail=False, methods=['get'], url_path='checar_telefone')
+    def checar_telefone(self, request):
+        telefone = request.query_params.get('telefone', '')
+        tel_digits = ''.join(filter(str.isdigit, telefone))
+        if len(tel_digits) < 8:
+            return Response({'exists': False})
+            
+        from django.db.models.functions import Replace
+        from django.db.models import Value, Q
+        
+        # Filtra os contatos onde o telefone apenas com dígitos contenha o telefone buscado
+        # Usamos regex replace para banco se possível ou apenas validamos via python os 500 mais recentes
+        # Como SQLite/Postgres variam no regex, a abordagem mais segura é db annotation
+        qs = self.get_queryset().annotate(
+            t_clean=Replace(Replace(Replace(Replace('telefone', Value('('), Value('')), Value(')'), Value('')), Value('-'), Value('')), Value(' '), Value('')),
+            c_clean=Replace(Replace(Replace(Replace('celular', Value('('), Value('')), Value(')'), Value('')), Value('-'), Value('')), Value(' '), Value(''))
+        )
+        # O Django 3+ suporta esses Replaces encadeados no SQLite com a extensão.
+        # No SQLite do Django, Replace funciona.
+        
+        contato = qs.filter(Q(t_clean__icontains=tel_digits[-8:]) | Q(c_clean__icontains=tel_digits[-8:])).first()
+        
+        if not contato:
+            # Tentar na tabela relacionada ContatoTelefone (assumindo que a modelagem tem related_name='telefones')
+            from .models import ContatoTelefone
+            ct_qs = ContatoTelefone.objects.annotate(
+                n_clean=Replace(Replace(Replace(Replace('numero', Value('('), Value('')), Value(')'), Value('')), Value('-'), Value('')), Value(' '), Value(''))
+            ).filter(n_clean__icontains=tel_digits[-8:])
+            
+            # Filtra os contatos do usuário/permissões
+            ct = ct_qs.filter(contato__in=self.get_queryset()).first()
+            if ct:
+                contato = ct.contato
+
+        if contato:
+            from django.contrib.contenttypes.models import ContentType
+            ct = ContentType.objects.get_for_model(contato)
+            return Response({
+                'exists': True,
+                'contato': {
+                    'id': contato.id,
+                    'nome': contato.nome,
+                    'conta_nome': contato.conta.nome_empresa if contato.conta else None,
+                    'content_type_id': ct.id
+                }
+            })
+            
+        return Response({'exists': False})
     permission_classes = [HierarchyPermission]
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
