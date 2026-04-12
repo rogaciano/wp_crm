@@ -339,14 +339,21 @@ async function handleSubmit() {
           const payloadAtividade = {
             titulo: `Tentativa de cadastro rápido no evento ${nomeOrigem}`,
             tipo: 'TAREFA',
-            status: 'PENDENTE',
+            status: 'Pendente',
             descricao: `Lead ${lead.value.contato} (${lead.value.telefone}) tentou cadastro no evento ${nomeOrigem}, mas a Empresa já existe no sistema com o CNPJ informado. \nNotas do evento: ${lead.value.observacao || ''}`,
             content_type: contaExistente.content_type_id,
             object_id: contaExistente.id,
             proprietario: authStore.user.id
           };
           
-          await api.post('/atividades/', payloadAtividade);
+          try {
+            await api.post('/atividades/', payloadAtividade);
+          } catch (apiError) {
+            console.error('Erro ao postar Atividade CNPJ:', apiError.response?.data || apiError)
+            errorMessage.value = "Falha ao registrar atividade na Conta existente. Verifique os dados.";
+            loading.value = false;
+            return;
+          }
           
           showSuccess.value = true;
           errorMessage.value = '';
@@ -385,14 +392,21 @@ async function handleSubmit() {
         const payloadAtividade = {
           titulo: `Cadastro rápido no evento ${nomeOrigem}`,
           tipo: 'TAREFA',
-          status: 'PENDENTE',
+          status: 'Pendente',
           descricao: `Contato evento ${nomeOrigem}, com o contato já cadastrado no sistema, vinculando a empresa [${nomeEmpresaOriginal}], mas no evento mostrou a empresa [${nomeEmpresaInformada}]. \nNotas do evento: ${lead.value.observacao || ''}`,
           content_type: contatoExistente.content_type_id,
           object_id: contatoExistente.id,
           proprietario: authStore.user.id
         };
         
-        await api.post('/atividades/', payloadAtividade);
+        try {
+          await api.post('/atividades/', payloadAtividade);
+        } catch (apiError) {
+          console.error('Erro ao postar Atividade Telefone:', apiError.response?.data || apiError)
+          errorMessage.value = "Falha ao registrar atividade no Contato existente. Verifique os dados.";
+          loading.value = false;
+          return;
+        }
         
         showSuccess.value = true;
         errorMessage.value = '';
