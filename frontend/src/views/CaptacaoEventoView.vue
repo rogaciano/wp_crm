@@ -363,7 +363,11 @@ async function loadDefaults() {
 
     const funisLista = resFunis.data.results || resFunis.data
     if (funisLista.length > 0) {
-      funnelPadrao.value = funisLista[0]
+      // Priorizar um funil que seja explicitamente de VENDAS para evitar cair na esteira de suporte
+      funnelPadrao.value = funisLista.find(f => f.tipo === 'VENDAS' && f.is_padrao) || 
+                           funisLista.find(f => f.tipo === 'VENDAS') || 
+                           funisLista[0]
+                           
       const resEstagios = await api.get(`/funis/${funnelPadrao.value.id}/estagios/`)
       const estagios = resEstagios.data.results || resEstagios.data
       if (estagios.length > 0) {
