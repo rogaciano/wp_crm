@@ -1132,6 +1132,7 @@ class OportunidadeViewSet(viewsets.ModelViewSet):
                     queryset = Oportunidade.objects.filter(
                         proprietario=user,
                         funil__in=funis_visiveis
+                    )
         return queryset.select_related(
             'funil', 'estagio', 'conta', 'contato_principal', 'proprietario'
         ).prefetch_related(
