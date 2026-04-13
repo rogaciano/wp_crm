@@ -116,6 +116,7 @@
               class="input flex-1"
               placeholder="00.000.000/0000-00"
               @blur="onCnpjBlur"
+              ref="cnpjInputRef"
             />
             <button
               type="button"
@@ -214,6 +215,7 @@ const loading = ref(false)
 const showSuccess = ref(false)
 const errorMessage = ref("")
 const contatoInputRef = ref(null)
+const cnpjInputRef = ref(null)
 
 // Configuração Persistente
 const config = ref({
@@ -583,9 +585,9 @@ async function handleSubmit() {
     lead.value = initialLead()
     cnpjStatus.value = ''
 
-    // Foca novamente no contato
-    if (contatoInputRef.value) {
-      setTimeout(() => { contatoInputRef.value.focus() }, 50)
+    // Foca novamente no CNPJ
+    if (cnpjInputRef.value) {
+      setTimeout(() => { cnpjInputRef.value.focus() }, 50)
     }
 
   } catch (err) {
